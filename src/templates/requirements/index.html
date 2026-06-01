@@ -1,0 +1,101 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Requisitos{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading requirements-heading">
+    <div>
+        <h2>Requisitos</h2>
+        <p>Gestión de requisitos funcionales y no funcionales</p>
+    </div>
+    {% if can_manage %}
+        <a class="btn btn-brand" href="{% url 'requirements:create' %}">
+            <i class="bi bi-plus-lg"></i>
+            Nuevo Requisito
+        </a>
+    {% endif %}
+</div>
+
+<section class="requirements-metric-grid">
+    <article class="requirement-metric-card">
+        <strong>{{ total }}</strong>
+        <span>Total Requisitos</span>
+    </article>
+    <article class="requirement-metric-card success">
+        <strong>{{ covered }}</strong>
+        <span>Cubiertos</span>
+    </article>
+    <article class="requirement-metric-card">
+        <strong>{{ coverage_percent }}%</strong>
+        <span>Cobertura</span>
+    </article>
+    <article class="requirement-metric-card warning">
+        <strong>{{ pending }}</strong>
+        <span>Pendientes</span>
+    </article>
+</section>
+
+<section class="requirements-filter-card">
+    <form method="GET" class="requirements-filters">
+        <div class="search-control">
+            <i class="bi bi-search"></i>
+            <input type="search" name="q" value="{{ query }}" placeholder="Buscar requisitos...">
+        </div>
+        <select name="project" aria-label="Proyecto">
+            <option value="">Todos los proyectos</option>
+            {% for project in projects %}
+                <option value="{{ project.id }}" {% if selected_project == project.id|stringformat:'s' %}selected{% endif %}>
+                    {{ project.name }}
+                </option>
+            {% endfor %}
+        </select>
+        <select name="status" aria-label="Estado">
+            <option value="">Todos los estados</option>
+            {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-outline-brand" type="submit">
+            <i class="bi bi-funnel"></i>
+            Filtros
+        </button>
+    </form>
+</section>
+
+<section class="requirements-list-card">
+    <h3>Lista de Requisitos</h3>
+
+    <div class="requirement-list">
+        {% for item in requirement_items %}
+            <article class="requirement-row">
+                <div class="requirement-icon">
+                    <i class="bi bi-file-earmark-text"></i>
+                </div>
+                <div class="requirement-main">
+                    <div class="requirement-title-line">
+                        <span class="requirement-code">{{ item.requirement.code }}</span>
+                        <strong>{{ item.requirement.title }}</strong>
+                    </div>
+                    <p>
+                        Tipo: {{ item.requirement.get_requirement_type_display }}
+                        <span>Prioridad: {{ item.requirement.get_priority_display }}</span>
+                        <span>Cobertura: {{ item.coverage }}%</span>
+                    </p>
+                </div>
+                <span class="requirement-status requirement-status-{{ item.badge }}">
+                    {{ item.requirement.get_status_display }}
+                </span>
+            </article>
+        {% empty %}
+            <div class="empty-projects">
+                <i class="bi bi-file-earmark-text"></i>
+                <h3>No hay requisitos registrados</h3>
+                <p>Crea tu primer requisito y vincúlalo con un proyecto.</p>
+                {% if can_manage %}
+                    <a class="btn btn-brand" href="{% url 'requirements:create' %}">Nuevo Requisito</a>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

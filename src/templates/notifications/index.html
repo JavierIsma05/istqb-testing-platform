@@ -1,0 +1,79 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Notificaciones{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading notifications-heading">
+    <div>
+        <h2>Notificaciones</h2>
+        <p>Mensajes internos y avisos del sistema</p>
+    </div>
+    {% if unread_count %}
+        <form method="POST" action="{% url 'notifications:mark_all_read' %}">
+            {% csrf_token %}
+            <button class="btn btn-outline-brand" type="submit">
+                <i class="bi bi-check2-all"></i>
+                Marcar todas como leidas
+            </button>
+        </form>
+    {% endif %}
+</div>
+
+<section class="notification-tabs">
+    <a class="{% if selected_status == 'all' %}active{% endif %}" href="{% url 'notifications:index' %}">
+        Todas ({{ total_count }})
+    </a>
+    <a class="{% if selected_status == 'unread' %}active{% endif %}" href="{% url 'notifications:index' %}?status=unread">
+        No leidas ({{ unread_count }})
+    </a>
+    <a class="{% if selected_status == 'read' %}active{% endif %}" href="{% url 'notifications:index' %}?status=read">
+        Leidas ({{ read_count }})
+    </a>
+</section>
+
+<section class="notification-list">
+    {% for notification in notifications %}
+        <article class="notification-card {% if not notification.is_read %}unread{% endif %}">
+            <div class="notification-icon">
+                <i class="bi {% if notification.sender %}bi-chat-left-text{% else %}bi-bell{% endif %}"></i>
+            </div>
+            <div class="notification-content">
+                <div class="notification-title-line">
+                    <h3>{{ notification.title }}</h3>
+                    <span>{{ notification.created_at|date:'d M Y H:i' }}</span>
+                </div>
+                <p>{{ notification.message|linebreaksbr }}</p>
+                <div class="notification-meta">
+                    {% if notification.sender %}
+                        <span>De: <strong>{{ notification.sender.get_full_name|default:notification.sender.email }}</strong></span>
+                    {% endif %}
+                    {% if notification.project %}
+                        <span>Proyecto: <strong>{{ notification.project.name }}</strong></span>
+                    {% endif %}
+                </div>
+                <div class="notification-actions">
+                    {% if notification.url %}
+                        <a class="btn btn-outline-brand btn-sm" href="{{ notification.url }}">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                            Ver proyecto
+                        </a>
+                    {% endif %}
+                    {% if not notification.is_read %}
+                        <form method="POST" action="{% url 'notifications:mark_read' notification.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button class="btn btn-brand btn-sm" type="submit">Marcar como leida</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </article>
+    {% empty %}
+        <div class="empty-projects">
+            <i class="bi bi-bell"></i>
+            <h3>No hay notificaciones</h3>
+            <p>Los mensajes internos del tutor y avisos del sistema apareceran aqui.</p>
+        </div>
+    {% endfor %}
+</section>
+{% endblock %}

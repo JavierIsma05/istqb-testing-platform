@@ -1,0 +1,75 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}ISTQB Platform{% endblock %}
+
+{% block body_class %}landing-page{% endblock %}
+
+{% block content %}
+<header class="public-header">
+    <div class="public-shell d-flex align-items-center justify-content-between">
+        <a class="brand-lockup" href="{% url 'landing' %}">
+            <span class="brand-mark"><i class="bi bi-beaker"></i></span>
+            <span>
+                <strong>ISTQB Platform</strong>
+                <small>Testing Lifecycle Management</small>
+            </span>
+        </a>
+        <nav class="d-flex align-items-center gap-3">
+            <a class="public-link" href="{% url 'register' %}">Registrarse</a>
+            <a class="btn btn-brand" href="{% url 'login' %}">Iniciar Sesion</a>
+        </nav>
+    </div>
+</header>
+
+<main class="public-shell landing-main">
+    <section class="hero-grid">
+        <div class="hero-copy">
+            <!--<span class="hero-badge">
+                <i class="bi bi-award"></i>
+                Certificado ISTQB & ISO/IEC/IEEE 29119
+            </span>-->
+            <h1>Gestiona el Ciclo de Vida de Pruebas de forma <span>Profesional</span></h1>
+            <p>
+                Plataforma academica SaaS para gestionar proyectos de titulacion universitarios
+                basados en estandares internacionales de pruebas de software ISTQB.
+            </p>
+            <!--
+            <div class="d-flex gap-3 flex-wrap">
+                <a class="btn btn-brand btn-lg" href="{% url 'register' %}">
+                    <i class="bi bi-lightning-charge"></i>
+                    Comenzar Ahora
+                </a>
+                <a class="btn btn-outline-brand btn-lg" href="#demo">Ver Demo</a>
+            </div>-->
+        </div>
+
+        <div class="hero-preview" id="demo">
+            <div class="project-state-card">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <h2>Estado del Proyecto</h2>
+                    <span class="status-pill">Activo</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-2">
+                    <span>Cobertura</span>
+                    <strong>87%</strong>
+                </div>
+                <div class="progress slim-progress mb-4">
+                    <div class="progress-bar" style="width: 87%"></div>
+                </div>
+                <div class="row text-center g-3">
+                    <div class="col-4"><strong>24</strong><small>Casos</small></div>
+                    <div class="col-4 text-success"><strong>18</strong><small>Passed</small></div>
+                    <div class="col-4 text-danger"><strong>3</strong><small>Defects</small></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="landing-stats">
+        <div class="stat-tile"><strong>100%</strong><span>ISTQB Compliant</span></div>
+        <div class="stat-tile"><strong>6</strong><span>Fases del Ciclo</span></div>
+        <div class="stat-tile"><strong>3</strong><span>Roles de Usuario</span></div>
+        <div class="stat-tile"><strong>&infin;</strong><span>Proyectos</span></div>
+    </section>
+</main>
+{% endblock %}

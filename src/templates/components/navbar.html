@@ -1,0 +1,29 @@
+<nav class="app-navbar">
+    <div>
+        <h1>Sistema de Gestion de Pruebas</h1>
+        <p>Plataforma ISTQB</p>
+    </div>
+
+    <div class="navbar-actions">
+        <button class="icon-button" type="button" title="Cambiar tema" aria-label="Cambiar tema" data-theme-toggle>
+            <i class="bi bi-moon" data-theme-icon></i>
+        </button>
+        <a class="icon-button {% if request.user.unread_notifications_count %}has-alert{% endif %}" href="{% url 'notifications:index' %}" title="Notificaciones" aria-label="Notificaciones">
+            <i class="bi bi-bell"></i>
+            <span class="visually-hidden">{{ request.user.unread_notifications_count }} notificaciones sin leer</span>
+        </a>
+        <div class="dropdown">
+            <button class="user-menu" data-bs-toggle="dropdown" type="button">
+                <span class="avatar">{{ request.user.first_name|first|default:'U' }}{{ request.user.last_name|first }}</span>
+                <span class="user-copy">
+                    <strong>{{ request.user.get_full_name|default:request.user.email }}</strong>
+                    <small>{{ request.user.get_role_display }}</small>
+                </span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="#">Perfil</a></li>
+                <li><a class="dropdown-item" href="{% url 'logout' %}">Cerrar sesion</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>

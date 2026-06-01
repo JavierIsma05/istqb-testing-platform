@@ -1,0 +1,84 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}{{ project.name }}{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading">
+    <div>
+        <h2>{{ project.name }}</h2>
+        <p>{{ project.description|default:'Proyecto de pruebas de software' }}</p>
+    </div>
+    <a class="btn btn-outline-brand" href="{% url 'projects:index' %}">
+        <i class="bi bi-arrow-left"></i>
+        Volver a proyectos
+    </a>
+</div>
+
+<section class="project-detail-hero">
+    <div>
+        <span class="project-status project-status-{% if project.status == 'ACTIVE' %}success{% elif project.status == 'CLOSED' %}muted{% else %}warning{% endif %}">
+            {{ project.get_status_display }}
+        </span>
+        <h3>{{ project.code }}</h3>
+        <p>{{ project.description|default:'Sin descripcion registrada.' }}</p>
+    </div>
+    <div class="detail-date-grid">
+        <div>
+            <i class="bi bi-calendar-event"></i>
+            <span>Inicio</span>
+            <strong>{{ project.start_date|date:'d M Y'|default:'Sin fecha' }}</strong>
+        </div>
+        <div>
+            <i class="bi bi-calendar-check"></i>
+            <span>Fin</span>
+            <strong>{{ project.end_date|date:'d M Y'|default:'Sin fecha' }}</strong>
+        </div>
+    </div>
+</section>
+
+<section class="metric-grid project-detail-metrics">
+    <div class="metric-card"><div><span>Cobertura</span><strong>{{ coverage }}%</strong><small>Casos aprobados</small></div><i class="bi bi-bullseye"></i></div>
+    <div class="metric-card"><div><span>Requisitos</span><strong>{{ requirements_count }}</strong><small>Registrados</small></div><i class="bi bi-file-earmark-text"></i></div>
+    <div class="metric-card"><div><span>Casos</span><strong>{{ test_cases_count }}</strong><small>Casos de prueba</small></div><i class="bi bi-card-checklist"></i></div>
+    <div class="metric-card"><div><span>Defectos</span><strong>{{ defects_count }}</strong><small>Abiertos o historicos</small></div><i class="bi bi-bug"></i></div>
+</section>
+
+<section class="dashboard-grid">
+    <article class="content-card">
+        <div class="card-heading">
+            <div>
+                <h3>Miembros</h3>
+                <p>Usuarios vinculados al proyecto</p>
+            </div>
+        </div>
+        <div class="member-list">
+            {% for member in project.members.all %}
+                <div>
+                    <span class="avatar">{{ member.first_name|first|default:'U' }}{{ member.last_name|first }}</span>
+                    <span>
+                        <strong>{{ member.get_full_name|default:member.email }}</strong>
+                        <small>{{ member.get_role_display }}</small>
+                    </span>
+                </div>
+            {% empty %}
+                <p class="text-muted mb-0">No hay miembros asignados.</p>
+            {% endfor %}
+        </div>
+    </article>
+
+    <article class="content-card">
+        <div class="card-heading">
+            <div>
+                <h3>Resumen del ciclo</h3>
+                <p>Artefactos asociados al proyecto</p>
+            </div>
+        </div>
+        <div class="detail-summary-list">
+            <div><span>Planes de prueba</span><strong>{{ test_plans_count }}</strong></div>
+            <div><span>Ejecuciones</span><strong>{{ executions_count }}</strong></div>
+            <div><span>Requisitos recientes</span><strong>{{ recent_requirements|length }}</strong></div>
+            <div><span>Casos recientes</span><strong>{{ recent_test_cases|length }}</strong></div>
+        </div>
+    </article>
+</section>
+{% endblock %}

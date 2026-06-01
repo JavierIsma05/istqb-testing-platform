@@ -1,0 +1,124 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Crear Plan de Pruebas{% endblock %}
+
+{% block dashboard_content %}
+<div class="wizard-page" data-current-step="1">
+    <div class="wizard-heading">
+        <a class="wizard-back" href="{% url 'testplans:index' %}">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h2>Crear Plan de Pruebas</h2>
+            <p>Asistente paso a paso</p>
+        </div>
+    </div>
+
+    <div class="wizard-steps" aria-label="Progreso del asistente">
+        <div class="wizard-step active" data-step-dot="1"><span>1</span><small>Información<br>General</small></div>
+        <div class="wizard-line"></div>
+        <div class="wizard-step" data-step-dot="2"><span>2</span><small>Alcance y<br>Objetivos</small></div>
+        <div class="wizard-line"></div>
+        <div class="wizard-step" data-step-dot="3"><span>3</span><small>Criterios</small></div>
+        <div class="wizard-line"></div>
+        <div class="wizard-step" data-step-dot="4"><span>4</span><small>Recursos y Calendario</small></div>
+    </div>
+
+    <form method="POST" class="wizard-form" novalidate>
+        {% csrf_token %}
+
+        <section class="wizard-panel active" data-step-panel="1">
+            <h3>Paso 1: Información General</h3>
+            <p>Completa la información requerida</p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ form.project.id_for_label }}">{{ form.project.label }}</label>
+                    {{ form.project }}
+                    {% if form.project.errors %}<div class="form-error">{{ form.project.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}<div class="form-error">{{ form.name.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="{{ form.version.id_for_label }}">{{ form.version.label }}</label>
+                    {{ form.version }}
+                    {% if form.version.errors %}<div class="form-error">{{ form.version.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+                    {{ form.description }}
+                    {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
+                </div>
+            </div>
+        </section>
+
+        <section class="wizard-panel" data-step-panel="2">
+            <h3>Paso 2: Alcance y Objetivos</h3>
+            <p>Completa la información requerida</p>
+            <div class="mb-3">
+                <label class="form-label" for="{{ form.scope.id_for_label }}">{{ form.scope.label }}</label>
+                {{ form.scope }}
+                {% if form.scope.errors %}<div class="form-error">{{ form.scope.errors|striptags }}</div>{% endif %}
+            </div>
+            <div>
+                <label class="form-label" for="{{ form.objective.id_for_label }}">{{ form.objective.label }}</label>
+                {{ form.objective }}
+                {% if form.objective.errors %}<div class="form-error">{{ form.objective.errors|striptags }}</div>{% endif %}
+            </div>
+        </section>
+
+        <section class="wizard-panel" data-step-panel="3">
+            <h3>Paso 3: Criterios</h3>
+            <p>Completa la información requerida</p>
+            <div class="mb-3">
+                <label class="form-label" for="{{ form.entry_criteria.id_for_label }}">{{ form.entry_criteria.label }}</label>
+                {{ form.entry_criteria }}
+                {% if form.entry_criteria.errors %}<div class="form-error">{{ form.entry_criteria.errors|striptags }}</div>{% endif %}
+            </div>
+            <div>
+                <label class="form-label" for="{{ form.exit_criteria.id_for_label }}">{{ form.exit_criteria.label }}</label>
+                {{ form.exit_criteria }}
+                {% if form.exit_criteria.errors %}<div class="form-error">{{ form.exit_criteria.errors|striptags }}</div>{% endif %}
+            </div>
+        </section>
+
+        <section class="wizard-panel" data-step-panel="4">
+            <h3>Paso 4: Recursos y Calendario</h3>
+            <p>Completa la información requerida</p>
+            <div class="mb-3">
+                <label class="form-label" for="{{ form.resources.id_for_label }}">{{ form.resources.label }}</label>
+                {{ form.resources }}
+                {% if form.resources.errors %}<div class="form-error">{{ form.resources.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label" for="{{ form.start_date.id_for_label }}">{{ form.start_date.label }}</label>
+                    <div class="date-field">{{ form.start_date }}<i class="bi bi-calendar3"></i></div>
+                    {% if form.start_date.errors %}<div class="form-error">{{ form.start_date.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="{{ form.end_date.id_for_label }}">{{ form.end_date.label }}</label>
+                    <div class="date-field">{{ form.end_date }}<i class="bi bi-calendar3"></i></div>
+                    {% if form.end_date.errors %}<div class="form-error">{{ form.end_date.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
+                    {{ form.status }}
+                    {% if form.status.errors %}<div class="form-error">{{ form.status.errors|striptags }}</div>{% endif %}
+                </div>
+            </div>
+        </section>
+
+        <div class="wizard-actions">
+            <button class="btn btn-outline-brand" type="button" data-wizard-prev disabled>Anterior</button>
+            <button class="btn btn-brand" type="button" data-wizard-next>Siguiente</button>
+            <button class="btn btn-success wizard-submit" type="submit">
+                <i class="bi bi-save"></i>
+                Crear Plan
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

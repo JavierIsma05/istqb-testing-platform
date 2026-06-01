@@ -1,0 +1,99 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Gestión de Defectos{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading defects-heading">
+    <div>
+        <h2>Gestión de Defectos</h2>
+        <p>Registro y seguimiento de defectos encontrados</p>
+    </div>
+    {% if can_manage %}
+        <a class="btn btn-brand" href="{% url 'defects:create' %}">
+            <i class="bi bi-plus-lg"></i>
+            Reportar Defecto
+        </a>
+    {% endif %}
+</div>
+
+<section class="defect-metric-grid">
+    <article class="defect-metric-card danger">
+        <strong>{{ open_count }}</strong>
+        <span>Abiertos</span>
+    </article>
+    <article class="defect-metric-card warning">
+        <strong>{{ in_fix_count }}</strong>
+        <span>En Corrección</span>
+    </article>
+    <article class="defect-metric-card success">
+        <strong>{{ closed_count }}</strong>
+        <span>Cerrados</span>
+    </article>
+    <article class="defect-metric-card">
+        <strong>{{ total }}</strong>
+        <span>Total</span>
+    </article>
+</section>
+
+<section class="defects-filter-card">
+    <form method="GET" class="defects-filters">
+        <div class="search-control">
+            <i class="bi bi-search"></i>
+            <input type="search" name="q" value="{{ query }}" placeholder="Buscar defectos...">
+        </div>
+        <select name="project" aria-label="Proyecto">
+            <option value="">Todos los proyectos</option>
+            {% for project in projects %}
+                <option value="{{ project.id }}" {% if selected_project == project.id|stringformat:'s' %}selected{% endif %}>{{ project.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="status" aria-label="Estado">
+            <option value="">Todos los estados</option>
+            {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-outline-brand" type="submit">
+            <i class="bi bi-funnel"></i>
+            Filtros
+        </button>
+    </form>
+</section>
+
+<section class="defects-list-card">
+    <h3>Defectos Registrados</h3>
+
+    <div class="defect-list">
+        {% for item in items %}
+            <article class="defect-row">
+                <div class="defect-icon">
+                    <i class="bi bi-bug"></i>
+                </div>
+                <div class="defect-main">
+                    <div class="defect-title-line">
+                        <span class="defect-code">{{ item.defect.code }}</span>
+                        <strong>{{ item.defect.title }}</strong>
+                    </div>
+                    <p>
+                        Severidad: {{ item.defect.get_severity_display }}
+                        <span>Prioridad: {{ item.defect.get_priority_display }}</span>
+                        <span>Asignado: {{ item.defect.assigned_to.get_full_name|default:item.defect.assigned_to.email|default:'Sin asignar' }}</span>
+                    </p>
+                </div>
+                <span class="defect-status defect-status-{{ item.badge }}">
+                    {{ item.defect.get_status_display }}
+                </span>
+            </article>
+        {% empty %}
+            <div class="empty-projects">
+                <i class="bi bi-bug"></i>
+                <h3>No hay defectos registrados</h3>
+                <p>Reporta el primer defecto encontrado durante la ejecución de pruebas.</p>
+                {% if can_manage %}
+                    <a class="btn btn-brand" href="{% url 'defects:create' %}">Reportar Defecto</a>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

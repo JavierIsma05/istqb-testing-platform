@@ -1,0 +1,201 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Casos de Prueba{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading testcases-heading">
+    <div>
+        <h2>Casos de Prueba</h2>
+        <p>Diseña y gestiona casos de prueba según ISTQB</p>
+    </div>
+    {% if can_manage %}
+        <button class="btn btn-brand" type="button" data-bs-toggle="modal" data-bs-target="#testCaseModal">
+            <i class="bi bi-plus-lg"></i>
+            Nuevo Caso de Prueba
+        </button>
+    {% endif %}
+</div>
+
+<section class="testcase-metric-grid">
+    <article class="testcase-metric-card">
+        <div><span>Total Casos</span><strong>{{ total }}</strong></div>
+        <i class="bi bi-test-tube"></i>
+    </article>
+    <article class="testcase-metric-card success">
+        <div><span>Pasados</span><strong>{{ passed }}</strong></div>
+        <i class="bi bi-check-circle"></i>
+    </article>
+    <article class="testcase-metric-card danger">
+        <div><span>Fallidos</span><strong>{{ failed }}</strong></div>
+        <i class="bi bi-x-circle"></i>
+    </article>
+    <article class="testcase-metric-card warning">
+        <div><span>Pendientes</span><strong>{{ pending }}</strong></div>
+        <i class="bi bi-clock"></i>
+    </article>
+</section>
+
+<section class="testcase-filter-card">
+    <form method="GET" class="testcase-filters">
+        <div class="search-control">
+            <i class="bi bi-search"></i>
+            <input type="search" name="q" value="{{ query }}" placeholder="Buscar casos de prueba...">
+        </div>
+        <select name="status" aria-label="Estado">
+            <option value="">Todos</option>
+            {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="priority" aria-label="Prioridad">
+            <option value="">Todas</option>
+            {% for value, label in priority_choices %}
+                <option value="{{ value }}" {% if selected_priority == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-outline-brand" type="submit">
+            <i class="bi bi-funnel"></i>
+            Más Filtros
+        </button>
+    </form>
+</section>
+
+<section class="testcase-list">
+    {% for item in items %}
+        <article class="testcase-row testcase-row-{{ item.badge }}">
+            <div class="testcase-icon"><i class="bi bi-test-tube"></i></div>
+            <div class="testcase-main">
+                <div class="testcase-tags">
+                    <span>{{ item.case.code }}</span>
+                    {% if item.case.requirement %}<span>{{ item.case.requirement.code }}</span>{% endif %}
+                </div>
+                <h3>{{ item.case.title }}</h3>
+                <p>{{ item.case.description|default:item.case.expected_result }}</p>
+                <div class="testcase-meta">
+                    <span>Técnica: <strong class="soft-tag">{{ item.case.get_technique_display }}</strong></span>
+                    <span>Prioridad: <strong>{{ item.case.get_priority_display }}</strong></span>
+                    <span>Última ejecución: <strong>{{ item.case.updated_at|date:'d M Y' }}</strong></span>
+                    <span>Por: <strong>{{ item.case.created_by.get_full_name|default:item.case.created_by.email|default:'Sin asignar' }}</strong></span>
+                </div>
+            </div>
+            <div class="testcase-actions">
+                <span class="testcase-status testcase-status-{{ item.badge }}">
+                    <i class="bi bi-check-circle"></i>
+                    {{ item.case.get_status_display }}
+                </span>
+                <div>
+                    <a class="btn btn-outline-brand btn-sm" href="#">Ver Detalle</a>
+                    {% if can_manage %}
+                        <a class="btn btn-brand btn-sm" href="{% url 'executions:index' %}">Ejecutar</a>
+                    {% endif %}
+                </div>
+            </div>
+        </article>
+    {% empty %}
+        <div class="empty-projects">
+            <i class="bi bi-test-tube"></i>
+            <h3>No hay casos de prueba</h3>
+            <p>Crea tu primer caso de prueba desde el modal.</p>
+            {% if can_manage %}
+                <button class="btn btn-brand" type="button" data-bs-toggle="modal" data-bs-target="#testCaseModal">Nuevo Caso de Prueba</button>
+            {% endif %}
+        </div>
+    {% endfor %}
+</section>
+
+{% if can_manage %}
+<div class="modal fade testcase-modal" id="testCaseModal" tabindex="-1" aria-labelledby="testCaseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title" id="testCaseModalLabel">Crear Caso de Prueba</h2>
+                    <p>Completa la información del nuevo caso de prueba</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="POST" novalidate>
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ form.code.id_for_label }}">{{ form.code.label }}</label>
+                            {{ form.code }}
+                            {% if form.code.errors %}<div class="form-error">{{ form.code.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ form.requirement.id_for_label }}">{{ form.requirement.label }}</label>
+                            {{ form.requirement }}
+                            {% if form.requirement.errors %}<div class="form-error">{{ form.requirement.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="{{ form.test_plan.id_for_label }}">{{ form.test_plan.label }}</label>
+                            {{ form.test_plan }}
+                            {% if form.test_plan.errors %}<div class="form-error">{{ form.test_plan.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+                            {{ form.title }}
+                            {% if form.title.errors %}<div class="form-error">{{ form.title.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+                            {{ form.description }}
+                            {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ form.priority.id_for_label }}">{{ form.priority.label }}</label>
+                            {{ form.priority }}
+                            {% if form.priority.errors %}<div class="form-error">{{ form.priority.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ form.technique.id_for_label }}">{{ form.technique.label }}</label>
+                            {{ form.technique }}
+                            {% if form.technique.errors %}<div class="form-error">{{ form.technique.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ form.level.id_for_label }}">{{ form.level.label }}</label>
+                            {{ form.level }}
+                            {% if form.level.errors %}<div class="form-error">{{ form.level.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="{{ form.preconditions.id_for_label }}">{{ form.preconditions.label }}</label>
+                            {{ form.preconditions }}
+                            {% if form.preconditions.errors %}<div class="form-error">{{ form.preconditions.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="{{ form.steps.id_for_label }}">{{ form.steps.label }}</label>
+                            {{ form.steps }}
+                            {% if form.steps.errors %}<div class="form-error">{{ form.steps.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="{{ form.expected_result.id_for_label }}">{{ form.expected_result.label }}</label>
+                            {{ form.expected_result }}
+                            {% if form.expected_result.errors %}<div class="form-error">{{ form.expected_result.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
+                            {{ form.status }}
+                            {% if form.status.errors %}<div class="form-error">{{ form.status.errors|striptags }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-brand" type="button" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-brand" type="submit">Crear Caso de Prueba</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if show_modal and can_manage %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var modal = new bootstrap.Modal(document.getElementById('testCaseModal'));
+            modal.show();
+        });
+    </script>
+{% endif %}
+{% endblock %}

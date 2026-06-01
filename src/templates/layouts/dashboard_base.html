@@ -1,0 +1,18 @@
+{% extends 'layouts/base.html' %}
+
+{% block content %}
+
+<div class="app-shell">
+    {% include 'components/sidebar.html' %}
+
+    <div class="app-main">
+        {% include 'components/navbar.html' %}
+
+        <main class="app-content">
+            {% block dashboard_content %}
+            {% endblock %}
+        </main>
+    </div>
+</div>
+
+{% endblock %}

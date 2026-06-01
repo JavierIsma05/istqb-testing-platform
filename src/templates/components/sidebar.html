@@ -1,0 +1,30 @@
+<aside class="app-sidebar">
+    <div class="sidebar-brand">
+        <span class="brand-mark"><i class="bi bi-beaker"></i></span>
+        <span>
+            <strong>ISTQB<br>Platform</strong>
+            <small>Testing Lifecycle</small>
+        </span>
+        <button class="sidebar-toggle" type="button" title="Minimizar menu" aria-label="Minimizar menu" data-sidebar-toggle>
+            <i class="bi bi-chevron-left" data-sidebar-toggle-icon></i>
+        </button>
+    </div>
+
+    <nav class="sidebar-nav">
+        <a class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}" title="Dashboard"><i class="bi bi-grid"></i><span>Dashboard</span></a>
+        <a class="{% if request.resolver_match.namespace == 'projects' %}active{% endif %}" href="{% url 'projects:index' %}" title="Proyectos"><i class="bi bi-kanban"></i><span>Proyectos</span></a>
+        <a class="{% if request.resolver_match.namespace == 'requirements' %}active{% endif %}" href="{% url 'requirements:index' %}" title="Requisitos"><i class="bi bi-file-earmark-text"></i><span>Requisitos</span></a>
+        <a class="{% if request.resolver_match.namespace == 'testplans' %}active{% endif %}" href="{% url 'testplans:index' %}" title="Plan de Pruebas"><i class="bi bi-clipboard-check"></i><span>Plan de Pruebas</span></a>
+        <a class="{% if request.resolver_match.namespace == 'incidents' %}active{% endif %}" href="{% url 'incidents:index' %}" title="Incidencias"><i class="bi bi-exclamation-triangle"></i><span>Incidencias</span></a>
+        <a class="{% if request.resolver_match.namespace == 'testcases' %}active{% endif %}" href="{% url 'testcases:index' %}" title="Casos de Prueba"><i class="bi bi-file-check"></i><span>Casos de Prueba</span></a>
+        <a class="{% if request.resolver_match.namespace == 'executions' %}active{% endif %}" href="{% url 'executions:index' %}" title="Ejecucion"><i class="bi bi-play"></i><span>Ejecucion</span></a>
+        <a class="{% if request.resolver_match.namespace == 'defects' %}active{% endif %}" href="{% url 'defects:index' %}" title="Defectos"><i class="bi bi-bug"></i><span>Defectos</span></a>
+        <a class="{% if request.resolver_match.namespace == 'traceability' %}active{% endif %}" href="{% url 'traceability:index' %}" title="Trazabilidad"><i class="bi bi-diagram-2"></i><span>Trazabilidad</span></a>
+        <a class="{% if request.resolver_match.namespace == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}" title="Informes"><i class="bi bi-bar-chart"></i><span>Informes</span></a>
+        <a class="{% if request.resolver_match.namespace == 'phases' %}active{% endif %}" href="{% url 'phases:index' %}" title="Fases ISTQB"><i class="bi bi-layers"></i><span>Fases ISTQB</span></a>
+    </nav>
+
+    <button class="sidebar-mobile-toggle" type="button" title="Expandir menu" aria-label="Expandir menu" data-sidebar-toggle>
+        <i class="bi bi-list"></i>
+    </button>
+</aside>

@@ -1,0 +1,84 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Gestión de Incidencias{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading incidents-heading">
+    <div>
+        <h2>Gestión de Incidencias</h2>
+        <p>Registro y seguimiento de riesgos e incidencias</p>
+    </div>
+    {% if can_manage %}
+        <a class="btn btn-brand" href="{% url 'incidents:create' %}">
+            <i class="bi bi-plus-lg"></i>
+            Nueva Incidencia
+        </a>
+    {% endif %}
+</div>
+
+<section class="incidents-filter-card">
+    <form method="GET" class="incidents-filters">
+        <div class="search-control">
+            <i class="bi bi-search"></i>
+            <input type="search" name="q" value="{{ query }}" placeholder="Buscar incidencias...">
+        </div>
+        <select name="project" aria-label="Proyecto">
+            <option value="">Todos los proyectos</option>
+            {% for project in projects %}
+                <option value="{{ project.id }}" {% if selected_project == project.id|stringformat:'s' %}selected{% endif %}>{{ project.name }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-outline-brand" type="submit">
+            <i class="bi bi-funnel"></i>
+            Filtros
+        </button>
+    </form>
+</section>
+
+<section class="risk-matrix-card">
+    <h3>Matriz de Probabilidad-Impacto</h3>
+    <div class="risk-matrix">
+        {% for label, cells in matrix_rows %}
+            {% for text, tone in cells %}
+                <div class="risk-cell risk-{{ tone }}">{{ text }}</div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+ </section>
+
+<section class="incidents-list-card">
+    <h3>Incidencias Registradas</h3>
+
+    <div class="incident-list">
+        {% for item in incidents %}
+            <article class="incident-row">
+                <div class="incident-icon">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <div class="incident-main">
+                    <div class="incident-title-line">
+                        <span class="incident-code">{{ item.incident.code }}</span>
+                        <strong>{{ item.incident.title }}</strong>
+                    </div>
+                    <p>
+                        Probabilidad: {{ item.incident.get_probability_display }}
+                        <span>Impacto: {{ item.incident.get_impact_display }}</span>
+                    </p>
+                </div>
+                <span class="incident-status incident-status-{{ item.badge }}">
+                    {{ item.incident.get_status_display }}
+                </span>
+            </article>
+        {% empty %}
+            <div class="empty-projects">
+                <i class="bi bi-exclamation-triangle"></i>
+                <h3>No hay incidencias registradas</h3>
+                <p>Registra la primera incidencia o riesgo para iniciar el seguimiento.</p>
+                {% if can_manage %}
+                    <a class="btn btn-brand" href="{% url 'incidents:create' %}">Nueva Incidencia</a>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

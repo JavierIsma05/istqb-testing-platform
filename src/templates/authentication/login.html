@@ -1,0 +1,75 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %}Iniciar Sesion{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+
+{% block content %}
+<main class="auth-shell">
+    <section class="auth-form-panel">
+        <a class="back-home" href="{% url 'landing' %}">
+            <i class="bi bi-arrow-left"></i>
+            Volver al inicio
+        </a>
+
+        <div class="auth-heading">
+            <span class="brand-mark auth-logo"><i class="bi bi-beaker"></i></span>
+            <h1>Bienvenido de vuelta</h1>
+            <p>Ingresa a tu cuenta para continuar</p>
+        </div>
+
+        <div class="auth-card">
+            <h2>Iniciar Sesion</h2>
+            <p>Accede a la plataforma ISTQB</p>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-danger">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST" novalidate>
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                    {{ form.email }}
+                    {{ form.email.errors }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+                    {{ form.password }}
+                    {{ form.password.errors }}
+                </div>
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <label class="form-check d-flex align-items-center gap-2 mb-0">
+                        {{ form.remember_me }}
+                        <span>{{ form.remember_me.label }}</span>
+                    </label>
+                    <a class="auth-link" href="#">Olvidaste tu contrasena?</a>
+                </div>
+                <button class="btn btn-brand w-100 btn-lg" type="submit">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    Iniciar Sesion
+                </button>
+            </form>
+            <p class="auth-footnote">No tienes cuenta? <a href="{% url 'register' %}">Registrate aqui</a></p>
+        </div>
+    </section>
+
+    <section class="auth-info-panel">
+        <div class="auth-info-content">
+            <h2>Gestion Profesional de Pruebas</h2>
+            <p>Plataforma completa para gestionar el ciclo de vida de pruebas segun estandares ISTQB</p>
+            <div class="feature-stack">
+                <article><i class="bi bi-check-lg"></i><span><strong>Estandares Internacionales</strong><small>Cumple con ISTQB e ISO/IEC/IEEE 29119</small></span></article>
+                <article><i class="bi bi-check-lg"></i><span><strong>Trazabilidad Completa</strong><small>Desde requisitos hasta defectos</small></span></article>
+                <article><i class="bi bi-check-lg"></i><span><strong>Informes Profesionales</strong><small>Genera reportes institucionales</small></span></article>
+            </div>
+            <div class="auth-metrics">
+                <span><strong>6</strong>Fases</span>
+                <span><strong>100%</strong>ISTQB</span>
+                <span><strong>24/7</strong>Acceso</span>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}

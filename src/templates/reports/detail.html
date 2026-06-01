@@ -1,0 +1,81 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}{{ report.title }}{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading">
+    <div>
+        <h2>{{ report.title }}</h2>
+        <p>Vista previa institucional del reporte</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-brand" href="{% url 'reports:index' %}">
+            <i class="bi bi-arrow-left"></i>
+            Volver
+        </a>
+        <a class="btn btn-brand" href="{% url 'reports:download' report.pk %}">
+            <i class="bi bi-download"></i>
+            Descargar PDF
+        </a>
+    </div>
+</div>
+
+<section class="report-preview">
+    <header class="unl-report-header">
+        <div class="unl-emblem">UNL</div>
+        <div>
+            <h3>UNIVERSIDAD NACIONAL DE LOJA</h3>
+            <p>Facultad de la Energía, las Industrias y los Recursos Naturales no Renovables</p>
+            <p>Carrera de Computación</p>
+            <p>Plataforma ISTQB - Gestión del Ciclo de Vida de Pruebas</p>
+        </div>
+    </header>
+
+    <div class="report-preview-title">
+        <h4>{{ report.title }}</h4>
+        <span>{{ report.get_report_type_display }}</span>
+    </div>
+
+    <table class="report-preview-table">
+        <tbody>
+            <tr>
+                <th>Proyecto</th>
+                <td>{{ report.project.name }}</td>
+            </tr>
+            <tr>
+                <th>Generado por</th>
+                <td>{{ report.generated_by.get_full_name|default:report.generated_by.email|default:'Sistema' }}</td>
+            </tr>
+            <tr>
+                <th>Fecha</th>
+                <td>{{ report.created_at|date:'d/m/Y' }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h5>Resumen del reporte</h5>
+    <table class="report-preview-table metrics">
+        <thead>
+            <tr>
+                <th>Métrica</th>
+                <th>Valor</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for label, value in content_items %}
+                <tr>
+                    <td>{{ label }}</td>
+                    <td>{{ value }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h5>Observación institucional</h5>
+    <p class="report-observation">
+        Este documento fue generado por la Plataforma ISTQB como evidencia de seguimiento académico
+        del ciclo de vida de pruebas de software. La información debe ser revisada por el docente tutor
+        o responsable del proyecto antes de su presentación formal.
+    </p>
+</section>
+{% endblock %}

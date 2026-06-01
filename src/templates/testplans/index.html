@@ -1,0 +1,50 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Plan de Pruebas{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading testplan-heading">
+    <div>
+        <h2>Plan de Pruebas</h2>
+        <p>Gestión de planes de prueba según ISTQB</p>
+    </div>
+    {% if can_manage %}
+        <a class="btn btn-brand" href="{% url 'testplans:create' %}">
+            <i class="bi bi-plus-lg"></i>
+            Nuevo Plan
+        </a>
+    {% endif %}
+</div>
+
+<section class="testplan-list-card">
+    <h3>Planes de Prueba</h3>
+
+    <div class="testplan-list">
+        {% for item in plans %}
+            <article class="testplan-row">
+                <div class="testplan-icon">
+                    <i class="bi bi-clipboard-check"></i>
+                </div>
+                <div class="testplan-main">
+                    <strong>{{ item.plan.name }}</strong>
+                    <p>
+                        Versión: {{ item.plan.version }}
+                        <span><i class="bi bi-calendar3"></i> {{ item.plan.created_at|date:'d M Y' }}</span>
+                        <span>Por: {{ item.plan.created_by.get_full_name|default:item.plan.created_by.email|default:'Sin asignar' }}</span>
+                    </p>
+                </div>
+                <span class="testplan-status testplan-status-{{ item.badge }}">{{ item.plan.get_status_display }}</span>
+            </article>
+        {% empty %}
+            <div class="empty-projects">
+                <i class="bi bi-clipboard-check"></i>
+                <h3>No hay planes de prueba</h3>
+                <p>Crea tu primer plan de pruebas siguiendo el asistente paso a paso.</p>
+                {% if can_manage %}
+                    <a class="btn btn-brand" href="{% url 'testplans:create' %}">Nuevo Plan</a>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Nuevo - {{ module.title }}{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading">
+    <div>
+        <h2>Nuevo registro</h2>
+        <p>{{ module.subtitle }}</p>
+    </div>
+</div>
+
+<section class="content-card form-card">
+    <form method="POST" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        <div class="row g-3">
+            {% for field in form %}
+                <div class="{% if field.field.widget.input_type == 'textarea' or field.name == 'description' or field.name == 'steps' or field.name == 'expected_result' or field.name == 'objective' or field.name == 'scope' or field.name == 'strategy' or field.name == 'notes' or field.name == 'rationale' or field.name == 'message' %}col-12{% else %}col-md-6{% endif %}">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                    {% if field.errors %}<div class="form-error">{{ field.errors|striptags }}</div>{% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <a class="btn btn-outline-brand" href="../">Cancelar</a>
+            <button class="btn btn-brand" type="submit">
+                <i class="bi bi-save"></i>
+                Guardar
+            </button>
+        </div>
+    </form>
+</section>
+{% endblock %}

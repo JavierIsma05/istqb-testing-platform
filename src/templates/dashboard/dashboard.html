@@ -1,0 +1,209 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block dashboard_content %}
+{% if is_teacher_dashboard %}
+{% if messages %}
+    <div class="project-messages">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div class="page-heading tutor-heading">
+    <div>
+        <h2>Dashboard Tutor</h2>
+        <p>Gestiona y supervisa los proyectos de tus estudiantes</p>
+    </div>
+</div>
+
+<section class="metric-grid tutor-metric-grid">
+    {% for metric in teacher_metrics %}
+        <article class="metric-card tutor-metric-card">
+            <div>
+                <span>{{ metric.label }}</span>
+                <strong>{{ metric.total }}</strong>
+            </div>
+            <i class="bi {{ metric.icon }} tutor-icon-{{ metric.tone }}"></i>
+        </article>
+    {% endfor %}
+</section>
+
+<section class="content-card tutor-projects-card">
+    <div class="card-heading">
+        <div>
+            <h3>Estudiantes y Proyectos</h3>
+            <p>Estado de los proyectos asignados</p>
+        </div>
+    </div>
+
+    <div class="tutor-project-list">
+        {% for item in teacher_projects %}
+            <article class="tutor-project-row">
+                <div class="tutor-project-top">
+                    <div class="student-project-lockup">
+                        <span class="avatar">
+                            {% if item.student %}
+                                {{ item.student.first_name|first|default:'E' }}{{ item.student.last_name|first }}
+                            {% else %}
+                                PR
+                            {% endif %}
+                        </span>
+                        <span>
+                            <strong>
+                                {% if item.student %}
+                                    {{ item.student.get_full_name|default:item.student.email }}
+                                {% else %}
+                                    Sin estudiante asignado
+                                {% endif %}
+                            </strong>
+                            <small>{{ item.project.name }}</small>
+                        </span>
+                    </div>
+                    <span class="soft-pill project-status-{{ item.status_badge }}">{{ item.project.get_status_display }}</span>
+                </div>
+
+                <div class="tutor-progress">
+                    <div>
+                        <span>Progreso</span>
+                        <strong>{{ item.progress }}%</strong>
+                    </div>
+                    <div class="progress slim-progress">
+                        <div class="progress-bar" style="width: {{ item.progress }}%"></div>
+                    </div>
+                </div>
+
+                <div class="tutor-project-bottom">
+                    <span class="pending-review">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        Pendiente: {{ item.pending_cases }} casos de prueba
+                    </span>
+                    <div class="tutor-project-actions">
+                        <button
+                            class="btn btn-outline-brand btn-sm"
+                            type="button"
+                            data-bs-toggle="modal"
+                            data-bs-target="#messageProject{{ item.project.pk }}"
+                            {% if not item.student %}disabled{% endif %}
+                        >
+                            <i class="bi bi-chat-left"></i>
+                            Mensaje
+                        </button>
+                        <a class="btn btn-brand btn-sm" href="{% url 'projects:detail' item.project.pk %}">
+                            Ver Proyecto
+                        </a>
+                    </div>
+                </div>
+            </article>
+        {% empty %}
+            <div class="empty-projects compact-empty">
+                <i class="bi bi-kanban"></i>
+                <h3>No tienes proyectos asignados</h3>
+                <p>Cuando seas miembro o creador de un proyecto, aparecera aqui para su seguimiento.</p>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
+{% for item in teacher_projects %}
+    {% if item.student %}
+        <div class="modal fade" id="messageProject{{ item.project.pk }}" tabindex="-1" aria-labelledby="messageProject{{ item.project.pk }}Label" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content tutor-message-modal">
+                    <form method="POST" action="{% url 'notifications:send_project_message' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="project" value="{{ item.project.pk }}">
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <div class="modal-header">
+                            <div>
+                                <h2 class="modal-title" id="messageProject{{ item.project.pk }}Label">Enviar mensaje</h2>
+                                <p>Para {{ item.student.get_full_name|default:item.student.email }} sobre {{ item.project.name }}</p>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <label class="form-label" for="message{{ item.project.pk }}">Mensaje</label>
+                            <textarea class="form-control" id="message{{ item.project.pk }}" name="message" rows="5" placeholder="Escribe una observacion, correccion o indicacion para el estudiante..." required></textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-outline-brand" type="button" data-bs-dismiss="modal">Cancelar</button>
+                            <button class="btn btn-brand" type="submit">
+                                <i class="bi bi-send"></i>
+                                Enviar mensaje
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endfor %}
+{% else %}
+<div class="page-heading">
+    <div>
+        <h2>Dashboard {{ request.user.get_role_display }}</h2>
+        <p>Bienvenido de vuelta, {{ request.user.get_full_name|default:request.user.email }}</p>
+    </div>
+</div>
+
+<section class="metric-grid">
+    {% for label, total, icon, route_name in cards %}
+        <a class="metric-card" href="{% url route_name %}">
+            <div>
+                <span>{{ label }}</span>
+                <strong>{{ total }}</strong>
+                <small>Gestion disponible</small>
+            </div>
+            <i class="bi {{ icon }}"></i>
+        </a>
+    {% endfor %}
+</section>
+
+<section class="dashboard-grid">
+    <article class="content-card">
+        <div class="card-heading">
+            <div>
+                <h3>Mis Proyectos</h3>
+                <p>Proyectos de titulacion activos</p>
+            </div>
+            <a class="btn btn-outline-brand" href="{% url 'projects:index' %}">Ver todos <i class="bi bi-arrow-right"></i></a>
+        </div>
+        <div class="project-summary">
+            <h4>Sistema de Gestion Academica</h4>
+            <div class="d-flex gap-3 small text-muted mb-3">
+                <span class="soft-pill">En Ejecucion</span>
+                <span><i class="bi bi-calendar"></i> 15 Jun 2026</span>
+            </div>
+            <div class="d-flex justify-content-between small mb-2">
+                <span>Progreso</span>
+                <strong>65%</strong>
+            </div>
+            <div class="progress slim-progress mb-3"><div class="progress-bar" style="width:65%"></div></div>
+            <div class="row text-center small">
+                <div class="col">Total<br><strong>24</strong></div>
+                <div class="col text-success">Passed<br><strong>18</strong></div>
+                <div class="col text-danger">Failed<br><strong>3</strong></div>
+                <div class="col text-warning">Pending<br><strong>3</strong></div>
+            </div>
+        </div>
+    </article>
+
+    <article class="content-card">
+        <div class="card-heading">
+            <div>
+                <h3>Actividad Reciente</h3>
+                <p>Ultimas actualizaciones en tus proyectos</p>
+            </div>
+        </div>
+        <div class="activity-list">
+            <div><span class="dot success"></span><p>Caso de prueba ejecutado<br><small>TC-045 - Hace 2 horas</small></p><i class="bi bi-check-circle text-success"></i></div>
+            <div><span class="dot danger"></span><p>Defecto registrado<br><small>DEF-023 - Hace 4 horas</small></p><i class="bi bi-exclamation-circle text-danger"></i></div>
+            <div><span class="dot info"></span><p>Plan de pruebas actualizado<br><small>Plan v2.1 - Hace 1 dia</small></p><i class="bi bi-clock text-info"></i></div>
+            <div><span class="dot warning"></span><p>Requisito agregado<br><small>REQ-089 - Hace 2 dias</small></p><i class="bi bi-file-earmark-text text-warning"></i></div>
+        </div>
+    </article>
+</section>
+{% endif %}
+{% endblock %}

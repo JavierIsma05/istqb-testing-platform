@@ -1,0 +1,89 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Fases ISTQB{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading phases-heading">
+    <div>
+        <h2>Fases ISTQB</h2>
+        <p>Gestión del ciclo de vida de pruebas</p>
+    </div>
+    {% if projects %}
+        <form method="get" class="phase-project-selector">
+            <select name="project" class="form-select" onchange="this.form.submit()">
+                {% for project in projects %}
+                    <option value="{{ project.pk }}" {% if selected_project and selected_project.pk == project.pk %}selected{% endif %}>
+                        {{ project.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+    {% endif %}
+</div>
+
+{% if selected_project %}
+    <section class="phase-summary-card">
+        <h3>Progreso General del Ciclo ISTQB</h3>
+        <div class="phase-summary-progress">
+            <span>Progreso Total</span>
+            <strong>{{ general_progress }}%</strong>
+        </div>
+        <div class="progress phase-progress-track">
+            <div class="progress-bar" style="width: {{ general_progress }}%"></div>
+        </div>
+        <p>{{ completed_count }} de {{ total_phases }} fases completadas</p>
+    </section>
+
+    <section class="phase-list">
+        {% for phase in phases %}
+            <article class="phase-card phase-card-{{ phase.status|lower }}">
+                <div class="phase-state-icon">
+                    {% if phase.status == 'DONE' %}
+                        <i class="bi bi-check-lg"></i>
+                    {% elif phase.status == 'IN_PROGRESS' %}
+                        <i class="bi bi-clock"></i>
+                    {% else %}
+                        <i class="bi bi-circle"></i>
+                    {% endif %}
+                </div>
+
+                <div class="phase-content">
+                    <header>
+                        <div>
+                            <span class="phase-order">Fase {{ phase.order }}</span>
+                            <h3>{{ phase.name }}</h3>
+                        </div>
+                        <span class="phase-status phase-status-{{ phase.status|lower }}">
+                            {% if phase.status == 'IN_PROGRESS' %}En Proceso{% else %}{{ phase.get_status_display }}{% endif %}
+                        </span>
+                    </header>
+
+                    <p>{{ phase.description }}</p>
+
+                    <div class="phase-card-progress">
+                        <span>Progreso de la Fase</span>
+                        <strong>{{ phase.progress }}%</strong>
+                    </div>
+                    <div class="progress phase-progress-track">
+                        <div class="progress-bar" style="width: {{ phase.progress }}%"></div>
+                    </div>
+
+                    {% if phase.completed_tasks or phase.pending_tasks %}
+                        <div class="phase-task-chips">
+                            <span>{{ phase.completed_tasks }} tareas completadas</span>
+                            <span>{{ phase.pending_tasks }} tarea pendiente{% if phase.pending_tasks != 1 %}s{% endif %}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </article>
+        {% endfor %}
+    </section>
+{% else %}
+    <section class="empty-projects">
+        <i class="bi bi-layers"></i>
+        <h3>No hay proyectos disponibles</h3>
+        <p>Crea un proyecto para visualizar y controlar las fases ISTQB.</p>
+        <a class="btn btn-brand" href="{% url 'projects:create' %}">Crear Proyecto</a>
+    </section>
+{% endif %}
+{% endblock %}
