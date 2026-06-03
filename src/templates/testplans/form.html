@@ -1,6 +1,6 @@
 {% extends 'layouts/dashboard_base.html' %}
 
-{% block title %}Crear Plan de Pruebas{% endblock %}
+{% block title %}{{ form_title|default:'Crear Plan de Pruebas' }}{% endblock %}
 
 {% block dashboard_content %}
 <div class="wizard-page" data-current-step="1">
@@ -9,7 +9,7 @@
             <i class="bi bi-arrow-left"></i>
         </a>
         <div>
-            <h2>Crear Plan de Pruebas</h2>
+            <h2>{{ form_title|default:'Crear Plan de Pruebas' }}</h2>
             <p>Asistente paso a paso</p>
         </div>
     </div>
@@ -116,7 +116,7 @@
             <button class="btn btn-brand" type="button" data-wizard-next>Siguiente</button>
             <button class="btn btn-success wizard-submit" type="submit">
                 <i class="bi bi-save"></i>
-                Crear Plan
+                {{ submit_label|default:'Crear Plan' }}
             </button>
         </div>
     </form>

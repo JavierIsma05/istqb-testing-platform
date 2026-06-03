@@ -7,9 +7,9 @@ class ExecutionResultForm(forms.ModelForm):
     result = forms.ChoiceField(
         label='Resultado',
         choices=(
-            (TestExecution.Result.PASSED, 'Passed'),
-            (TestExecution.Result.FAILED, 'Failed'),
-            (TestExecution.Result.BLOCKED, 'Blocked'),
+            (TestExecution.Result.PASSED, 'Aprobado'),
+            (TestExecution.Result.FAILED, 'Fallido'),
+            (TestExecution.Result.BLOCKED, 'Bloqueado'),
         ),
         widget=forms.RadioSelect(attrs={'class': 'execution-result-input'}),
     )
@@ -29,5 +29,11 @@ class ExecutionResultForm(forms.ModelForm):
                     'rows': 4,
                 }
             ),
-            'evidence': forms.FileInput(attrs={'class': 'form-control execution-file-input'}),
+            'evidence': forms.FileInput(
+                attrs={
+                    'accept': 'image/*',
+                    'class': 'form-control execution-file-input',
+                    'data-file-input': '',
+                }
+            ),
         }

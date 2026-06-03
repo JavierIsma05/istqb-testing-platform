@@ -1,0 +1,169 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}{{ case.code }} - Detalle{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading">
+    <div>
+        <h2>{{ case.code }} - {{ case.title }}</h2>
+        <p>Detalle funcional, trazabilidad e historial de ejecuciones del caso.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-brand" href="{% url 'testcases:index' %}">
+            <i class="bi bi-arrow-left"></i>
+            Volver
+        </a>
+        <a class="btn btn-brand" href="{% url 'executions:index' %}?case={{ case.pk }}">
+            <i class="bi bi-play"></i>
+            Ejecutar
+        </a>
+        {% if can_manage %}
+            <a class="btn btn-outline-brand" href="{% url 'testcases:edit' case.pk %}">
+                <i class="bi bi-pencil"></i>
+                Editar
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<section class="metric-grid project-detail-metrics">
+    <article class="metric-card">
+        <div><span>Estado</span><strong>{{ case.get_status_display }}</strong></div>
+        <i class="bi bi-activity"></i>
+    </article>
+    <article class="metric-card">
+        <div><span>Ejecuciones</span><strong>{{ execution_count }}</strong></div>
+        <i class="bi bi-play-circle"></i>
+    </article>
+    <article class="metric-card">
+        <div><span>Defectos</span><strong>{{ defects|length }}</strong></div>
+        <i class="bi bi-bug"></i>
+    </article>
+    <article class="metric-card">
+        <div><span>Prioridad</span><strong>{{ case.get_priority_display }}</strong></div>
+        <i class="bi bi-flag"></i>
+    </article>
+</section>
+
+<section class="dashboard-grid">
+    <article class="content-card">
+        <div class="card-heading">
+            <div>
+                <h3>Informacion General</h3>
+                <p>{{ case.test_plan.project.name }} / {{ case.test_plan.name }}</p>
+            </div>
+        </div>
+        <div class="detail-summary-list">
+            <div><span>Requisito</span><strong>{{ case.requirement.code|default:'Sin requisito' }}</strong></div>
+            <div><span>Tecnica</span><strong>{{ case.get_technique_display }}</strong></div>
+            <div><span>Nivel</span><strong>{{ case.get_level_display }}</strong></div>
+            <div><span>Creado por</span><strong>{{ case.created_by.get_full_name|default:case.created_by.email|default:'Sin asignar' }}</strong></div>
+            <div><span>Creado</span><strong>{{ case.created_at|date:'d M Y H:i' }}</strong></div>
+        </div>
+    </article>
+
+    <article class="content-card">
+        <div class="card-heading">
+            <div>
+                <h3>Trazabilidad</h3>
+                <p>Cobertura desde requisito hasta defectos.</p>
+            </div>
+        </div>
+        <div class="detail-summary-list">
+            <div><span>Proyecto</span><strong>{{ case.test_plan.project.code }}</strong></div>
+            <div><span>Plan</span><strong>{{ case.test_plan.name }}</strong></div>
+            <div><span>Requisito relacionado</span><strong>{{ case.requirement.title|default:'No asociado' }}</strong></div>
+            <div><span>Cobertura</span><strong>{% if case.requirement %}Cubierto{% else %}Pendiente{% endif %}</strong></div>
+        </div>
+    </article>
+</section>
+
+<section class="content-card mt-4">
+    <div class="card-heading">
+        <div>
+            <h3>Pasos y Resultado Esperado</h3>
+            <p>Informacion operativa para ejecutar el caso.</p>
+        </div>
+    </div>
+    <div class="execution-section">
+        <h4>Precondiciones</h4>
+        <p>{{ case.preconditions|linebreaksbr|default:'Sin precondiciones registradas.' }}</p>
+    </div>
+    <div class="execution-section">
+        <h4>Pasos</h4>
+        <div class="execution-steps">{{ case.steps|linebreaksbr }}</div>
+    </div>
+    <div class="execution-section mb-0">
+        <h4>Resultado Esperado</h4>
+        <p>{{ case.expected_result|linebreaksbr }}</p>
+    </div>
+</section>
+
+<section class="content-card mt-4">
+    <div class="card-heading">
+        <div>
+            <h3>Historial de Ejecuciones</h3>
+            <p>Resultados registrados para este caso.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Resultado</th>
+                    <th>Usuario</th>
+                    <th>Observaciones</th>
+                    <th>Evidencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for execution in executions %}
+                    <tr>
+                        <td>{{ execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}</td>
+                        <td>{{ execution.get_result_display }}</td>
+                        <td>{{ execution.executed_by.get_full_name|default:execution.executed_by.email|default:'Sin asignar' }}</td>
+                        <td>{{ execution.notes|default:'Sin observaciones' }}</td>
+                        <td>
+                            {% if execution.evidence %}
+                                <a href="{{ execution.evidence.url }}" target="_blank" rel="noopener">Ver archivo</a>
+                            {% else %}
+                                Sin evidencia
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">Este caso aun no tiene ejecuciones registradas.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="content-card mt-4">
+    <div class="card-heading">
+        <div>
+            <h3>Defectos Asociados</h3>
+            <p>Defectos originados desde ejecuciones de este caso.</p>
+        </div>
+    </div>
+    <div class="defect-list">
+        {% for defect in defects %}
+            <article class="defect-row">
+                <div class="defect-icon"><i class="bi bi-bug"></i></div>
+                <div class="defect-main">
+                    <div class="defect-title-line">
+                        <span class="defect-code">{{ defect.code }}</span>
+                        <strong>{{ defect.title }}</strong>
+                    </div>
+                    <p>Severidad: {{ defect.get_severity_display }} <span>Estado: {{ defect.get_status_display }}</span></p>
+                </div>
+            </article>
+        {% empty %}
+            <p class="text-muted mb-0">No hay defectos asociados a este caso.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

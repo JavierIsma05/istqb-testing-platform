@@ -1,8 +1,9 @@
 from django.contrib.auth.decorators import login_required
+from django.db.models import Prefetch
 from django.shortcuts import render
 
 from apps.core.permissions import visible_projects_for
-from apps.defects.models import Defect
+from apps.executions.models import TestExecution
 from apps.requirements.models import Requirement
 from apps.testcases.models import TestCase
 
@@ -10,9 +11,12 @@ from apps.testcases.models import TestCase
 @login_required
 def traceability_matrix_view(request):
     visible_projects = visible_projects_for(request.user)
+    executions_with_defects = TestExecution.objects.prefetch_related('defects')
     requirements = Requirement.objects.select_related('project').prefetch_related(
         'test_cases',
+        Prefetch('test_cases__executions', queryset=executions_with_defects),
         'traceability_links__test_case',
+        Prefetch('traceability_links__test_case__executions', queryset=executions_with_defects),
     ).filter(project__in=visible_projects)
     total_requirements = requirements.count()
     total_test_cases = TestCase.objects.filter(test_plan__project__in=visible_projects).count()
@@ -28,23 +32,26 @@ def traceability_matrix_view(request):
         if test_cases:
             covered_requirements += 1
 
-        defects = Defect.objects.filter(
-            execution__test_case_id__in=[test_case.id for test_case in test_cases]
-        ).distinct()
+        executions_by_id = {}
+        defects_by_id = {}
+        for test_case in test_cases:
+            for execution in test_case.executions.all():
+                executions_by_id[execution.id] = execution
+                for defect in execution.defects.all():
+                    defects_by_id[defect.id] = defect
 
-        if not defects.exists():
-            defects = Defect.objects.filter(project=requirement.project).filter(
-                execution__isnull=True
-            )[:0]
+        executions = list(executions_by_id.values())
+        defects = list(defects_by_id.values())
 
         coverage = 100 if test_cases else 0
-        if defects.exists() and coverage == 100:
-            coverage = 85 if defects.count() == 1 else 60
+        if defects and coverage == 100:
+            coverage = 85 if len(defects) == 1 else 60
 
         rows.append(
             {
                 'requirement': requirement,
                 'test_cases': test_cases,
+                'executions': executions,
                 'defects': defects,
                 'coverage': coverage,
                 'coverage_tone': 'success' if coverage >= 80 else 'warning',

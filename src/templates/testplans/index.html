@@ -6,7 +6,7 @@
 <div class="page-heading testplan-heading">
     <div>
         <h2>Plan de Pruebas</h2>
-        <p>Gestión de planes de prueba según ISTQB</p>
+        <p>Gestion de planes de prueba segun ISTQB</p>
     </div>
     {% if can_manage %}
         <a class="btn btn-brand" href="{% url 'testplans:create' %}">
@@ -28,12 +28,33 @@
                 <div class="testplan-main">
                     <strong>{{ item.plan.name }}</strong>
                     <p>
-                        Versión: {{ item.plan.version }}
+                        Version: {{ item.plan.version }}
                         <span><i class="bi bi-calendar3"></i> {{ item.plan.created_at|date:'d M Y' }}</span>
                         <span>Por: {{ item.plan.created_by.get_full_name|default:item.plan.created_by.email|default:'Sin asignar' }}</span>
                     </p>
+                    <p>
+                        Proyecto: {{ item.plan.project.name }}
+                        <span>Objetivo: {{ item.plan.objective|truncatechars:80|default:'Sin objetivo registrado' }}</span>
+                    </p>
                 </div>
-                <span class="testplan-status testplan-status-{{ item.badge }}">{{ item.plan.get_status_display }}</span>
+                <div class="list-row-actions">
+                    <span class="testplan-status testplan-status-{{ item.badge }}">{{ item.plan.get_status_display }}</span>
+                    {% if can_manage %}
+                        <div class="manage-actions" aria-label="Gestionar plan de pruebas">
+                            <a class="btn btn-outline-brand btn-sm" href="{% url 'testplans:edit' item.plan.pk %}">
+                                <i class="bi bi-pencil"></i>
+                                Editar
+                            </a>
+                            <form method="POST" action="{% url 'testplans:delete' item.plan.pk %}">
+                                {% csrf_token %}
+                                <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar este plan tambien eliminara sus casos de prueba y ejecuciones asociadas. Deseas continuar?">
+                                    <i class="bi bi-trash"></i>
+                                    Eliminar
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                </div>
             </article>
         {% empty %}
             <div class="empty-projects">

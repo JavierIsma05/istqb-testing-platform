@@ -1,6 +1,7 @@
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.db.models import Q
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
 from apps.projects.models import Project
@@ -74,6 +75,7 @@ def incident_create_view(request):
         incident = form.save(commit=False)
         incident.reported_by = request.user
         incident.save()
+        messages.success(request, 'Incidencia registrada correctamente.')
         return redirect('incidents:index')
 
     return render(
@@ -85,3 +87,53 @@ def incident_create_view(request):
             'subtitle': 'Registra riesgos e incidencias con probabilidad e impacto.',
         },
     )
+
+
+@login_required
+def incident_update_view(request, pk):
+    readonly_redirect = redirect_if_teacher_readonly(request, 'incidents:index', 'incidencias')
+    if readonly_redirect:
+        return readonly_redirect
+
+    incident = get_object_or_404(
+        Incident,
+        pk=pk,
+        project__in=visible_projects_for(request.user),
+    )
+    form = IncidentForm(request.POST or None, instance=incident)
+
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Incidencia actualizada correctamente.')
+        return redirect('incidents:index')
+
+    return render(
+        request,
+        'incidents/form.html',
+        {
+            'form': form,
+            'title': 'Editar Incidencia',
+            'subtitle': 'Actualiza probabilidad, impacto y estado de seguimiento.',
+        },
+    )
+
+
+@login_required
+def incident_delete_view(request, pk):
+    readonly_redirect = redirect_if_teacher_readonly(request, 'incidents:index', 'incidencias')
+    if readonly_redirect:
+        return readonly_redirect
+
+    incident = get_object_or_404(
+        Incident,
+        pk=pk,
+        project__in=visible_projects_for(request.user),
+    )
+
+    if request.method == 'POST':
+        incident.delete()
+        messages.success(request, 'Incidencia eliminada correctamente.')
+    else:
+        messages.error(request, 'La eliminacion debe confirmarse desde el listado.')
+
+    return redirect('incidents:index')

@@ -82,9 +82,26 @@
                         <span>Cobertura: {{ item.coverage }}%</span>
                     </p>
                 </div>
-                <span class="requirement-status requirement-status-{{ item.badge }}">
-                    {{ item.requirement.get_status_display }}
-                </span>
+                <div class="list-row-actions">
+                    <span class="requirement-status requirement-status-{{ item.badge }}">
+                        {{ item.requirement.get_status_display }}
+                    </span>
+                    {% if can_manage %}
+                        <div class="manage-actions" aria-label="Gestionar requisito">
+                            <a class="btn btn-outline-brand btn-sm" href="{% url 'requirements:edit' item.requirement.pk %}">
+                                <i class="bi bi-pencil"></i>
+                                Editar
+                            </a>
+                            <form method="POST" action="{% url 'requirements:delete' item.requirement.pk %}">
+                                {% csrf_token %}
+                                <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar este requisito tambien eliminara sus enlaces de trazabilidad. Deseas continuar?">
+                                    <i class="bi bi-trash"></i>
+                                    Eliminar
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                </div>
             </article>
         {% empty %}
             <div class="empty-projects">

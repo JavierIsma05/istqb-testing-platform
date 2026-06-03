@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
 
@@ -47,6 +48,49 @@ def testplan_create_view(request):
         plan = form.save(commit=False)
         plan.created_by = request.user
         plan.save()
+        messages.success(request, 'Plan de pruebas creado correctamente.')
         return redirect('testplans:index')
 
-    return render(request, 'testplans/form.html', {'form': form})
+    return render(request, 'testplans/form.html', {'form': form, 'form_title': 'Crear Plan de Pruebas', 'submit_label': 'Crear Plan'})
+
+
+@login_required
+def testplan_update_view(request, pk):
+    readonly_redirect = redirect_if_teacher_readonly(request, 'testplans:index', 'planes de prueba')
+    if readonly_redirect:
+        return readonly_redirect
+
+    plan = get_object_or_404(
+        TestPlan,
+        pk=pk,
+        project__in=visible_projects_for(request.user),
+    )
+    form = TestPlanWizardForm(request.POST or None, instance=plan)
+
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Plan de pruebas actualizado correctamente.')
+        return redirect('testplans:index')
+
+    return render(request, 'testplans/form.html', {'form': form, 'form_title': 'Editar Plan de Pruebas', 'submit_label': 'Guardar Cambios'})
+
+
+@login_required
+def testplan_delete_view(request, pk):
+    readonly_redirect = redirect_if_teacher_readonly(request, 'testplans:index', 'planes de prueba')
+    if readonly_redirect:
+        return readonly_redirect
+
+    plan = get_object_or_404(
+        TestPlan,
+        pk=pk,
+        project__in=visible_projects_for(request.user),
+    )
+
+    if request.method == 'POST':
+        plan.delete()
+        messages.success(request, 'Plan de pruebas eliminado correctamente.')
+    else:
+        messages.error(request, 'La eliminacion debe confirmarse desde el listado.')
+
+    return redirect('testplans:index')

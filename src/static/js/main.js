@@ -113,6 +113,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    Array.prototype.slice.call(document.querySelectorAll('[data-file-input]')).forEach(function (input) {
+        input.addEventListener('change', function () {
+            var fileName = input.files && input.files.length ? input.files[0].name : 'Adjuntar capturas de pantalla';
+            var label = input.closest('.execution-upload');
+            var target = label ? label.querySelector('[data-file-name]') : null;
+
+            if (target) {
+                target.textContent = fileName;
+            }
+        });
+    });
+
     document.addEventListener('click', function (event) {
         var toggle = event.target.closest('[data-project-menu-toggle]');
         var openMenus = Array.prototype.slice.call(document.querySelectorAll('.project-actions.open'));

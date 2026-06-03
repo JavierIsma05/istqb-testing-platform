@@ -170,23 +170,36 @@
             </div>
             <a class="btn btn-outline-brand" href="{% url 'projects:index' %}">Ver todos <i class="bi bi-arrow-right"></i></a>
         </div>
-        <div class="project-summary">
-            <h4>Sistema de Gestion Academica</h4>
-            <div class="d-flex gap-3 small text-muted mb-3">
-                <span class="soft-pill">En Ejecucion</span>
-                <span><i class="bi bi-calendar"></i> 15 Jun 2026</span>
-            </div>
-            <div class="d-flex justify-content-between small mb-2">
-                <span>Progreso</span>
-                <strong>65%</strong>
-            </div>
-            <div class="progress slim-progress mb-3"><div class="progress-bar" style="width:65%"></div></div>
-            <div class="row text-center small">
-                <div class="col">Total<br><strong>24</strong></div>
-                <div class="col text-success">Passed<br><strong>18</strong></div>
-                <div class="col text-danger">Failed<br><strong>3</strong></div>
-                <div class="col text-warning">Pending<br><strong>3</strong></div>
-            </div>
+        <div class="project-summary-list">
+            {% for item in project_summaries %}
+                <div class="project-summary">
+                    <h4>{{ item.project.name }}</h4>
+                    <div class="d-flex gap-3 small text-muted mb-3">
+                        <span class="soft-pill project-status-{{ item.status_badge }}">{{ item.project.get_status_display }}</span>
+                        <span>
+                            <i class="bi bi-calendar"></i>
+                            {% if item.date %}{{ item.date|date:'d M Y' }}{% else %}Sin fecha{% endif %}
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between small mb-2">
+                        <span>Progreso</span>
+                        <strong>{{ item.progress }}%</strong>
+                    </div>
+                    <div class="progress slim-progress mb-3"><div class="progress-bar" style="width:{{ item.progress }}%"></div></div>
+                    <div class="row text-center small">
+                        <div class="col">Total<br><strong>{{ item.total }}</strong></div>
+                        <div class="col text-success">Aprobados<br><strong>{{ item.passed }}</strong></div>
+                        <div class="col text-danger">Fallidos<br><strong>{{ item.failed }}</strong></div>
+                        <div class="col text-warning">Pendientes<br><strong>{{ item.pending }}</strong></div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="empty-projects compact-empty">
+                    <i class="bi bi-folder2-open"></i>
+                    <h3>No hay proyectos activos</h3>
+                    <p>Cuando registres o te asignen proyectos, apareceran aqui.</p>
+                </div>
+            {% endfor %}
         </div>
     </article>
 
@@ -198,10 +211,19 @@
             </div>
         </div>
         <div class="activity-list">
-            <div><span class="dot success"></span><p>Caso de prueba ejecutado<br><small>TC-045 - Hace 2 horas</small></p><i class="bi bi-check-circle text-success"></i></div>
-            <div><span class="dot danger"></span><p>Defecto registrado<br><small>DEF-023 - Hace 4 horas</small></p><i class="bi bi-exclamation-circle text-danger"></i></div>
-            <div><span class="dot info"></span><p>Plan de pruebas actualizado<br><small>Plan v2.1 - Hace 1 dia</small></p><i class="bi bi-clock text-info"></i></div>
-            <div><span class="dot warning"></span><p>Requisito agregado<br><small>REQ-089 - Hace 2 dias</small></p><i class="bi bi-file-earmark-text text-warning"></i></div>
+            {% for activity in recent_activities %}
+                <div>
+                    <span class="dot {{ activity.tone }}"></span>
+                    <p>{{ activity.title }}<br><small>{{ activity.detail }}</small></p>
+                    <i class="bi {{ activity.icon }} text-{{ activity.tone }}"></i>
+                </div>
+            {% empty %}
+                <div>
+                    <span class="dot info"></span>
+                    <p>Sin actividad reciente<br><small>Los cambios del ciclo de pruebas apareceran aqui.</small></p>
+                    <i class="bi bi-clock text-info"></i>
+                </div>
+            {% endfor %}
         </div>
     </article>
 </section>

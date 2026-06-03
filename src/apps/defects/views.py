@@ -1,6 +1,7 @@
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.db.models import Q
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
 from apps.projects.models import Project
@@ -82,6 +83,7 @@ def defect_create_view(request):
         defect = form.save(commit=False)
         defect.reported_by = request.user
         defect.save()
+        messages.success(request, 'Defecto registrado correctamente.')
         return redirect('defects:index')
 
     return render(
@@ -93,3 +95,53 @@ def defect_create_view(request):
             'subtitle': 'Registra y asigna defectos encontrados durante la ejecución de pruebas.',
         },
     )
+
+
+@login_required
+def defect_update_view(request, pk):
+    readonly_redirect = redirect_if_teacher_readonly(request, 'defects:index', 'defectos')
+    if readonly_redirect:
+        return readonly_redirect
+
+    defect = get_object_or_404(
+        Defect,
+        pk=pk,
+        project__in=visible_projects_for(request.user),
+    )
+    form = DefectForm(request.POST or None, instance=defect)
+
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Defecto actualizado correctamente.')
+        return redirect('defects:index')
+
+    return render(
+        request,
+        'defects/form.html',
+        {
+            'form': form,
+            'title': 'Editar Defecto',
+            'subtitle': 'Actualiza severidad, prioridad, estado y asignacion sin perder la relacion con ejecuciones.',
+        },
+    )
+
+
+@login_required
+def defect_delete_view(request, pk):
+    readonly_redirect = redirect_if_teacher_readonly(request, 'defects:index', 'defectos')
+    if readonly_redirect:
+        return readonly_redirect
+
+    defect = get_object_or_404(
+        Defect,
+        pk=pk,
+        project__in=visible_projects_for(request.user),
+    )
+
+    if request.method == 'POST':
+        defect.delete()
+        messages.success(request, 'Defecto eliminado correctamente.')
+    else:
+        messages.error(request, 'La eliminacion debe confirmarse desde el listado.')
+
+    return redirect('defects:index')

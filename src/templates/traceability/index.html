@@ -41,8 +41,10 @@
             <thead>
                 <tr>
                     <th>Requisito</th>
-                    <th>Casos de Prueba</th>
-                    <th>Defectos</th>
+                    <th>Caso de prueba</th>
+                    <th>Ejecución</th>
+                    <th>Resultado</th>
+                    <th>Defecto</th>
                     <th>Cobertura</th>
                 </tr>
             </thead>
@@ -66,6 +68,29 @@
                         </td>
                         <td>
                             <div class="trace-pill-list">
+                                {% for execution in row.executions %}
+                                    <span class="trace-pill execution-pill">
+                                        <i class="bi bi-play-circle"></i>
+                                        Ejecución #{{ execution.id }}
+                                    </span>
+                                {% empty %}
+                                    <span class="text-muted">Sin ejecuciones</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="trace-pill-list">
+                                {% for execution in row.executions %}
+                                    <span class="trace-pill result-pill result-{{ execution.result|lower }}">
+                                        {{ execution.get_result_display }}
+                                    </span>
+                                {% empty %}
+                                    <span class="text-muted">Sin resultado</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="trace-pill-list">
                                 {% for defect in row.defects %}
                                     <span class="trace-pill defect-pill">
                                         <i class="bi bi-bug"></i>
@@ -82,7 +107,7 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="4" class="text-center text-muted py-5">
+                        <td colspan="6" class="text-center text-muted py-5">
                             No hay requisitos para mostrar en la matriz.
                         </td>
                     </tr>

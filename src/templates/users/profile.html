@@ -1,0 +1,113 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Perfil{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading profile-heading">
+    <div>
+        <h2>Perfil</h2>
+        <p>Informacion de tu cuenta y actividad en la plataforma</p>
+    </div>
+    <a class="btn btn-outline-brand" href="{% url 'dashboard' %}">
+        <i class="bi bi-arrow-left"></i>
+        Volver al dashboard
+    </a>
+</div>
+
+<section class="profile-hero">
+    <div class="profile-identity">
+        {% if profile and profile.avatar %}
+            <img src="{{ profile.avatar.url }}" alt="{{ request.user.get_full_name|default:request.user.email }}">
+        {% else %}
+            <span class="profile-avatar">
+                {{ request.user.first_name|first|default:'U' }}{{ request.user.last_name|first }}
+            </span>
+        {% endif %}
+        <div>
+            <span class="profile-role">{{ request.user.get_role_display }}</span>
+            <h3>{{ request.user.get_full_name|default:request.user.email }}</h3>
+            <p>{{ profile.bio|default:'Sin biografia registrada.' }}</p>
+        </div>
+    </div>
+
+    <div class="profile-account-state">
+        <div>
+            <span>Estado</span>
+            <strong>{% if request.user.is_active %}Activa{% else %}Inactiva{% endif %}</strong>
+        </div>
+        <div>
+            <span>Ingreso</span>
+            <strong>{{ request.user.date_joined|date:'d M Y' }}</strong>
+        </div>
+        <div>
+            <span>Ultimo acceso</span>
+            <strong>{{ request.user.last_login|date:'d M Y'|default:'Sin registro' }}</strong>
+        </div>
+    </div>
+</section>
+
+<section class="metric-grid profile-metrics">
+    <div class="metric-card"><div><span>Proyectos</span><strong>{{ project_count }}</strong><small>Vinculados a tu cuenta</small></div><i class="bi bi-folder2-open"></i></div>
+    <div class="metric-card"><div><span>Requisitos</span><strong>{{ requirements_count }}</strong><small>En tus proyectos</small></div><i class="bi bi-file-earmark-text"></i></div>
+    <div class="metric-card"><div><span>Casos</span><strong>{{ test_cases_count }}</strong><small>Casos de prueba</small></div><i class="bi bi-card-checklist"></i></div>
+    <div class="metric-card"><div><span>Alertas</span><strong>{{ unread_notifications_count }}</strong><small>Notificaciones sin leer</small></div><i class="bi bi-bell"></i></div>
+</section>
+
+<section class="dashboard-grid profile-grid">
+    <article class="content-card">
+        <div class="card-heading">
+            <div>
+                <h3>Datos personales</h3>
+                <p>Informacion principal de la cuenta</p>
+            </div>
+        </div>
+        <div class="profile-detail-list">
+            <div><span>Correo institucional</span><strong>{{ request.user.email }}</strong></div>
+            <div><span>Nombres</span><strong>{{ request.user.first_name|default:'No registrado' }}</strong></div>
+            <div><span>Apellidos</span><strong>{{ request.user.last_name|default:'No registrado' }}</strong></div>
+            <div><span>Rol</span><strong>{{ request.user.get_role_display }}</strong></div>
+        </div>
+    </article>
+
+    <article class="content-card">
+        <div class="card-heading">
+            <div>
+                <h3>Actividad ISTQB</h3>
+                <p>Resumen de artefactos asociados</p>
+            </div>
+        </div>
+        <div class="profile-detail-list">
+            <div><span>Ejecuciones</span><strong>{{ executions_count }}</strong></div>
+            <div><span>Defectos</span><strong>{{ defects_count }}</strong></div>
+            <div><span>Proyectos activos</span><strong>{{ project_count }}</strong></div>
+            <div><span>Notificaciones pendientes</span><strong>{{ unread_notifications_count }}</strong></div>
+        </div>
+    </article>
+</section>
+
+<section class="content-card profile-projects-card">
+    <div class="card-heading">
+        <div>
+            <h3>Mis proyectos recientes</h3>
+            <p>Proyectos donde participas o tienes acceso</p>
+        </div>
+    </div>
+
+    <div class="profile-project-list">
+        {% for project in projects %}
+            <a href="{% url 'projects:detail' project.pk %}">
+                <span class="project-status project-status-{% if project.status == 'ACTIVE' %}success{% elif project.status == 'CLOSED' %}muted{% else %}warning{% endif %}">
+                    {{ project.get_status_display }}
+                </span>
+                <div>
+                    <strong>{{ project.name }}</strong>
+                    <small>{{ project.code }} · {{ project.description|default:'Sin descripcion' }}</small>
+                </div>
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        {% empty %}
+            <p class="text-muted mb-0">No tienes proyectos vinculados por el momento.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

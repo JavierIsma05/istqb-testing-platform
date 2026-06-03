@@ -739,6 +739,11 @@ a {
     padding: 18px;
 }
 
+.project-summary-list {
+    display: grid;
+    gap: 14px;
+}
+
 .project-summary h4 {
     font-size: 18px;
     font-weight: 800;
@@ -1429,6 +1434,26 @@ textarea.form-control {
 
 .detail-summary-list strong {
     font-size: 20px;
+}
+
+.list-row-actions {
+    align-items: flex-end;
+    display: grid;
+    gap: 10px;
+    justify-items: end;
+}
+
+.manage-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.manage-actions form,
+.testcase-actions form,
+.execution-history-card form {
+    margin: 0;
 }
 
 .requirements-heading {
@@ -2248,6 +2273,42 @@ textarea.form-control {
     padding: 24px;
 }
 
+.execution-history-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-top: 24px;
+    padding: 24px;
+}
+
+.execution-history-metrics {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-bottom: 18px;
+}
+
+.execution-history-metrics article {
+    background: #f8fbfe;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.execution-history-metrics span {
+    color: var(--muted);
+    display: block;
+    font-size: 12px;
+}
+
+.execution-history-metrics strong {
+    color: var(--ink);
+    display: block;
+    font-size: 24px;
+    line-height: 1.1;
+    margin-top: 4px;
+}
+
 .execution-case-head {
     align-items: flex-start;
     display: flex;
@@ -2323,6 +2384,64 @@ textarea.form-control {
     color: var(--muted);
     font-size: 13px;
     padding: 12px;
+}
+
+.execution-evidence-preview {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-top: 12px;
+    overflow: hidden;
+}
+
+.execution-evidence-header {
+    align-items: center;
+    background: #f8fbfe;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 13px;
+    gap: 8px;
+    justify-content: space-between;
+    padding: 10px 12px;
+}
+
+.execution-evidence-header span {
+    color: var(--ink);
+    font-weight: 800;
+    margin-right: auto;
+}
+
+.execution-evidence-header a {
+    color: var(--brand-dark);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.execution-evidence-preview img {
+    display: block;
+    max-height: 260px;
+    object-fit: contain;
+    width: 100%;
+}
+
+.execution-evidence-link {
+    align-items: center;
+    display: inline-flex;
+    gap: 8px;
+    text-decoration: none;
+}
+
+.execution-evidence-link img {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    height: 42px;
+    object-fit: cover;
+    width: 64px;
+}
+
+.execution-evidence-link span {
+    color: var(--brand-dark);
+    font-weight: 800;
 }
 
 .execution-result-card h3 {
@@ -2409,6 +2528,12 @@ textarea.form-control {
 
 .execution-upload span {
     font-weight: 800;
+}
+
+.execution-upload-help {
+    color: var(--muted);
+    font-size: 12px;
+    margin: 6px 0 0;
 }
 
 .defects-heading {
@@ -2688,6 +2813,33 @@ textarea.form-control {
 .testcase-pill {
     background: var(--brand-light);
     color: var(--brand-dark);
+}
+
+.execution-pill {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+.result-pill {
+    color: #fff;
+    font-weight: 800;
+}
+
+.result-passed {
+    background: var(--success);
+}
+
+.result-failed {
+    background: var(--danger);
+}
+
+.result-blocked {
+    background: #f5b700;
+    color: #17335d;
+}
+
+.result-not_run {
+    background: #94a3b8;
 }
 
 .defect-pill {
@@ -3134,6 +3286,143 @@ textarea.form-control {
     padding: 4px 10px;
 }
 
+.profile-heading {
+    margin-bottom: 26px;
+}
+
+.profile-hero {
+    align-items: center;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    display: grid;
+    gap: 24px;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.8fr);
+    margin-bottom: 24px;
+    padding: 26px;
+}
+
+.profile-identity {
+    align-items: center;
+    display: flex;
+    gap: 18px;
+    min-width: 0;
+}
+
+.profile-identity img,
+.profile-avatar {
+    align-items: center;
+    background: var(--brand);
+    border-radius: 999px;
+    color: #fff;
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 30px;
+    font-weight: 900;
+    height: 86px;
+    justify-content: center;
+    object-fit: cover;
+    width: 86px;
+}
+
+.profile-role {
+    background: var(--brand-light);
+    border-radius: 8px;
+    color: var(--brand-dark);
+    display: inline-flex;
+    font-size: 12px;
+    font-weight: 800;
+    margin-bottom: 10px;
+    padding: 5px 10px;
+}
+
+.profile-identity h3 {
+    font-size: 26px;
+    font-weight: 800;
+    margin: 0 0 6px;
+    overflow-wrap: anywhere;
+}
+
+.profile-identity p {
+    color: var(--muted);
+    margin: 0;
+}
+
+.profile-account-state,
+.profile-detail-list {
+    display: grid;
+    gap: 12px;
+}
+
+.profile-account-state {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.profile-account-state div,
+.profile-detail-list div {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.profile-account-state span,
+.profile-detail-list span {
+    color: var(--muted);
+    display: block;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.profile-account-state strong,
+.profile-detail-list strong {
+    color: var(--ink);
+    display: block;
+    font-size: 15px;
+    overflow-wrap: anywhere;
+}
+
+.profile-metrics {
+    margin-bottom: 24px;
+}
+
+.profile-projects-card {
+    margin-top: 24px;
+}
+
+.profile-project-list {
+    display: grid;
+    gap: 12px;
+}
+
+.profile-project-list a {
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--ink);
+    display: grid;
+    gap: 14px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 16px;
+    text-decoration: none;
+}
+
+.profile-project-list a:hover {
+    background: var(--brand-light);
+}
+
+.profile-project-list strong,
+.profile-project-list small {
+    display: block;
+}
+
+.profile-project-list small {
+    color: var(--muted);
+    margin-top: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 @media (max-width: 1100px) {
     .hero-grid,
     .auth-shell,
@@ -3164,11 +3453,17 @@ textarea.form-control {
     .testcase-metric-grid,
     .testcase-filters,
     .execution-grid,
+    .execution-history-metrics,
     .defect-metric-grid,
     .defects-filters,
     .traceability-metric-grid,
     .report-type-grid {
         grid-template-columns: 1fr 1fr;
+    }
+
+    .profile-hero,
+    .profile-account-state {
+        grid-template-columns: 1fr;
     }
 
     .detail-date-grid {
@@ -3370,6 +3665,7 @@ textarea.form-control {
     }
 
     .execution-grid,
+    .execution-history-metrics,
     .execution-result-options,
     .defect-metric-grid,
     .defects-filters,
@@ -3393,6 +3689,20 @@ textarea.form-control {
 
     .report-actions {
         flex-direction: column;
+    }
+
+    .profile-identity {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .profile-project-list a {
+        align-items: flex-start;
+        grid-template-columns: 1fr;
+    }
+
+    .profile-project-list small {
+        white-space: normal;
     }
 }
 
@@ -3530,8 +3840,11 @@ textarea.form-control {
 .theme-dark .defects-list-card,
 .theme-dark .defect-metric-card,
 .theme-dark .defect-row,
+.theme-dark .execution-history-card,
+.theme-dark .execution-history-metrics article,
 .theme-dark .traceability-card,
 .theme-dark .traceability-metric-card,
+.theme-dark .execution-evidence-preview,
 .theme-dark .report-row,
 .theme-dark .report-preview,
 .theme-dark .phase-card,
@@ -3541,7 +3854,11 @@ textarea.form-control {
 .theme-dark .dropdown-menu,
 .theme-dark .modal-content,
 .theme-dark .notification-tabs a,
-.theme-dark .notification-card {
+.theme-dark .notification-card,
+.theme-dark .profile-hero,
+.theme-dark .profile-account-state div,
+.theme-dark .profile-detail-list div,
+.theme-dark .profile-project-list a {
     background-color: var(--panel);
     border-color: var(--line);
     color: var(--ink);
@@ -3634,7 +3951,8 @@ textarea.form-control {
 }
 
 .theme-dark .slim-progress,
-.theme-dark .phase-progress-track {
+.theme-dark .phase-progress-track,
+.theme-dark .execution-evidence-header {
     background-color: #24364b;
 }
 

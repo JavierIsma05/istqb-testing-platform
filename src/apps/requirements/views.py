@@ -1,6 +1,7 @@
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.db.models import Count, Q
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
 from apps.projects.models import Project
@@ -95,6 +96,7 @@ def requirement_create_view(request):
         requirement = form.save(commit=False)
         requirement.created_by = request.user
         requirement.save()
+        messages.success(request, 'Requisito creado correctamente.')
         return redirect('requirements:index')
 
     return render(
@@ -106,3 +108,53 @@ def requirement_create_view(request):
             'subtitle': 'Registra requisitos funcionales y no funcionales vinculados a un proyecto.',
         },
     )
+
+
+@login_required
+def requirement_update_view(request, pk):
+    readonly_redirect = redirect_if_teacher_readonly(request, 'requirements:index', 'requisitos')
+    if readonly_redirect:
+        return readonly_redirect
+
+    requirement = get_object_or_404(
+        Requirement,
+        pk=pk,
+        project__in=visible_projects_for(request.user),
+    )
+    form = RequirementForm(request.POST or None, instance=requirement)
+
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Requisito actualizado correctamente.')
+        return redirect('requirements:index')
+
+    return render(
+        request,
+        'requirements/form.html',
+        {
+            'form': form,
+            'title': 'Editar Requisito',
+            'subtitle': 'Actualiza los datos del requisito sin perder su trazabilidad asociada.',
+        },
+    )
+
+
+@login_required
+def requirement_delete_view(request, pk):
+    readonly_redirect = redirect_if_teacher_readonly(request, 'requirements:index', 'requisitos')
+    if readonly_redirect:
+        return readonly_redirect
+
+    requirement = get_object_or_404(
+        Requirement,
+        pk=pk,
+        project__in=visible_projects_for(request.user),
+    )
+
+    if request.method == 'POST':
+        requirement.delete()
+        messages.success(request, 'Requisito eliminado correctamente.')
+    else:
+        messages.error(request, 'La eliminacion debe confirmarse desde el listado.')
+
+    return redirect('requirements:index')

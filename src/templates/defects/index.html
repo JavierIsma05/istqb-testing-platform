@@ -80,9 +80,26 @@
                         <span>Asignado: {{ item.defect.assigned_to.get_full_name|default:item.defect.assigned_to.email|default:'Sin asignar' }}</span>
                     </p>
                 </div>
-                <span class="defect-status defect-status-{{ item.badge }}">
-                    {{ item.defect.get_status_display }}
-                </span>
+                <div class="list-row-actions">
+                    <span class="defect-status defect-status-{{ item.badge }}">
+                        {{ item.defect.get_status_display }}
+                    </span>
+                    {% if can_manage %}
+                        <div class="manage-actions" aria-label="Gestionar defecto">
+                            <a class="btn btn-outline-brand btn-sm" href="{% url 'defects:edit' item.defect.pk %}">
+                                <i class="bi bi-pencil"></i>
+                                Editar
+                            </a>
+                            <form method="POST" action="{% url 'defects:delete' item.defect.pk %}">
+                                {% csrf_token %}
+                                <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar este defecto no elimina la ejecucion relacionada. Deseas continuar?">
+                                    <i class="bi bi-trash"></i>
+                                    Eliminar
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                </div>
             </article>
         {% empty %}
             <div class="empty-projects">

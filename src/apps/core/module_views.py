@@ -57,14 +57,6 @@ MODULES = {
         'fields': ('test_case', 'executed_at', 'result', 'evidence', 'notes'),
         'namespace': 'executions',
     },
-    'defects': {
-        'title': 'Defectos',
-        'subtitle': 'Da seguimiento a defectos desde reporte hasta cierre.',
-        'model': Defect,
-        'columns': ('title', 'project', 'severity', 'status'),
-        'fields': ('project', 'execution', 'title', 'description', 'severity', 'status', 'assigned_to'),
-        'namespace': 'defects',
-    },
     'incidents': {
         'title': 'Incidentes',
         'subtitle': 'Controla eventos que afectan el ciclo de pruebas.',
@@ -72,6 +64,14 @@ MODULES = {
         'columns': ('title', 'project', 'status'),
         'fields': ('project', 'title', 'description', 'status'),
         'namespace': 'incidents',
+    },
+    'defects': {
+        'title': 'Defectos',
+        'subtitle': 'Da seguimiento a defectos desde reporte hasta cierre.',
+        'model': Defect,
+        'columns': ('title', 'project', 'severity', 'status'),
+        'fields': ('project', 'execution', 'title', 'description', 'severity', 'status', 'assigned_to'),
+        'namespace': 'defects',
     },
     'traceability': {
         'title': 'Trazabilidad',

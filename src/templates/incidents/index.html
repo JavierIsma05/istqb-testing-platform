@@ -65,9 +65,26 @@
                         <span>Impacto: {{ item.incident.get_impact_display }}</span>
                     </p>
                 </div>
-                <span class="incident-status incident-status-{{ item.badge }}">
-                    {{ item.incident.get_status_display }}
-                </span>
+                <div class="list-row-actions">
+                    <span class="incident-status incident-status-{{ item.badge }}">
+                        {{ item.incident.get_status_display }}
+                    </span>
+                    {% if can_manage %}
+                        <div class="manage-actions" aria-label="Gestionar incidencia">
+                            <a class="btn btn-outline-brand btn-sm" href="{% url 'incidents:edit' item.incident.pk %}">
+                                <i class="bi bi-pencil"></i>
+                                Editar
+                            </a>
+                            <form method="POST" action="{% url 'incidents:delete' item.incident.pk %}">
+                                {% csrf_token %}
+                                <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar esta incidencia o riesgo. Deseas continuar?">
+                                    <i class="bi bi-trash"></i>
+                                    Eliminar
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                </div>
             </article>
         {% empty %}
             <div class="empty-projects">

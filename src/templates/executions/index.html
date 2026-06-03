@@ -51,6 +51,20 @@
                 <div class="last-execution-note">
                     Última ejecución: {{ last_execution.executed_at|date:'d M Y H:i' }} por {{ last_execution.executed_by.get_full_name|default:last_execution.executed_by.email }}
                 </div>
+                {% if last_execution.evidence %}
+                    <div class="execution-evidence-preview">
+                        <div class="execution-evidence-header">
+                            <i class="bi bi-paperclip"></i>
+                            <span>Evidencia adjunta</span>
+                            <a href="{{ last_execution.evidence.url }}" target="_blank" rel="noopener">Ver archivo</a>
+                        </div>
+                        {% if last_execution_evidence_is_image %}
+                            <a href="{{ last_execution.evidence.url }}" target="_blank" rel="noopener">
+                                <img src="{{ last_execution.evidence.url }}" alt="Captura de pantalla de la ejecucion">
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
             {% endif %}
         </article>
 
@@ -62,12 +76,12 @@
 
                     <div class="execution-result-options">
                         {% for radio in form.result %}
-                            <label class="execution-result-option execution-option-{{ radio.choice_label|lower }}">
+                            <label class="execution-result-option execution-option-{{ radio.data.value|lower }}">
                                 {{ radio.tag }}
                                 <span class="result-icon">
-                                    {% if radio.choice_label == 'Passed' %}
+                                    {% if radio.choice_label == 'Aprobado' %}
                                         <i class="bi bi-check-circle"></i>
-                                    {% elif radio.choice_label == 'Failed' %}
+                                    {% elif radio.choice_label == 'Fallido' %}
                                         <i class="bi bi-x-circle"></i>
                                     {% else %}
                                         <i class="bi bi-play"></i>
@@ -89,9 +103,10 @@
                         <label class="form-label" for="{{ form.evidence.id_for_label }}">{{ form.evidence.label }}</label>
                         <label class="execution-upload">
                             <i class="bi bi-upload"></i>
-                            <span>Adjuntar Screenshots</span>
+                            <span data-file-name>Adjuntar capturas de pantalla</span>
                             {{ form.evidence }}
                         </label>
+                        <p class="execution-upload-help">Formatos admitidos: PNG, JPG, JPEG, GIF o WEBP.</p>
                         {% if form.evidence.errors %}<div class="form-error">{{ form.evidence.errors|striptags }}</div>{% endif %}
                     </div>
 
@@ -105,12 +120,100 @@
                         <div><span>Resultado</span><strong>{{ last_execution.get_result_display }}</strong></div>
                         <div><span>Ejecutado por</span><strong>{{ last_execution.executed_by.get_full_name|default:last_execution.executed_by.email|default:'Sin asignar' }}</strong></div>
                         <div><span>Fecha</span><strong>{{ last_execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}</strong></div>
+                        <div>
+                            <span>Evidencia</span>
+                            {% if last_execution.evidence %}
+                                <strong><a href="{{ last_execution.evidence.url }}" target="_blank" rel="noopener">Ver archivo</a></strong>
+                            {% else %}
+                                <strong>Sin evidencia</strong>
+                            {% endif %}
+                        </div>
                     </div>
                 {% else %}
                     <p class="text-muted mb-0">Este caso todavia no tiene ejecuciones registradas.</p>
                 {% endif %}
             {% endif %}
         </article>
+    </section>
+
+    <section class="execution-history-card">
+        <div class="card-heading">
+            <div>
+                <h3>Historial de Ejecuciones</h3>
+                <p>Total de ejecuciones, resultados y evidencias del caso seleccionado.</p>
+            </div>
+        </div>
+
+        <div class="execution-history-metrics">
+            <article>
+                <span>Total</span>
+                <strong>{{ execution_total }}</strong>
+            </article>
+            <article>
+                <span>Aprobadas</span>
+                <strong>{{ passed_count }}</strong>
+            </article>
+            <article>
+                <span>Fallidas</span>
+                <strong>{{ failed_count }}</strong>
+            </article>
+            <article>
+                <span>Exito</span>
+                <strong>{{ success_percent }}%</strong>
+            </article>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Resultado</th>
+                        <th>Usuario</th>
+                        <th>Observaciones</th>
+                        <th>Evidencia</th>
+                        {% if can_manage %}<th>Gestionar</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in execution_history %}
+                        <tr>
+                            <td>{{ item.execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}</td>
+                            <td>{{ item.execution.get_result_display }}</td>
+                            <td>{{ item.execution.executed_by.get_full_name|default:item.execution.executed_by.email|default:'Sin asignar' }}</td>
+                            <td>{{ item.execution.notes|default:'Sin observaciones' }}</td>
+                            <td>
+                                {% if item.execution.evidence %}
+                                    <a class="execution-evidence-link" href="{{ item.execution.evidence.url }}" target="_blank" rel="noopener">
+                                        {% if item.evidence_is_image %}
+                                            <img src="{{ item.execution.evidence.url }}" alt="Evidencia de ejecucion">
+                                        {% endif %}
+                                        <span>Ver archivo</span>
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">Sin evidencia</span>
+                                {% endif %}
+                            </td>
+                            {% if can_manage %}
+                                <td>
+                                    <form method="POST" action="{% url 'executions:delete' item.execution.pk %}">
+                                        {% csrf_token %}
+                                        <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar esta ejecucion del historial. Deseas continuar?">
+                                            <i class="bi bi-trash"></i>
+                                            Eliminar
+                                        </button>
+                                    </form>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="{% if can_manage %}6{% else %}5{% endif %}" class="text-center text-muted py-4">Este caso aun no tiene ejecuciones registradas.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </section>
 {% else %}
     <div class="empty-projects">

@@ -74,7 +74,8 @@
                 <div class="testcase-meta">
                     <span>Técnica: <strong class="soft-tag">{{ item.case.get_technique_display }}</strong></span>
                     <span>Prioridad: <strong>{{ item.case.get_priority_display }}</strong></span>
-                    <span>Última ejecución: <strong>{{ item.case.updated_at|date:'d M Y' }}</strong></span>
+                    <span>Ejecuciones: <strong>{{ item.case.execution_count }}</strong></span>
+                    <span>Última actualización: <strong>{{ item.case.updated_at|date:'d M Y' }}</strong></span>
                     <span>Por: <strong>{{ item.case.created_by.get_full_name|default:item.case.created_by.email|default:'Sin asignar' }}</strong></span>
                 </div>
             </div>
@@ -84,9 +85,16 @@
                     {{ item.case.get_status_display }}
                 </span>
                 <div>
-                    <a class="btn btn-outline-brand btn-sm" href="#">Ver Detalle</a>
+                    <a class="btn btn-outline-brand btn-sm" href="{% url 'testcases:detail' item.case.pk %}">Ver Detalle</a>
                     {% if can_manage %}
-                        <a class="btn btn-brand btn-sm" href="{% url 'executions:index' %}">Ejecutar</a>
+                        <a class="btn btn-outline-brand btn-sm" href="{% url 'testcases:edit' item.case.pk %}">Editar</a>
+                        <a class="btn btn-brand btn-sm" href="{% url 'executions:index' %}?case={{ item.case.pk }}">Ejecutar</a>
+                        <form method="POST" action="{% url 'testcases:delete' item.case.pk %}">
+                            {% csrf_token %}
+                            <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar este caso tambien eliminara sus ejecuciones y defectos asociados. Deseas continuar?">
+                                Eliminar
+                            </button>
+                        </form>
                     {% endif %}
                 </div>
             </div>
