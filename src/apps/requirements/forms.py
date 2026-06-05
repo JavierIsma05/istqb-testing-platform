@@ -1,4 +1,9 @@
+import json
+
 from django import forms
+
+from apps.core.codes import next_code
+from apps.projects.models import Project
 
 from .models import Requirement
 
@@ -39,3 +44,35 @@ class RequirementForm(forms.ModelForm):
             'priority': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        project_id = self.data.get('project') if self.is_bound else self.instance.project_id
+        queryset = Requirement.objects.filter(project_id=project_id) if project_id else Requirement.objects.none()
+        self.fields['code'].required = False
+        self.fields['code'].disabled = True
+        self.fields['code'].initial = self.instance.code or next_code(queryset, 'REQ')
+        self.fields['code'].widget.attrs.update({
+            'placeholder': 'REQ-000',
+            'readonly': 'readonly',
+            'data-default-code': 'REQ-000',
+        })
+        self.fields['project'].widget.attrs.update({
+            'data-code-target': self.fields['code'].widget.attrs.get('id', 'id_code'),
+            'data-next-codes': json.dumps({
+                str(project_id): next_code(Requirement.objects.filter(project_id=project_id), 'REQ')
+                for project_id in Project.objects.values_list('id', flat=True)
+            }),
+        })
+        help_texts = {
+            'project': 'Proyecto donde se usara este requisito para trazabilidad y cobertura.',
+            'code': 'Identificador unico del requisito, por ejemplo REQ-001.',
+            'title': 'Nombre corto del comportamiento, regla o restriccion esperada.',
+            'description': 'Describe con claridad que debe hacer el sistema y bajo que condiciones.',
+            'requirement_type': 'Clasifica si el requisito es funcional, no funcional u otro tipo definido.',
+            'priority': 'Indica la importancia del requisito para planificar pruebas y entregas.',
+            'status': 'Refleja si el requisito esta pendiente, aprobado, en cambio o cerrado.',
+        }
+        for name, help_text in help_texts.items():
+            self.fields[name].help_text = help_text
+            self.fields[name].widget.attrs['data-help'] = help_text

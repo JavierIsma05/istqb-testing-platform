@@ -64,6 +64,60 @@ a {
     --bs-btn-hover-border-color: var(--brand-light);
 }
 
+.confirm-action-modal .modal-dialog {
+    max-width: 420px;
+}
+
+.confirm-action-modal .modal-content {
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 24px 70px rgba(11, 49, 95, 0.2);
+    padding: 30px 28px 26px;
+    text-align: center;
+}
+
+.confirm-action-icon {
+    align-items: center;
+    border: 2px solid #fbbf24;
+    border-radius: 999px;
+    color: #f59e0b;
+    display: inline-flex;
+    font-size: 38px;
+    height: 58px;
+    justify-content: center;
+    margin-bottom: 14px;
+    width: 58px;
+}
+
+.confirm-action-modal .modal-title {
+    color: var(--ink);
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 0;
+}
+
+.confirm-action-message {
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.45;
+    margin: 10px 0 22px;
+    max-width: 330px;
+}
+
+.confirm-action-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    width: 100%;
+}
+
+.confirm-action-actions .btn {
+    min-width: 118px;
+}
+
 .brand-mark {
     align-items: center;
     background: linear-gradient(135deg, var(--brand), var(--accent));
@@ -321,9 +375,66 @@ a {
 }
 
 .form-label {
+    align-items: center;
     color: var(--ink);
+    display: inline-flex;
     font-size: 14px;
     font-weight: 700;
+    gap: 8px;
+}
+
+.field-help {
+    align-items: center;
+    background: var(--ink);
+    border: 0;
+    border-radius: 999px;
+    color: #fff;
+    cursor: help;
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 900;
+    height: 22px;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    width: 22px;
+}
+
+.field-help:hover,
+.field-help:focus {
+    background: var(--brand-dark);
+    box-shadow: 0 0 0 0.2rem rgba(116, 200, 239, 0.25);
+    color: #fff;
+    outline: 0;
+}
+
+.tooltip.field-help-tooltip .tooltip-inner {
+    background: var(--ink);
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(11, 49, 95, 0.22);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+    max-width: 280px;
+    padding: 10px 12px;
+    text-align: left;
+}
+
+.tooltip.field-help-tooltip.bs-tooltip-top .tooltip-arrow::before {
+    border-top-color: var(--ink);
+}
+
+.tooltip.field-help-tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+    border-bottom-color: var(--ink);
+}
+
+.tooltip.field-help-tooltip.bs-tooltip-start .tooltip-arrow::before {
+    border-left-color: var(--ink);
+}
+
+.tooltip.field-help-tooltip.bs-tooltip-end .tooltip-arrow::before {
+    border-right-color: var(--ink);
 }
 
 .auth-link,
@@ -2214,7 +2325,7 @@ textarea.form-control {
 }
 
 .testcase-modal .modal-dialog {
-    max-width: 514px;
+    max-width: min(1180px, calc(100vw - 48px));
 }
 
 .testcase-modal .modal-content {
@@ -2225,11 +2336,11 @@ textarea.form-control {
 .testcase-modal .modal-header {
     align-items: flex-start;
     border-bottom: 0;
-    padding: 22px 24px 10px;
+    padding: 24px 30px 10px;
 }
 
 .testcase-modal .modal-title {
-    font-size: 18px;
+    font-size: 22px;
     font-weight: 800;
 }
 
@@ -2239,16 +2350,23 @@ textarea.form-control {
 }
 
 .testcase-modal .modal-body {
-    padding: 10px 24px 20px;
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+    padding: 10px 30px 20px;
 }
 
 .testcase-modal .modal-footer {
     border-top: 0;
-    padding: 12px 24px 24px;
+    padding: 12px 30px 26px;
 }
 
 .testcase-modal textarea.form-control {
-    min-height: 64px;
+    min-height: 92px;
+}
+
+.testcase-modal .form-control,
+.testcase-modal .form-select {
+    min-height: 46px;
 }
 
 .executions-heading {
@@ -2971,8 +3089,13 @@ textarea.form-control {
 }
 
 .report-actions {
+    align-items: center;
     display: flex;
     gap: 8px;
+}
+
+.report-actions form {
+    margin: 0;
 }
 
 #reportModal .modal-content {
@@ -3845,6 +3968,8 @@ textarea.form-control {
 .theme-dark .traceability-card,
 .theme-dark .traceability-metric-card,
 .theme-dark .execution-evidence-preview,
+.theme-dark .report-type-card,
+.theme-dark .reports-list-card,
 .theme-dark .report-row,
 .theme-dark .report-preview,
 .theme-dark .phase-card,
@@ -3858,7 +3983,8 @@ textarea.form-control {
 .theme-dark .profile-hero,
 .theme-dark .profile-account-state div,
 .theme-dark .profile-detail-list div,
-.theme-dark .profile-project-list a {
+.theme-dark .profile-project-list a,
+.theme-dark .empty-projects {
     background-color: var(--panel);
     border-color: var(--line);
     color: var(--ink);
@@ -3885,6 +4011,8 @@ textarea.form-control {
 .theme-dark .testcase-meta,
 .theme-dark .incident-main p,
 .theme-dark .defect-main p,
+.theme-dark .report-type-card p,
+.theme-dark .report-main p,
 .theme-dark .student-project-lockup small,
 .theme-dark .tutor-progress span,
 .theme-dark .pending-review,
@@ -3920,6 +4048,12 @@ textarea.form-control {
 .theme-dark .form-control,
 .theme-dark .form-select,
 .theme-dark .search-control,
+.theme-dark .search-control input,
+.theme-dark .project-filters select,
+.theme-dark .requirements-filters select,
+.theme-dark .testcase-filters select,
+.theme-dark .incidents-filters select,
+.theme-dark .defects-filters select,
 .theme-dark .execution-upload {
     background-color: #0d1725;
     border-color: var(--line);
@@ -3927,15 +4061,111 @@ textarea.form-control {
 }
 
 .theme-dark .form-control:focus,
-.theme-dark .form-select:focus {
+.theme-dark .form-select:focus,
+.theme-dark .search-control:focus-within,
+.theme-dark .search-control input:focus,
+.theme-dark .project-filters select:focus,
+.theme-dark .requirements-filters select:focus,
+.theme-dark .testcase-filters select:focus,
+.theme-dark .incidents-filters select:focus,
+.theme-dark .defects-filters select:focus {
     background-color: #101c2d;
     border-color: var(--accent);
     color: var(--ink);
+    outline: 0;
 }
 
 .theme-dark .form-control::placeholder,
 .theme-dark .search-control input::placeholder {
     color: #7f91aa;
+}
+
+.theme-dark .field-help {
+    background: #315f86;
+    box-shadow: inset 0 0 0 1px rgba(172, 214, 245, 0.22);
+    color: #f8fbff;
+}
+
+.theme-dark .field-help:hover,
+.theme-dark .field-help:focus {
+    background: #4f789c;
+    box-shadow: 0 0 0 0.2rem rgba(116, 200, 239, 0.2);
+}
+
+.theme-dark .tooltip.field-help-tooltip {
+    opacity: 1;
+}
+
+.theme-dark .tooltip.field-help-tooltip .tooltip-inner {
+    background: #0d1725;
+    border: 1px solid #31506f;
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.38);
+    color: #e5edf7;
+}
+
+.theme-dark .tooltip.field-help-tooltip.bs-tooltip-top .tooltip-arrow::before {
+    border-top-color: #31506f;
+}
+
+.theme-dark .tooltip.field-help-tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+    border-bottom-color: #31506f;
+}
+
+.theme-dark .tooltip.field-help-tooltip.bs-tooltip-start .tooltip-arrow::before {
+    border-left-color: #31506f;
+}
+
+.theme-dark .tooltip.field-help-tooltip.bs-tooltip-end .tooltip-arrow::before {
+    border-right-color: #31506f;
+}
+
+.theme-dark .project-filters select option,
+.theme-dark .requirements-filters select option,
+.theme-dark .testcase-filters select option,
+.theme-dark .incidents-filters select option,
+.theme-dark .defects-filters select option {
+    background-color: #0d1725;
+    color: var(--ink);
+}
+
+.theme-dark .project-view-tabs a {
+    color: var(--muted);
+}
+
+.theme-dark .empty-projects i,
+.theme-dark .empty-projects h3 {
+    color: var(--brand-dark);
+}
+
+.theme-dark .empty-projects p {
+    color: var(--muted);
+}
+
+.theme-dark .report-type-card {
+    background-color: #101c2d;
+}
+
+.theme-dark .report-type-card h3,
+.theme-dark .reports-list-card h3,
+.theme-dark .report-main strong {
+    color: var(--ink);
+}
+
+.theme-dark .report-type-card i,
+.theme-dark .report-icon {
+    color: #8fc4ef;
+}
+
+.theme-dark .report-type-success i {
+    color: #34d399;
+}
+
+.theme-dark .report-type-danger i {
+    color: #f87171;
+}
+
+.theme-dark .reports-list-card .empty-projects {
+    background-color: #0d1725;
 }
 
 .theme-dark .table > :not(caption) > * > * {

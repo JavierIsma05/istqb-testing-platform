@@ -4,6 +4,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
+from apps.core.codes import next_code
 from apps.projects.models import Project
 
 from .forms import DefectForm
@@ -81,6 +82,7 @@ def defect_create_view(request):
 
     if request.method == 'POST' and form.is_valid():
         defect = form.save(commit=False)
+        defect.code = next_code(Defect.objects.filter(project=defect.project), 'DEF')
         defect.reported_by = request.user
         defect.save()
         messages.success(request, 'Defecto registrado correctamente.')

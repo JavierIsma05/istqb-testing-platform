@@ -22,7 +22,7 @@
                 <div class="{% if field.field.widget.input_type == 'textarea' or field.name == 'description' or field.name == 'preconditions' or field.name == 'steps' or field.name == 'expected_result' %}col-12{% else %}col-md-6{% endif %}">
                     <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
                     {{ field }}
-                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                    {% if field.help_text %}<div class="form-text visually-hidden">{{ field.help_text }}</div>{% endif %}
                     {% if field.errors %}<div class="form-error">{{ field.errors|striptags }}</div>{% endif %}
                 </div>
             {% endfor %}

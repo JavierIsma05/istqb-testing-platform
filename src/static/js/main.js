@@ -1,4 +1,66 @@
 document.addEventListener('DOMContentLoaded', function () {
+    function addFieldHelpIcons() {
+        Array.prototype.slice.call(document.querySelectorAll('[data-help]')).forEach(function (field) {
+            var helpText = field.getAttribute('data-help');
+            var id = field.getAttribute('id');
+            var label = id ? document.querySelector('label[for="' + id + '"]') : null;
+
+            if (field.tagName !== 'SELECT' || !helpText || !label || label.querySelector('.field-help')) {
+                return;
+            }
+
+            var help = document.createElement('button');
+            help.className = 'field-help';
+            help.type = 'button';
+            help.textContent = '?';
+            help.setAttribute('aria-label', 'Ayuda: ' + helpText);
+            help.setAttribute('data-bs-toggle', 'tooltip');
+            help.setAttribute('data-bs-placement', 'top');
+            help.setAttribute('data-bs-custom-class', 'field-help-tooltip');
+            help.setAttribute('title', helpText);
+
+            label.appendChild(help);
+        });
+
+        if (window.bootstrap && bootstrap.Tooltip) {
+            Array.prototype.slice.call(document.querySelectorAll('.field-help[data-bs-toggle="tooltip"]')).forEach(function (help) {
+                bootstrap.Tooltip.getOrCreateInstance(help);
+            });
+        }
+    }
+
+    addFieldHelpIcons();
+
+    function bindAutoCodeFields() {
+        Array.prototype.slice.call(document.querySelectorAll('[data-next-codes][data-code-target]')).forEach(function (source) {
+            var target = document.getElementById(source.getAttribute('data-code-target'));
+            var codes = {};
+
+            try {
+                codes = JSON.parse(source.getAttribute('data-next-codes') || '{}');
+            } catch (error) {
+                codes = {};
+            }
+
+            if (!target) {
+                return;
+            }
+
+            function renderCode() {
+                var fallback = target.getAttribute('data-default-code') || target.getAttribute('placeholder') || '';
+                target.value = codes[source.value] || fallback;
+            }
+
+            source.addEventListener('change', renderCode);
+
+            if (!target.value) {
+                renderCode();
+            }
+        });
+    }
+
+    bindAutoCodeFields();
+
     var themeToggle = document.querySelector('[data-theme-toggle]');
     var themeIcon = document.querySelector('[data-theme-icon]');
     var root = document.documentElement;
@@ -152,15 +214,68 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    var confirmModalElement = document.getElementById('confirmActionModal');
+    var confirmModal = confirmModalElement && window.bootstrap
+        ? new bootstrap.Modal(confirmModalElement)
+        : null;
+    var confirmModalMessage = confirmModalElement
+        ? confirmModalElement.querySelector('[data-confirm-modal-message]')
+        : null;
+    var confirmModalAccept = confirmModalElement
+        ? confirmModalElement.querySelector('[data-confirm-modal-accept]')
+        : null;
+    var pendingConfirmForm = null;
+    var pendingConfirmSubmitter = null;
+
     document.addEventListener('submit', function (event) {
         var confirmButton = event.submitter && event.submitter.matches('[data-confirm-message]')
             ? event.submitter
             : null;
 
-        if (confirmButton && !window.confirm(confirmButton.getAttribute('data-confirm-message'))) {
-            event.preventDefault();
+        if (!confirmButton || event.target.getAttribute('data-confirm-approved') === 'true') {
+            if (event.target.getAttribute('data-confirm-approved') === 'true') {
+                event.target.removeAttribute('data-confirm-approved');
+            }
+            return;
         }
+
+        if (!confirmModal || !confirmModalMessage || !confirmModalAccept) {
+            return;
+        }
+
+        event.preventDefault();
+        pendingConfirmForm = event.target;
+        pendingConfirmSubmitter = confirmButton;
+        confirmModalMessage.textContent = confirmButton.getAttribute('data-confirm-message');
+        confirmModal.show();
     });
+
+    if (confirmModalAccept) {
+        confirmModalAccept.addEventListener('click', function () {
+            if (!pendingConfirmForm) {
+                return;
+            }
+
+            pendingConfirmForm.setAttribute('data-confirm-approved', 'true');
+            confirmModal.hide();
+
+            if (pendingConfirmForm.requestSubmit && pendingConfirmSubmitter) {
+                pendingConfirmForm.requestSubmit(pendingConfirmSubmitter);
+            } else {
+                pendingConfirmForm.submit();
+            }
+
+            pendingConfirmForm = null;
+            pendingConfirmSubmitter = null;
+        });
+    }
+
+    if (confirmModalElement) {
+        confirmModalElement.addEventListener('hidden.bs.modal', function () {
+            pendingConfirmForm = null;
+            pendingConfirmSubmitter = null;
+        });
+    }
 
     document.addEventListener('keydown', function (event) {
         if (event.key !== 'Escape') {

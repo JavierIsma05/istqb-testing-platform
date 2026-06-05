@@ -1,5 +1,7 @@
 from django import forms
 
+from apps.core.codes import next_code
+
 from .models import Project
 
 
@@ -37,4 +39,23 @@ class ProjectForm(forms.ModelForm):
         self.fields['start_date'].input_formats = ['%Y-%m-%d']
         self.fields['end_date'].input_formats = ['%Y-%m-%d']
         self.fields['members'].required = False
-        self.fields['members'].help_text = 'Selecciona estudiantes y docentes vinculados al proyecto.'
+        self.fields['code'].required = False
+        self.fields['code'].disabled = True
+        self.fields['code'].initial = self.instance.code or next_code(Project.objects.all(), 'PRJ')
+        self.fields['code'].widget.attrs.update({
+            'placeholder': 'PRJ-000',
+            'readonly': 'readonly',
+            'data-default-code': 'PRJ-000',
+        })
+        help_texts = {
+            'code': 'Usa un identificador corto y unico para reconocer el proyecto en listados y reportes.',
+            'name': 'Escribe un nombre claro del sistema o modulo que sera probado.',
+            'description': 'Resume el objetivo, contexto y alcance general del proyecto.',
+            'status': 'Indica si el proyecto esta planificado, activo, pausado o finalizado.',
+            'start_date': 'Fecha desde la que se planifica iniciar las actividades de prueba.',
+            'end_date': 'Fecha estimada para cerrar las actividades principales del proyecto.',
+            'members': 'Selecciona estudiantes y docentes vinculados al proyecto.',
+        }
+        for name, help_text in help_texts.items():
+            self.fields[name].help_text = help_text
+            self.fields[name].widget.attrs['data-help'] = help_text

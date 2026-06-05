@@ -1,4 +1,9 @@
+import json
+
 from django import forms
+
+from apps.core.codes import next_code
+from apps.testplans.models import TestPlan
 
 from .models import TestCase
 
@@ -60,3 +65,37 @@ class TestCaseModalForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['requirement'].required = False
+        test_plan_id = self.data.get('test_plan') if self.is_bound else self.instance.test_plan_id
+        project_id = None
+        if test_plan_id:
+            project_id = TestPlan.objects.filter(pk=test_plan_id).values_list('project_id', flat=True).first()
+        queryset = TestCase.objects.filter(test_plan__project_id=project_id) if project_id else TestCase.objects.none()
+        self.fields['code'].required = False
+        self.fields['code'].disabled = True
+        self.fields['code'].initial = self.instance.code or next_code(queryset, 'TC')
+        self.fields['code'].widget.attrs.update({
+            'placeholder': 'TC-000',
+            'readonly': 'readonly',
+            'data-default-code': 'TC-000',
+        })
+        self.fields['test_plan'].widget.attrs.update({
+            'data-code-target': self.fields['code'].widget.attrs.get('id', 'id_code'),
+            'data-next-codes': json.dumps({
+                str(test_plan.pk): next_code(
+                    TestCase.objects.filter(test_plan__project_id=test_plan.project_id),
+                    'TC',
+                )
+                for test_plan in TestPlan.objects.only('id', 'project_id')
+            }),
+        })
+        help_texts = {
+            'test_plan': 'Plan de pruebas donde se ejecutara o controlara este caso.',
+            'requirement': 'Requisito cubierto por el caso; ayuda a medir trazabilidad.',
+            'priority': 'Importancia del caso para ordenar la ejecucion.',
+            'technique': 'Tecnica ISTQB usada para disenar el caso, como particion de equivalencia o valores limite.',
+            'level': 'Nivel donde aplica el caso: componente, integracion, sistema o aceptacion.',
+            'status': 'Estado de preparacion o ejecucion del caso.',
+        }
+        for name, help_text in help_texts.items():
+            self.fields[name].help_text = help_text
+            self.fields[name].widget.attrs['data-help'] = help_text

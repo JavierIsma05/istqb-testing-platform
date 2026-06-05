@@ -57,7 +57,7 @@
             <div class="col-12">
                 <label class="form-label" for="{{ form.members.id_for_label }}">{{ form.members.label }}</label>
                 {{ form.members }}
-                <div class="form-text">{{ form.members.help_text }}</div>
+                <div class="form-text visually-hidden">{{ form.members.help_text }}</div>
                 {% if form.members.errors %}<div class="form-error">{{ form.members.errors|striptags }}</div>{% endif %}
             </div>
         </div>

@@ -1,4 +1,9 @@
+import json
+
 from django import forms
+
+from apps.core.codes import next_code
+from apps.projects.models import Project
 
 from .models import Defect
 
@@ -50,3 +55,34 @@ class DefectForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['execution'].required = False
         self.fields['assigned_to'].required = False
+        project_id = self.data.get('project') if self.is_bound else self.instance.project_id
+        queryset = Defect.objects.filter(project_id=project_id) if project_id else Defect.objects.none()
+        self.fields['code'].required = False
+        self.fields['code'].disabled = True
+        self.fields['code'].initial = self.instance.code or next_code(queryset, 'DEF')
+        self.fields['code'].widget.attrs.update({
+            'placeholder': 'DEF-000',
+            'readonly': 'readonly',
+            'data-default-code': 'DEF-000',
+        })
+        self.fields['project'].widget.attrs.update({
+            'data-code-target': self.fields['code'].widget.attrs.get('id', 'id_code'),
+            'data-next-codes': json.dumps({
+                str(project_id): next_code(Defect.objects.filter(project_id=project_id), 'DEF')
+                for project_id in Project.objects.values_list('id', flat=True)
+            }),
+        })
+        help_texts = {
+            'project': 'Proyecto donde se encontro el defecto.',
+            'execution': 'Ejecucion del caso de prueba relacionada; puede quedar vacia si aun no aplica.',
+            'code': 'Identificador unico del defecto, por ejemplo DEF-001.',
+            'title': 'Resumen corto del problema observado.',
+            'description': 'Incluye pasos para reproducir, resultado obtenido y resultado esperado.',
+            'severity': 'Impacto tecnico o funcional del defecto en el sistema.',
+            'priority': 'Urgencia con la que deberia atenderse el defecto.',
+            'status': 'Estado actual del seguimiento del defecto.',
+            'assigned_to': 'Responsable sugerido para analizar o corregir el defecto.',
+        }
+        for name, help_text in help_texts.items():
+            self.fields[name].help_text = help_text
+            self.fields[name].widget.attrs['data-help'] = help_text

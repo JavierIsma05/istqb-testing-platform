@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.core.permissions import can_manage_artifacts, is_teacher, visible_projects_for
+from apps.core.codes import next_code
 
 from .forms import TestCaseModalForm
 from .models import TestCase
@@ -31,6 +32,10 @@ def testcase_list_view(request):
 
     if request.method == 'POST' and form.is_valid():
         test_case = form.save(commit=False)
+        test_case.code = next_code(
+            TestCase.objects.filter(test_plan__project=test_case.test_plan.project),
+            'TC',
+        )
         test_case.created_by = request.user
         test_case.save()
         return redirect('testcases:index')

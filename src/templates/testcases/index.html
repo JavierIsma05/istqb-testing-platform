@@ -113,7 +113,7 @@
 
 {% if can_manage %}
 <div class="modal fade testcase-modal" id="testCaseModal" tabindex="-1" aria-labelledby="testCaseModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <div class="modal-header">
                 <div>
@@ -126,27 +126,27 @@
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-lg-3 col-md-6">
                             <label class="form-label" for="{{ form.code.id_for_label }}">{{ form.code.label }}</label>
                             {{ form.code }}
                             {% if form.code.errors %}<div class="form-error">{{ form.code.errors|striptags }}</div>{% endif %}
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-lg-3 col-md-6">
                             <label class="form-label" for="{{ form.requirement.id_for_label }}">{{ form.requirement.label }}</label>
                             {{ form.requirement }}
                             {% if form.requirement.errors %}<div class="form-error">{{ form.requirement.errors|striptags }}</div>{% endif %}
                         </div>
-                        <div class="col-12">
+                        <div class="col-lg-6">
                             <label class="form-label" for="{{ form.test_plan.id_for_label }}">{{ form.test_plan.label }}</label>
                             {{ form.test_plan }}
                             {% if form.test_plan.errors %}<div class="form-error">{{ form.test_plan.errors|striptags }}</div>{% endif %}
                         </div>
-                        <div class="col-12">
+                        <div class="col-lg-6">
                             <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
                             {{ form.title }}
                             {% if form.title.errors %}<div class="form-error">{{ form.title.errors|striptags }}</div>{% endif %}
                         </div>
-                        <div class="col-12">
+                        <div class="col-lg-6">
                             <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
                             {{ form.description }}
                             {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
@@ -166,17 +166,17 @@
                             {{ form.level }}
                             {% if form.level.errors %}<div class="form-error">{{ form.level.errors|striptags }}</div>{% endif %}
                         </div>
-                        <div class="col-12">
+                        <div class="col-lg-4">
                             <label class="form-label" for="{{ form.preconditions.id_for_label }}">{{ form.preconditions.label }}</label>
                             {{ form.preconditions }}
                             {% if form.preconditions.errors %}<div class="form-error">{{ form.preconditions.errors|striptags }}</div>{% endif %}
                         </div>
-                        <div class="col-12">
+                        <div class="col-lg-4">
                             <label class="form-label" for="{{ form.steps.id_for_label }}">{{ form.steps.label }}</label>
                             {{ form.steps }}
                             {% if form.steps.errors %}<div class="form-error">{{ form.steps.errors|striptags }}</div>{% endif %}
                         </div>
-                        <div class="col-12">
+                        <div class="col-lg-4">
                             <label class="form-label" for="{{ form.expected_result.id_for_label }}">{{ form.expected_result.label }}</label>
                             {{ form.expected_result }}
                             {% if form.expected_result.errors %}<div class="form-error">{{ form.expected_result.errors|striptags }}</div>{% endif %}

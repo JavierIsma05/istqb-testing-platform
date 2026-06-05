@@ -37,3 +37,14 @@ class ExecutionResultForm(forms.ModelForm):
                 }
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        help_texts = {
+            'result': 'Selecciona el resultado observado durante la ejecucion del caso.',
+            'notes': 'Registra observaciones, datos usados, bloqueos o diferencias encontradas.',
+            'evidence': 'Adjunta una captura que respalde el resultado de la ejecucion.',
+        }
+        for name, help_text in help_texts.items():
+            self.fields[name].help_text = help_text
+            self.fields[name].widget.attrs['data-help'] = help_text

@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.defects.models import Defect
+from apps.core.codes import next_code
 from apps.executions.models import TestExecution
 from apps.requirements.models import Requirement
 from apps.testcases.models import TestCase
@@ -123,6 +124,7 @@ def project_create_view(request):
 
     if request.method == 'POST' and form.is_valid():
         project = form.save(commit=False)
+        project.code = next_code(Project.objects.all(), 'PRJ')
         project.created_by = request.user
         project.save()
         form.save_m2m()

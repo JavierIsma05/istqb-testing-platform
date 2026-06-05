@@ -4,6 +4,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
+from apps.core.codes import next_code
 from apps.projects.models import Project
 
 from .forms import IncidentForm
@@ -73,6 +74,7 @@ def incident_create_view(request):
 
     if request.method == 'POST' and form.is_valid():
         incident = form.save(commit=False)
+        incident.code = next_code(Incident.objects.filter(project=incident.project), 'INC')
         incident.reported_by = request.user
         incident.save()
         messages.success(request, 'Incidencia registrada correctamente.')

@@ -17,3 +17,14 @@ class ReportForm(forms.ModelForm):
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. Informe de Cobertura'}),
             'report_type': forms.Select(attrs={'class': 'form-select'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        help_texts = {
+            'project': 'Proyecto del que se generara la informacion del reporte.',
+            'title': 'Nombre visible del reporte para identificarlo en el historial.',
+            'report_type': 'Tipo de analisis o resumen que necesitas generar.',
+        }
+        for name, help_text in help_texts.items():
+            self.fields[name].help_text = help_text
+            self.fields[name].widget.attrs['data-help'] = help_text
