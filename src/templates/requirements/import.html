@@ -1,0 +1,114 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Cargar Requisitos{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading">
+    <div>
+        <h2>Cargar Requisitos</h2>
+        <p>Importa requisitos desde un PDF y revisa la deteccion automatica antes de guardarlos.</p>
+    </div>
+    <a class="btn btn-outline-brand" href="{% url 'requirements:index' %}">
+        <i class="bi bi-arrow-left"></i>
+        Volver
+    </a>
+</div>
+
+<section class="content-card form-card requirement-form-card">
+    <form method="POST" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="preview">
+        <div class="row g-4">
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.project.id_for_label }}">{{ form.project.label }}</label>
+                {{ form.project }}
+                {% if form.project.errors %}<div class="form-error">{{ form.project.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.pdf_file.id_for_label }}">{{ form.pdf_file.label }}</label>
+                {{ form.pdf_file }}
+                {% if form.pdf_file.errors %}<div class="form-error">{{ form.pdf_file.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="col-12">
+                <p class="requirement-import-note">
+                    El sistema detectara si cada requisito es funcional o no funcional y asignara prioridad segun el contenido del PDF.
+                    El estado inicial se guardara como Pendiente.
+                </p>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <a class="btn btn-outline-brand" href="{% url 'requirements:index' %}">Cancelar</a>
+            <button class="btn btn-brand" type="submit">
+                <i class="bi bi-search"></i>
+                Analizar PDF
+            </button>
+        </div>
+    </form>
+</section>
+
+{% if preview_items %}
+    <section class="requirements-list-card requirement-import-preview">
+        <div class="card-heading">
+            <div>
+                <h3>Vista previa</h3>
+                <p><span data-requirement-import-count>{{ preview_items|length }}</span> requisitos detectados para {{ selected_project.name }}.</p>
+            </div>
+        </div>
+
+        <form method="POST" novalidate data-requirement-import-form>
+            {% csrf_token %}
+            <input type="hidden" name="action" value="confirm">
+            <input type="hidden" name="project" value="{{ selected_project.id }}">
+
+            <div class="requirement-import-list">
+                {% for item in preview_items %}
+                    <article class="requirement-import-row" data-requirement-import-row>
+                        <div class="requirement-import-number" data-requirement-import-number>{{ forloop.counter }}</div>
+                        <div class="requirement-import-fields">
+                            <div class="requirement-import-row-header">
+                                <label class="form-label" for="title_{{ forloop.counter }}">Titulo</label>
+                                <button class="btn btn-outline-danger btn-sm requirement-import-remove" type="button" data-requirement-import-remove>
+                                    <i class="bi bi-trash"></i>
+                                    Eliminar
+                                </button>
+                            </div>
+                            <input class="form-control" id="title_{{ forloop.counter }}" name="title" value="{{ item.title }}" maxlength="180">
+
+                            <label class="form-label mt-3" for="description_{{ forloop.counter }}">Descripcion</label>
+                            <textarea class="form-control" id="description_{{ forloop.counter }}" name="description" rows="3">{{ item.description }}</textarea>
+
+                            <div class="requirement-import-options requirement-import-options-compact">
+                                <div>
+                                    <label class="form-label" for="type_{{ forloop.counter }}">Tipo</label>
+                                    <select class="form-select" id="type_{{ forloop.counter }}" name="requirement_type">
+                                        {% for value, label in type_choices %}
+                                            <option value="{{ value }}" {% if item.requirement_type == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label" for="priority_{{ forloop.counter }}">Prioridad</label>
+                                    <select class="form-select" id="priority_{{ forloop.counter }}" name="priority">
+                                        {% for value, label in priority_choices %}
+                                            <option value="{{ value }}" {% if item.priority == value %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <a class="btn btn-outline-brand" href="{% url 'requirements:import' %}">Descartar</a>
+                <button class="btn btn-brand" type="submit">
+                    <i class="bi bi-check2-circle"></i>
+                    Guardar Requisitos
+                </button>
+            </div>
+        </form>
+    </section>
+{% endif %}
+{% endblock %}

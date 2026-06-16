@@ -15,7 +15,7 @@ La plataforma queda como monolito modular Django. No se separa frontend/backend 
 - `testcases`: casos de prueba.
 - `executions`: ejecuciones y evidencias.
 - `defects`: defectos derivados de pruebas.
-- `incidents`: incidentes operativos.
+- `incidents`: riesgos de prueba asociados a los planes (el nombre tecnico se conserva por compatibilidad).
 - `traceability`: matriz requisito-caso.
 - `reports`: reportes generados.
 - `notifications`: avisos internos.
@@ -36,10 +36,11 @@ La plataforma queda como monolito modular Django. No se separa frontend/backend 
 
 1. Autenticacion completa: registro controlado, recuperacion de contrasena y perfiles.
 2. CRUD de proyectos y miembros.
-3. CRUD de requisitos y aprobacion.
-4. Planes y casos de prueba con versionado basico.
-5. Ejecuciones con carga de evidencia.
-6. Defectos, incidentes y flujo de estados.
-7. Matriz de trazabilidad y reportes.
-8. Permisos finos por rol y auditoria automatica.
-9. Pruebas unitarias, integracion y e2e.
+3. Requisitos y aprobacion.
+4. Planes de prueba y riesgos asociados.
+5. Casos de prueba trazables y versionados.
+6. Ejecucion paso a paso con evidencia opcional.
+7. Defectos derivados de ejecuciones fallidas y flujo de estados.
+8. Matriz de trazabilidad y reportes.
+9. Permisos finos por rol y auditoria automatica.
+10. Pruebas unitarias, integracion y e2e.

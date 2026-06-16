@@ -17,6 +17,11 @@
 <section class="content-card form-card incident-form-card">
     <form method="POST" novalidate>
         {% csrf_token %}
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger" role="alert">
+                {{ form.non_field_errors|striptags }}
+            </div>
+        {% endif %}
         <div class="row g-4">
             <div class="col-md-6">
                 <label class="form-label" for="{{ form.project.id_for_label }}">{{ form.project.label }}</label>
@@ -33,6 +38,16 @@
                 {{ form.status }}
                 {% if form.status.errors %}<div class="form-error">{{ form.status.errors|striptags }}</div>{% endif %}
             </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.requirement.id_for_label }}">{{ form.requirement.label }}</label>
+                {{ form.requirement }}
+                {% if form.requirement.errors %}<div class="form-error">{{ form.requirement.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.test_plan.id_for_label }}">{{ form.test_plan.label }}</label>
+                {{ form.test_plan }}
+                {% if form.test_plan.errors %}<div class="form-error">{{ form.test_plan.errors|striptags }}</div>{% endif %}
+            </div>
             <div class="col-12">
                 <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
                 {{ form.title }}
@@ -42,6 +57,11 @@
                 <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
                 {{ form.description }}
                 {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="col-12">
+                <label class="form-label" for="{{ form.mitigation_strategy.id_for_label }}">{{ form.mitigation_strategy.label }}</label>
+                {{ form.mitigation_strategy }}
+                {% if form.mitigation_strategy.errors %}<div class="form-error">{{ form.mitigation_strategy.errors|striptags }}</div>{% endif %}
             </div>
             <div class="col-md-6">
                 <label class="form-label" for="{{ form.probability.id_for_label }}">{{ form.probability.label }}</label>
@@ -59,7 +79,7 @@
             <a class="btn btn-outline-brand" href="{% url 'incidents:index' %}">Cancelar</a>
             <button class="btn btn-brand" type="submit">
                 <i class="bi bi-save"></i>
-                Guardar Incidencia
+                Guardar Riesgo
             </button>
         </div>
     </form>

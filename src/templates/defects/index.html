@@ -77,7 +77,15 @@
                     <p>
                         Severidad: {{ item.defect.get_severity_display }}
                         <span>Prioridad: {{ item.defect.get_priority_display }}</span>
-                        <span>Asignado: {{ item.defect.assigned_to.get_full_name|default:item.defect.assigned_to.email|default:'Sin asignar' }}</span>
+                        <span>Historial: {{ item.defect.history_count }}</span>
+                        <span>
+                            Asignado:
+                            {% if item.defect.assigned_to %}
+                                {{ item.defect.assigned_to.get_full_name|default:item.defect.assigned_to.email }}
+                            {% else %}
+                                Sin asignar
+                            {% endif %}
+                        </span>
                     </p>
                 </div>
                 <div class="list-row-actions">

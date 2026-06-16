@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 from apps.core.models import TimeStampedModel
 from apps.projects.models import Project
@@ -15,9 +16,14 @@ class TestingPhase(TimeStampedModel):
     order = models.PositiveSmallIntegerField(default=1)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     description = models.TextField(blank=True)
+    entry_criteria = models.TextField(blank=True)
+    exit_criteria = models.TextField(blank=True)
     progress = models.PositiveSmallIntegerField(default=0)
     completed_tasks = models.PositiveSmallIntegerField(default=0)
     pending_tasks = models.PositiveSmallIntegerField(default=0)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         ordering = ['project', 'order']

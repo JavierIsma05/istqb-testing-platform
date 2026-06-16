@@ -35,7 +35,8 @@
     </section>
 
     <section class="phase-list">
-        {% for phase in phases %}
+        {% for item in phase_items %}
+            {% with phase=item.phase %}
             <article class="phase-card phase-card-{{ phase.status|lower }}">
                 <div class="phase-state-icon">
                     {% if phase.status == 'DONE' %}
@@ -60,6 +61,16 @@
 
                     <p>{{ phase.description }}</p>
 
+                    <div class="phase-task-chips">
+                        <span>Inicio: {{ phase.started_at|date:'d M Y H:i'|default:'Sin iniciar' }}</span>
+                        <span>Completitud: {{ phase.completed_at|date:'d M Y H:i'|default:'Pendiente' }}</span>
+                    </div>
+
+                    <div class="phase-task-chips">
+                        <span>Entrada: {{ phase.entry_criteria|default:'Sin criterio registrado' }}</span>
+                        <span>Salida: {{ phase.exit_criteria|default:'Sin criterio registrado' }}</span>
+                    </div>
+
                     <div class="phase-card-progress">
                         <span>Progreso de la Fase</span>
                         <strong>{{ phase.progress }}%</strong>
@@ -74,8 +85,25 @@
                             <span>{{ phase.pending_tasks }} tarea pendiente{% if phase.pending_tasks != 1 %}s{% endif %}</span>
                         </div>
                     {% endif %}
+
+                    <div class="phase-task-chips">
+                        {% for label, is_done in item.criteria.checks %}
+                            <span>{% if is_done %}OK{% else %}Pendiente{% endif %}: {{ label }}</span>
+                        {% endfor %}
+                    </div>
+
+                    {% if request.user.is_student_role and phase.status != 'DONE' %}
+                        <form method="POST" action="{% url 'phases:advance' phase.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{% url 'phases:index' %}">
+                            <button class="btn btn-brand btn-sm" type="submit" {% if not item.can_start %}disabled{% endif %}>
+                                {% if phase.status == 'PENDING' %}Iniciar fase{% else %}Completar fase{% endif %}
+                            </button>
+                        </form>
+                    {% endif %}
                 </div>
             </article>
+            {% endwith %}
         {% endfor %}
     </section>
 {% else %}

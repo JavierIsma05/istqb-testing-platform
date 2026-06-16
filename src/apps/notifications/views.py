@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
+from apps.audit.services import log_action
 from apps.projects.models import Project
 from apps.users.models import User
 
@@ -86,13 +87,20 @@ def send_project_message_view(request):
         messages.error(request, 'Escribe un mensaje antes de enviarlo.')
         return redirect(next_url)
 
-    Notification.objects.create(
+    notification = Notification.objects.create(
         recipient=student,
         sender=request.user,
         project=project,
         title=f'Mensaje del tutor: {project.name}',
         message=message,
         url=reverse('projects:detail', args=[project.pk]),
+    )
+    log_action(
+        request.user,
+        'SEND',
+        'Notification',
+        notification.pk,
+        {'project_id': project.pk, 'recipient_id': student.pk, 'title': notification.title},
     )
     messages.success(request, f'Mensaje enviado a {student.get_full_name() or student.email}.')
     return redirect(next_url)

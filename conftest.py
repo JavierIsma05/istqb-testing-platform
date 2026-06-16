@@ -62,7 +62,16 @@ def test_case(test_plan, requirement, user):
         requirement=requirement,
         code='TC-001',
         title='Login exitoso',
-        steps='1. Abrir login\n2. Ingresar credenciales validas\n3. Enviar formulario',
+        steps=(
+            'Abrir login => Se muestra el formulario\n'
+            'Ingresar credenciales validas => El sistema acepta los datos\n'
+            'Enviar formulario => El usuario accede al dashboard'
+        ),
+        steps_data=[
+            {'number': 1, 'action': 'Abrir login', 'expected_result': 'Se muestra el formulario'},
+            {'number': 2, 'action': 'Ingresar credenciales validas', 'expected_result': 'El sistema acepta los datos'},
+            {'number': 3, 'action': 'Enviar formulario', 'expected_result': 'El usuario accede al dashboard'},
+        ],
         expected_result='El usuario accede al dashboard.',
         created_by=user,
     )

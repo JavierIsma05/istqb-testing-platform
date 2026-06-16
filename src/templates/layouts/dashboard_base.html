@@ -15,4 +15,25 @@
     </div>
 </div>
 
+<div class="modal fade confirm-action-modal" id="confirmActionModal" tabindex="-1" aria-labelledby="confirmActionTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="confirm-action-icon">
+                <i class="bi bi-exclamation-lg"></i>
+            </div>
+            <h2 class="modal-title" id="confirmActionTitle">Confirmar eliminacion</h2>
+            <p class="confirm-action-message" data-confirm-modal-message>
+                Esta accion no se puede deshacer.
+            </p>
+            <div class="confirm-action-actions">
+                <button class="btn btn-outline-brand" type="button" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-danger" type="button" data-confirm-modal-accept>
+                    <i class="bi bi-trash"></i>
+                    Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

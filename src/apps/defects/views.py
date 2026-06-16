@@ -1,21 +1,26 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.audit.services import log_action
 from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
 from apps.core.codes import next_code
 from apps.projects.models import Project
 
 from .forms import DefectForm
+from .history import record_defect_history
 from .models import Defect
 
 
 STATUS_BADGES = {
     Defect.Status.OPEN: 'danger',
+    Defect.Status.ANALYSIS: 'info',
     Defect.Status.IN_PROGRESS: 'warning',
-    Defect.Status.RESOLVED: 'info',
+    Defect.Status.PENDING_CONFIRMATION: 'info',
     Defect.Status.CLOSED: 'success',
+    Defect.Status.REJECTED: 'muted',
+    Defect.Status.DUPLICATED: 'muted',
 }
 
 
@@ -26,7 +31,9 @@ def defect_list_view(request):
     status = request.GET.get('status', '').strip()
     visible_projects = visible_projects_for(request.user)
 
-    defects = Defect.objects.select_related('project', 'reported_by', 'assigned_to', 'execution')
+    defects = Defect.objects.select_related('project', 'reported_by', 'assigned_to', 'execution').annotate(
+        history_count=Count('history', distinct=True),
+    )
     defects = defects.filter(project__in=visible_projects)
 
     if query:
@@ -85,6 +92,14 @@ def defect_create_view(request):
         defect.code = next_code(Defect.objects.filter(project=defect.project), 'DEF')
         defect.reported_by = request.user
         defect.save()
+        record_defect_history(defect, request.user, 'Registro inicial del defecto')
+        log_action(
+            request.user,
+            'CREATE',
+            'Defect',
+            defect.pk,
+            {'project_id': defect.project_id, 'code': defect.code, 'title': defect.title, 'status': defect.status},
+        )
         messages.success(request, 'Defecto registrado correctamente.')
         return redirect('defects:index')
 
@@ -113,7 +128,15 @@ def defect_update_view(request, pk):
     form = DefectForm(request.POST or None, instance=defect)
 
     if request.method == 'POST' and form.is_valid():
-        form.save()
+        defect = form.save()
+        record_defect_history(defect, request.user, 'Actualizacion del defecto')
+        log_action(
+            request.user,
+            'UPDATE',
+            'Defect',
+            defect.pk,
+            {'project_id': defect.project_id, 'code': defect.code, 'title': defect.title, 'status': defect.status},
+        )
         messages.success(request, 'Defecto actualizado correctamente.')
         return redirect('defects:index')
 
@@ -141,6 +164,13 @@ def defect_delete_view(request, pk):
     )
 
     if request.method == 'POST':
+        log_action(
+            request.user,
+            'DELETE',
+            'Defect',
+            defect.pk,
+            {'project_id': defect.project_id, 'code': defect.code, 'title': defect.title, 'status': defect.status},
+        )
         defect.delete()
         messages.success(request, 'Defecto eliminado correctamente.')
     else:

@@ -2,10 +2,13 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.defects.models import Defect
+from apps.audit.services import log_action
 from apps.core.codes import next_code
+from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
 from apps.executions.models import TestExecution
 from apps.requirements.models import Requirement
 from apps.testcases.models import TestCase
@@ -24,19 +27,26 @@ STATUS_BADGES = {
 }
 
 
+def get_initial_project_status(start_date):
+    if start_date and start_date <= timezone.localdate():
+        return Project.Status.ACTIVE
+    return Project.Status.PLANNED
+
+
 def build_project_card(project):
     total_cases = project.total_cases or 0
     passed_cases = project.passed_cases or 0
     coverage = round((passed_cases / total_cases) * 100) if total_cases else 0
+    members = list(project.members.all())
     student = (
         project.created_by
         if project.created_by and project.created_by.role == User.Roles.STUDENT
-        else project.members.filter(role=User.Roles.STUDENT).first()
+        else next((member for member in members if member.role == User.Roles.STUDENT), None)
     )
     tutor = (
-        project.members.filter(role=User.Roles.TEACHER).first()
+        next((member for member in members if member.role == User.Roles.TEACHER), None)
         or project.created_by
-        or project.members.first()
+        or next(iter(members), None)
     )
     return {
         'project': project,
@@ -57,7 +67,7 @@ def project_list_view(request):
     member_id = request.GET.get('member', request.GET.get('tutor', '')).strip()
     view_mode = request.GET.get('view', 'cards')
 
-    projects = Project.objects.prefetch_related('members').annotate(
+    projects = visible_projects_for(request.user).select_related('created_by').prefetch_related('members').annotate(
         total_cases=Count('test_plans__test_cases', distinct=True),
         passed_cases=Count(
             'test_plans__test_cases',
@@ -66,11 +76,6 @@ def project_list_view(request):
         ),
         defect_count=Count('defects', distinct=True),
     )
-
-    if request.user.role == User.Roles.TEACHER:
-        projects = projects.filter(Q(members=request.user) | Q(created_by=request.user)).distinct()
-    elif request.user.role == User.Roles.STUDENT:
-        projects = projects.filter(Q(members=request.user) | Q(created_by=request.user)).distinct()
 
     if query:
         projects = projects.filter(
@@ -114,22 +119,47 @@ def project_list_view(request):
             'filter_users': filter_users,
             'member_filter_label': member_filter_label,
             'view_mode': view_mode,
+            'can_manage': can_manage_artifacts(request.user),
         },
     )
 
 
 @login_required
 def project_create_view(request):
+    readonly_redirect = redirect_if_teacher_readonly(request, 'projects:index', 'proyectos')
+    if readonly_redirect:
+        return readonly_redirect
+
     form = ProjectForm(request.POST or None)
 
     if request.method == 'POST' and form.is_valid():
         project = form.save(commit=False)
         project.code = next_code(Project.objects.all(), 'PRJ')
-        project.created_by = request.user
-        project.save()
-        form.save_m2m()
-        project.members.add(request.user)
-        return redirect('projects:detail', pk=project.pk)
+        project.status = get_initial_project_status(project.start_date)
+
+        if (
+            project.status == Project.Status.ACTIVE
+            and visible_projects_for(request.user).filter(status=Project.Status.ACTIVE).exists()
+        ):
+            form.add_error(
+                'start_date',
+                'Ya tienes un proyecto activo. Cierra o pausa el proyecto activo antes de crear otro activo.',
+            )
+        else:
+            project.created_by = request.user
+            project.save()
+            project.members.add(request.user)
+            tutor = form.cleaned_data.get('tutor')
+            if tutor:
+                project.members.add(tutor)
+            log_action(
+                request.user,
+                'CREATE',
+                'Project',
+                project.pk,
+                {'code': project.code, 'name': project.name, 'status': project.status, 'tutor_id': tutor.pk if tutor else None},
+            )
+            return redirect('projects:detail', pk=project.pk)
 
     return render(
         request,
@@ -137,14 +167,15 @@ def project_create_view(request):
         {
             'form': form,
             'title': 'Nuevo Proyecto',
-            'subtitle': 'Registra un proyecto de titulación y define su estado inicial.',
+            'automatic_status_label': Project.Status.PLANNED.label,
+            'subtitle': 'Registra un proyecto de titulación. El estado inicial se asigna automaticamente.',
         },
     )
 
 
 @login_required
 def project_detail_view(request, pk):
-    project = get_object_or_404(Project.objects.prefetch_related('members'), pk=pk)
+    project = get_object_or_404(visible_projects_for(request.user).prefetch_related('members'), pk=pk)
     test_plans = TestPlan.objects.filter(project=project)
     requirements = Requirement.objects.filter(project=project)
     test_cases = TestCase.objects.filter(test_plan__project=project)
@@ -174,8 +205,19 @@ def project_detail_view(request, pk):
 @login_required
 @require_POST
 def project_delete_view(request, pk):
-    project = get_object_or_404(Project, pk=pk)
+    readonly_redirect = redirect_if_teacher_readonly(request, 'projects:index', 'proyectos')
+    if readonly_redirect:
+        return readonly_redirect
+
+    project = get_object_or_404(visible_projects_for(request.user), pk=pk)
     project_name = project.name
+    log_action(
+        request.user,
+        'DELETE',
+        'Project',
+        project.pk,
+        {'code': project.code, 'name': project.name, 'status': project.status},
+    )
     project.delete()
     messages.success(request, f'El proyecto "{project_name}" fue eliminado.')
     return redirect('projects:index')

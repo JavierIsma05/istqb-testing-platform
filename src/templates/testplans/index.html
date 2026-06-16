@@ -29,12 +29,14 @@
                     <strong>{{ item.plan.name }}</strong>
                     <p>
                         Version: {{ item.plan.version }}
+                        <span>Historial: {{ item.plan.version_count }}</span>
                         <span><i class="bi bi-calendar3"></i> {{ item.plan.created_at|date:'d M Y' }}</span>
                         <span>Por: {{ item.plan.created_by.get_full_name|default:item.plan.created_by.email|default:'Sin asignar' }}</span>
                     </p>
                     <p>
                         Proyecto: {{ item.plan.project.name }}
                         <span>Objetivo: {{ item.plan.objective|truncatechars:80|default:'Sin objetivo registrado' }}</span>
+                        <span>Riesgos vinculados: {{ item.plan.risk_count }}</span>
                     </p>
                 </div>
                 <div class="list-row-actions">

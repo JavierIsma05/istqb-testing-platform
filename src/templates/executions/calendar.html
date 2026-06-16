@@ -1,0 +1,96 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Calendario de Ejecucion{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading">
+    <div>
+        <h2>Calendario de Ejecucion</h2>
+        <p>Historial de ejecuciones realizadas y actividades futuras sugeridas.</p>
+    </div>
+    <a class="btn btn-outline-brand" href="{% url 'executions:index' %}">
+        <i class="bi bi-arrow-left"></i>
+        Volver
+    </a>
+</div>
+
+<section class="requirements-filter-card">
+    <form method="GET" class="requirements-filters">
+        <select name="project" aria-label="Proyecto">
+            <option value="">Todos los proyectos</option>
+            {% for project in projects %}
+                <option value="{{ project.id }}" {% if selected_project == project.id|stringformat:'s' %}selected{% endif %}>{{ project.name }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-outline-brand" type="submit">
+            <i class="bi bi-funnel"></i>
+            Filtrar
+        </button>
+    </form>
+</section>
+
+<section class="content-card">
+    <div class="card-heading">
+        <div>
+            <h3>Calendario e historial</h3>
+            <p>Las ejecuciones registradas usan su fecha real; las pendientes muestran una fecha sugerida.</p>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th>Tipo</th>
+                    <th>Proyecto</th>
+                    <th>Caso</th>
+                    <th>Defecto</th>
+                    <th>Motivo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in calendar_items %}
+                    <tr>
+                        <td>
+                            {{ item.date|date:'d M Y' }}
+                            {% if item.time %}<small class="d-block text-muted">{{ item.time|time:'H:i' }}</small>{% endif %}
+                        </td>
+                        <td>
+                            {% if item.is_recorded %}
+                                <span class="badge {% if item.result == 'PASSED' %}text-bg-success{% elif item.result == 'FAILED' %}text-bg-danger{% else %}text-bg-warning{% endif %}">
+                                    {{ item.result_label }}
+                                </span>
+                            {% else %}
+                                <span class="badge text-bg-secondary">{{ item.result_label }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.type }}</td>
+                        <td>{{ item.project.name }}</td>
+                        <td>
+                            {% if item.test_case %}
+                                {{ item.test_case.code }} - {{ item.test_case.title }}
+                            {% else %}
+                                <span class="text-muted">Sin caso vinculado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.defect %}
+                                {{ item.defect.code }} - {{ item.defect.title }}
+                            {% else %}
+                                <span class="text-muted">No aplica</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.reason }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">No hay ejecuciones ni actividades sugeridas para los proyectos visibles.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

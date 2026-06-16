@@ -1,6 +1,6 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %}ISTQB Platform{% endblock %}
+{% block title %}TestFlow ISTQB{% endblock %}
 
 {% block body_class %}landing-page{% endblock %}
 
@@ -10,11 +10,14 @@
         <a class="brand-lockup" href="{% url 'landing' %}">
             <span class="brand-mark"><i class="bi bi-beaker"></i></span>
             <span>
-                <strong>ISTQB Platform</strong>
+                <strong>TestFlow ISTQB</strong>
                 <small>Testing Lifecycle Management</small>
             </span>
         </a>
-        <nav class="d-flex align-items-center gap-3">
+        <nav class="public-actions">
+            <button class="icon-button public-theme-toggle" type="button" title="Cambiar tema" aria-label="Cambiar tema" data-theme-toggle>
+                <i class="bi bi-moon" data-theme-icon></i>
+            </button>
             <a class="public-link" href="{% url 'register' %}">Registrarse</a>
             <a class="btn btn-brand" href="{% url 'login' %}">Iniciar Sesion</a>
         </nav>

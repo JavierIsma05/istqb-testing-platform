@@ -6,7 +6,7 @@
 <div class="page-heading traceability-heading">
     <div>
         <h2>Matriz de Trazabilidad</h2>
-        <p>Relación entre requisitos, casos de prueba y defectos</p>
+        <p>Relacion entre requisitos, riesgos, casos de prueba, ejecuciones y defectos</p>
     </div>
 </div>
 
@@ -32,6 +32,27 @@
         </div>
         <i class="bi bi-test-tube"></i>
     </article>
+    <article class="traceability-metric-card">
+        <div>
+            <span>Ejecuciones Validadas</span>
+            <strong>{{ validated_executions }}/{{ total_executions }}</strong>
+        </div>
+        <i class="bi bi-patch-check"></i>
+    </article>
+    <article class="traceability-metric-card">
+        <div>
+            <span>Pendientes de Revision</span>
+            <strong>{{ pending_review_executions }}</strong>
+        </div>
+        <i class="bi bi-hourglass-split"></i>
+    </article>
+    <article class="traceability-metric-card">
+        <div>
+            <span>Riesgos Altos</span>
+            <strong>{{ high_risks }}/{{ total_risks }}</strong>
+        </div>
+        <i class="bi bi-exclamation-triangle"></i>
+    </article>
 </section>
 
 <section class="traceability-card">
@@ -42,8 +63,11 @@
                 <tr>
                     <th>Requisito</th>
                     <th>Caso de prueba</th>
+                    <th>Regla automatizada</th>
                     <th>Ejecución</th>
                     <th>Resultado</th>
+                    <th>Revision</th>
+                    <th>Riesgo</th>
                     <th>Defecto</th>
                     <th>Cobertura</th>
                 </tr>
@@ -63,6 +87,15 @@
                                     </span>
                                 {% empty %}
                                     <span class="text-muted">Sin casos</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="trace-pill-list">
+                                {% for rule in row.automated_rules %}
+                                    <span class="trace-pill execution-pill">{{ rule.name }}</span>
+                                {% empty %}
+                                    <span class="text-muted">Solo manual</span>
                                 {% endfor %}
                             </div>
                         </td>
@@ -91,6 +124,29 @@
                         </td>
                         <td>
                             <div class="trace-pill-list">
+                                {% for execution in row.executions %}
+                                    <span class="trace-pill review-pill review-{{ execution.review_status|lower }}">
+                                        {{ execution.get_review_status_display }}
+                                    </span>
+                                {% empty %}
+                                    <span class="text-muted">Sin revision</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="trace-pill-list">
+                                {% for risk in row.risks %}
+                                    <span class="trace-pill incident-pill">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        {{ risk.code }} - {{ risk.risk_level }}
+                                    </span>
+                                {% empty %}
+                                    <span class="text-muted">Sin riesgos</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="trace-pill-list">
                                 {% for defect in row.defects %}
                                     <span class="trace-pill defect-pill">
                                         <i class="bi bi-bug"></i>
@@ -107,7 +163,7 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-5">
+                        <td colspan="9" class="text-center text-muted py-5">
                             No hay requisitos para mostrar en la matriz.
                         </td>
                     </tr>

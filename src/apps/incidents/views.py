@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.audit.services import log_action
 from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
 from apps.core.codes import next_code
 from apps.projects.models import Project
@@ -12,7 +13,7 @@ from .models import Incident
 
 
 STATUS_BADGES = {
-    Incident.Status.MITIGATED: 'danger',
+    Incident.Status.MITIGATED: 'success',
     Incident.Status.OPEN: 'warning',
     Incident.Status.ANALYSIS: 'info',
     Incident.Status.CLOSED: 'muted',
@@ -31,7 +32,7 @@ def incident_list_view(request):
     project_id = request.GET.get('project', '').strip()
     visible_projects = visible_projects_for(request.user)
 
-    incidents = Incident.objects.select_related('project', 'reported_by')
+    incidents = Incident.objects.select_related('project', 'reported_by', 'requirement', 'test_plan')
     incidents = incidents.filter(project__in=visible_projects)
 
     if query:
@@ -66,7 +67,7 @@ def incident_list_view(request):
 
 @login_required
 def incident_create_view(request):
-    readonly_redirect = redirect_if_teacher_readonly(request, 'incidents:index', 'incidencias')
+    readonly_redirect = redirect_if_teacher_readonly(request, 'incidents:index', 'riesgos')
     if readonly_redirect:
         return readonly_redirect
 
@@ -77,7 +78,14 @@ def incident_create_view(request):
         incident.code = next_code(Incident.objects.filter(project=incident.project), 'INC')
         incident.reported_by = request.user
         incident.save()
-        messages.success(request, 'Incidencia registrada correctamente.')
+        log_action(
+            request.user,
+            'CREATE',
+            'Incident',
+            incident.pk,
+            {'project_id': incident.project_id, 'code': incident.code, 'title': incident.title, 'risk_level': incident.risk_level},
+        )
+        messages.success(request, 'Riesgo registrado correctamente.')
         return redirect('incidents:index')
 
     return render(
@@ -85,15 +93,15 @@ def incident_create_view(request):
         'incidents/form.html',
         {
             'form': form,
-            'title': 'Nueva Incidencia',
-            'subtitle': 'Registra riesgos e incidencias con probabilidad e impacto.',
+            'title': 'Nuevo Riesgo',
+            'subtitle': 'Registra amenazas futuras asociadas al plan y, opcionalmente, al requisito afectado.',
         },
     )
 
 
 @login_required
 def incident_update_view(request, pk):
-    readonly_redirect = redirect_if_teacher_readonly(request, 'incidents:index', 'incidencias')
+    readonly_redirect = redirect_if_teacher_readonly(request, 'incidents:index', 'riesgos')
     if readonly_redirect:
         return readonly_redirect
 
@@ -105,8 +113,15 @@ def incident_update_view(request, pk):
     form = IncidentForm(request.POST or None, instance=incident)
 
     if request.method == 'POST' and form.is_valid():
-        form.save()
-        messages.success(request, 'Incidencia actualizada correctamente.')
+        incident = form.save()
+        log_action(
+            request.user,
+            'UPDATE',
+            'Incident',
+            incident.pk,
+            {'project_id': incident.project_id, 'code': incident.code, 'title': incident.title, 'risk_level': incident.risk_level},
+        )
+        messages.success(request, 'Riesgo actualizado correctamente.')
         return redirect('incidents:index')
 
     return render(
@@ -114,15 +129,15 @@ def incident_update_view(request, pk):
         'incidents/form.html',
         {
             'form': form,
-            'title': 'Editar Incidencia',
-            'subtitle': 'Actualiza probabilidad, impacto y estado de seguimiento.',
+            'title': 'Editar Riesgo',
+            'subtitle': 'Actualiza probabilidad, impacto, mitigacion y relacion con el plan.',
         },
     )
 
 
 @login_required
 def incident_delete_view(request, pk):
-    readonly_redirect = redirect_if_teacher_readonly(request, 'incidents:index', 'incidencias')
+    readonly_redirect = redirect_if_teacher_readonly(request, 'incidents:index', 'riesgos')
     if readonly_redirect:
         return readonly_redirect
 
@@ -133,8 +148,15 @@ def incident_delete_view(request, pk):
     )
 
     if request.method == 'POST':
+        log_action(
+            request.user,
+            'DELETE',
+            'Incident',
+            incident.pk,
+            {'project_id': incident.project_id, 'code': incident.code, 'title': incident.title, 'risk_level': incident.risk_level},
+        )
         incident.delete()
-        messages.success(request, 'Incidencia eliminada correctamente.')
+        messages.success(request, 'Riesgo eliminado correctamente.')
     else:
         messages.error(request, 'La eliminacion debe confirmarse desde el listado.')
 

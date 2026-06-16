@@ -8,10 +8,12 @@
         <h2>Proyectos</h2>
         <p>Gestiona tus proyectos de titulación</p>
     </div>
-    <a class="btn btn-brand" href="{% url 'projects:create' %}">
-        <i class="bi bi-plus-lg"></i>
-        Nuevo Proyecto
-    </a>
+    {% if can_manage %}
+        <a class="btn btn-brand" href="{% url 'projects:create' %}">
+            <i class="bi bi-plus-lg"></i>
+            Nuevo Proyecto
+        </a>
+    {% endif %}
 </div>
 
 {% if messages %}
@@ -137,20 +139,22 @@
                         </h3>
                         <p>{{ item.project.description|default:'Proyecto de pruebas de software' }}</p>
                     </div>
-                    <div class="project-actions">
-                        <button class="kebab-button" type="button" title="Opciones" aria-expanded="false" data-project-menu-toggle>
-                            <i class="bi bi-three-dots-vertical"></i>
-                        </button>
-                        <div class="project-actions-menu" data-project-menu>
-                            <form method="POST" action="{% url 'projects:delete' item.project.pk %}">
-                                {% csrf_token %}
-                                <button type="submit" class="project-action-item danger" data-confirm-message="Eliminar este proyecto borrar&aacute; tambi&eacute;n su informaci&oacute;n asociada. &iquest;Deseas continuar?">
-                                    <i class="bi bi-trash"></i>
-                                    Eliminar
-                                </button>
-                            </form>
+                    {% if can_manage %}
+                        <div class="project-actions">
+                            <button class="kebab-button" type="button" title="Opciones" aria-expanded="false" data-project-menu-toggle>
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <div class="project-actions-menu" data-project-menu>
+                                <form method="POST" action="{% url 'projects:delete' item.project.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="project-action-item danger" data-confirm-message="Eliminar este proyecto borrar&aacute; tambi&eacute;n su informaci&oacute;n asociada. &iquest;Deseas continuar?">
+                                        <i class="bi bi-trash"></i>
+                                        Eliminar
+                                    </button>
+                                </form>
+                            </div>
                         </div>
-                    </div>
+                    {% endif %}
                 </header>
 
                 <div class="project-meta-row">
@@ -213,7 +217,9 @@
                 <i class="bi bi-kanban"></i>
                 <h3>No hay proyectos registrados</h3>
                 <p>Crea tu primer proyecto de titulación para iniciar el ciclo de pruebas.</p>
-                <a class="btn btn-brand" href="{% url 'projects:create' %}">Nuevo Proyecto</a>
+                {% if can_manage %}
+                    <a class="btn btn-brand" href="{% url 'projects:create' %}">Nuevo Proyecto</a>
+                {% endif %}
             </div>
         {% endfor %}
     </section>

@@ -3,6 +3,8 @@ from django.db import models
 
 from apps.core.models import TimeStampedModel
 from apps.projects.models import Project
+from apps.requirements.models import Requirement
+from apps.testplans.models import TestPlan
 
 
 class Incident(TimeStampedModel):
@@ -23,9 +25,12 @@ class Incident(TimeStampedModel):
         CLOSED = 'CLOSED', 'Cerrado'
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='incidents')
+    requirement = models.ForeignKey(Requirement, on_delete=models.SET_NULL, null=True, blank=True, related_name='risks')
+    test_plan = models.ForeignKey(TestPlan, on_delete=models.SET_NULL, null=True, blank=True, related_name='risks')
     code = models.CharField(max_length=40, default='INC-000')
     title = models.CharField(max_length=180)
     description = models.TextField()
+    mitigation_strategy = models.TextField(blank=True)
     probability = models.CharField(max_length=20, choices=Probability.choices, default=Probability.MEDIUM)
     impact = models.CharField(max_length=20, choices=Impact.choices, default=Impact.MEDIUM)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
@@ -37,3 +42,15 @@ class Incident(TimeStampedModel):
 
     def __str__(self):
         return self.title
+
+    @property
+    def risk_level(self):
+        if self.probability == self.Probability.HIGH and self.impact in {self.Impact.MEDIUM, self.Impact.HIGH}:
+            return 'Alto'
+        if self.impact == self.Impact.HIGH and self.probability in {self.Probability.MEDIUM, self.Probability.HIGH}:
+            return 'Alto'
+        if self.probability == self.Probability.LOW and self.impact in {self.Impact.LOW, self.Impact.MEDIUM}:
+            return 'Bajo'
+        if self.probability == self.Probability.MEDIUM and self.impact == self.Impact.LOW:
+            return 'Bajo'
+        return 'Medio'

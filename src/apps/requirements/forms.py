@@ -76,3 +76,36 @@ class RequirementForm(forms.ModelForm):
         for name, help_text in help_texts.items():
             self.fields[name].help_text = help_text
             self.fields[name].widget.attrs['data-help'] = help_text
+
+
+class RequirementImportForm(forms.Form):
+    project = forms.ModelChoiceField(
+        queryset=Project.objects.none(),
+        label='Proyecto',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    pdf_file = forms.FileField(
+        label='Archivo PDF',
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'application/pdf,.pdf'}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        projects = kwargs.pop('projects', Project.objects.none())
+        super().__init__(*args, **kwargs)
+        self.fields['project'].queryset = projects
+        self.fields['project'].help_text = 'Proyecto donde se cargaran los requisitos detectados.'
+        self.fields['pdf_file'].help_text = (
+            'Usa un PDF con texto seleccionable. Puede incluir requisitos funcionales y no funcionales en el mismo archivo.'
+        )
+
+    def clean_pdf_file(self):
+        pdf_file = self.cleaned_data['pdf_file']
+        name = pdf_file.name.lower()
+
+        if not name.endswith('.pdf'):
+            raise forms.ValidationError('Sube un archivo PDF valido.')
+
+        if pdf_file.size > 10 * 1024 * 1024:
+            raise forms.ValidationError('El PDF no debe superar 10 MB.')
+
+        return pdf_file

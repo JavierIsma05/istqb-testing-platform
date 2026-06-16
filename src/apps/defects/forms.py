@@ -17,6 +17,7 @@ class DefectForm(forms.ModelForm):
             'code',
             'title',
             'description',
+            'steps_to_reproduce',
             'severity',
             'priority',
             'status',
@@ -28,6 +29,7 @@ class DefectForm(forms.ModelForm):
             'code': 'Código',
             'title': 'Título del defecto',
             'description': 'Descripción',
+            'steps_to_reproduce': 'Pasos para reproducir',
             'severity': 'Severidad',
             'priority': 'Prioridad',
             'status': 'Estado',
@@ -45,6 +47,13 @@ class DefectForm(forms.ModelForm):
                     'rows': 4,
                 }
             ),
+            'steps_to_reproduce': forms.Textarea(
+                attrs={
+                    'class': 'form-control',
+                    'placeholder': '1. Abrir...\n2. Ejecutar...\n3. Observar...',
+                    'rows': 4,
+                }
+            ),
             'severity': forms.Select(attrs={'class': 'form-select'}),
             'priority': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
@@ -53,9 +62,14 @@ class DefectForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['execution'].required = False
+        self.fields['execution'].required = True
         self.fields['assigned_to'].required = False
         project_id = self.data.get('project') if self.is_bound else self.instance.project_id
+        execution_queryset = self.fields['execution'].queryset.filter(result='FAILED')
+        if project_id:
+            execution_queryset = execution_queryset.filter(test_case__test_plan__project_id=project_id)
+        self.fields['execution'].queryset = execution_queryset.select_related('test_case')
+        self.fields['execution'].empty_label = 'Selecciona una ejecucion fallida'
         queryset = Defect.objects.filter(project_id=project_id) if project_id else Defect.objects.none()
         self.fields['code'].required = False
         self.fields['code'].disabled = True
@@ -74,10 +88,11 @@ class DefectForm(forms.ModelForm):
         })
         help_texts = {
             'project': 'Proyecto donde se encontro el defecto.',
-            'execution': 'Ejecucion del caso de prueba relacionada; puede quedar vacia si aun no aplica.',
+            'execution': 'Ejecucion fallida que origino el defecto.',
             'code': 'Identificador unico del defecto, por ejemplo DEF-001.',
             'title': 'Resumen corto del problema observado.',
             'description': 'Incluye pasos para reproducir, resultado obtenido y resultado esperado.',
+            'steps_to_reproduce': 'Secuencia concreta para reproducir el defecto.',
             'severity': 'Impacto tecnico o funcional del defecto en el sistema.',
             'priority': 'Urgencia con la que deberia atenderse el defecto.',
             'status': 'Estado actual del seguimiento del defecto.',
@@ -86,3 +101,15 @@ class DefectForm(forms.ModelForm):
         for name, help_text in help_texts.items():
             self.fields[name].help_text = help_text
             self.fields[name].widget.attrs['data-help'] = help_text
+
+    def clean(self):
+        cleaned_data = super().clean()
+        project = cleaned_data.get('project')
+        execution = cleaned_data.get('execution')
+        if not execution:
+            self.add_error('execution', 'Todo defecto debe originarse en una ejecucion fallida.')
+        elif execution.result != execution.Result.FAILED:
+            self.add_error('execution', 'Solo una ejecucion fallida puede originar un defecto.')
+        elif project and execution.test_case.test_plan.project_id != project.id:
+            self.add_error('execution', 'La ejecucion debe pertenecer al proyecto seleccionado.')
+        return cleaned_data

@@ -138,6 +138,15 @@ CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_HTTPONLY = True
 X_FRAME_OPTIONS = 'DENY'
 
+AUTOMATION_ALLOWED_HOSTS = tuple(
+    host.strip()
+    for host in config(
+        'AUTOMATION_ALLOWED_HOSTS',
+        default='localhost,127.0.0.1,::1',
+    ).split(',')
+    if host.strip()
+)
+
 # =========================
 # PASSWORD VALIDATORS
 # =========================

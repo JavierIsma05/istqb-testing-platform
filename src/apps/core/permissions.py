@@ -21,10 +21,19 @@ def teacher_project_filter(user):
 def visible_projects_for(user):
     projects = Project.objects.all()
 
-    if is_teacher(user):
-        projects = projects.filter(teacher_project_filter(user)).distinct()
+    if not user.is_authenticated:
+        return projects.none()
 
-    return projects
+    if user.role == User.Roles.ADMIN:
+        return projects
+
+    if is_teacher(user):
+        return projects.filter(teacher_project_filter(user)).distinct()
+
+    if user.role == User.Roles.STUDENT:
+        return projects.filter(Q(members=user) | Q(created_by=user)).distinct()
+
+    return projects.none()
 
 
 def redirect_if_teacher_readonly(request, route_name, module_name):

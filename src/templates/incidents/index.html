@@ -1,17 +1,17 @@
 {% extends 'layouts/dashboard_base.html' %}
 
-{% block title %}Gestión de Incidencias{% endblock %}
+{% block title %}Gestion de Riesgos{% endblock %}
 
 {% block dashboard_content %}
 <div class="page-heading incidents-heading">
     <div>
-        <h2>Gestión de Incidencias</h2>
-        <p>Registro y seguimiento de riesgos e incidencias</p>
+        <h2>Gestion de Riesgos</h2>
+        <p>Riesgos del proyecto y producto para priorizar el plan de pruebas</p>
     </div>
     {% if can_manage %}
         <a class="btn btn-brand" href="{% url 'incidents:create' %}">
             <i class="bi bi-plus-lg"></i>
-            Nueva Incidencia
+            Nuevo Riesgo
         </a>
     {% endif %}
 </div>
@@ -20,7 +20,7 @@
     <form method="GET" class="incidents-filters">
         <div class="search-control">
             <i class="bi bi-search"></i>
-            <input type="search" name="q" value="{{ query }}" placeholder="Buscar incidencias...">
+            <input type="search" name="q" value="{{ query }}" placeholder="Buscar riesgos...">
         </div>
         <select name="project" aria-label="Proyecto">
             <option value="">Todos los proyectos</option>
@@ -44,10 +44,10 @@
             {% endfor %}
         {% endfor %}
     </div>
- </section>
+</section>
 
 <section class="incidents-list-card">
-    <h3>Incidencias Registradas</h3>
+    <h3>Riesgos Registrados</h3>
 
     <div class="incident-list">
         {% for item in incidents %}
@@ -63,6 +63,14 @@
                     <p>
                         Probabilidad: {{ item.incident.get_probability_display }}
                         <span>Impacto: {{ item.incident.get_impact_display }}</span>
+                        <span>Nivel: {{ item.incident.risk_level }}</span>
+                    </p>
+                    <p>
+                        {% if item.incident.requirement %}<span>Req: {{ item.incident.requirement.code }}</span>{% endif %}
+                        {% if item.incident.test_plan %}<span>Plan: {{ item.incident.test_plan.name }}</span>{% endif %}
+                        {% if not item.incident.requirement and not item.incident.test_plan %}
+                            <span>Sin vinculos de trazabilidad</span>
+                        {% endif %}
                     </p>
                 </div>
                 <div class="list-row-actions">
@@ -70,14 +78,14 @@
                         {{ item.incident.get_status_display }}
                     </span>
                     {% if can_manage %}
-                        <div class="manage-actions" aria-label="Gestionar incidencia">
+                        <div class="manage-actions" aria-label="Gestionar riesgo">
                             <a class="btn btn-outline-brand btn-sm" href="{% url 'incidents:edit' item.incident.pk %}">
                                 <i class="bi bi-pencil"></i>
                                 Editar
                             </a>
                             <form method="POST" action="{% url 'incidents:delete' item.incident.pk %}">
                                 {% csrf_token %}
-                                <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar esta incidencia o riesgo. Deseas continuar?">
+                                <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar este riesgo. Deseas continuar?">
                                     <i class="bi bi-trash"></i>
                                     Eliminar
                                 </button>
@@ -89,10 +97,10 @@
         {% empty %}
             <div class="empty-projects">
                 <i class="bi bi-exclamation-triangle"></i>
-                <h3>No hay incidencias registradas</h3>
-                <p>Registra la primera incidencia o riesgo para iniciar el seguimiento.</p>
+                <h3>No hay riesgos registrados</h3>
+                <p>Registra el primer riesgo para alimentar el plan de pruebas y la priorizacion.</p>
                 {% if can_manage %}
-                    <a class="btn btn-brand" href="{% url 'incidents:create' %}">Nueva Incidencia</a>
+                    <a class="btn btn-brand" href="{% url 'incidents:create' %}">Nuevo Riesgo</a>
                 {% endif %}
             </div>
         {% endfor %}

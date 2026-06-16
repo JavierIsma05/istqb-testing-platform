@@ -1,4 +1,5 @@
 import pytest
+from django.urls import reverse
 
 from apps.testcases.forms import TestCaseModalForm as CaseForm
 from apps.testcases.models import TestCase as CaseModel
@@ -26,10 +27,49 @@ def test_formulario_de_caso_de_prueba_es_valido_con_pasos_y_resultado(test_plan,
             'technique': CaseModel.Technique.EQUIVALENCE,
             'level': CaseModel.Level.SYSTEM,
             'preconditions': 'Usuario sin cuenta previa',
-            'steps': '1. Abrir registro\n2. Completar datos\n3. Enviar',
+            'steps': 'Abrir registro => Se muestra el formulario\nCompletar datos => Los datos son aceptados\nEnviar => La cuenta se crea',
             'expected_result': 'La cuenta queda creada.',
             'status': CaseModel.Status.PENDING,
         }
     )
 
     assert form.is_valid()
+    test_case = form.save(commit=False)
+    assert len(test_case.steps_data) == 3
+
+
+@pytest.mark.django_db
+def test_formulario_de_caso_exige_requisito_y_pasos_estructurados(test_plan):
+    form = CaseForm(
+        data={
+            'test_plan': test_plan.id,
+            'requirement': '',
+            'title': 'Caso sin trazabilidad',
+            'priority': CaseModel.Priority.MEDIUM,
+            'technique': CaseModel.Technique.DECISION_TABLE,
+            'level': CaseModel.Level.SYSTEM,
+            'steps': 'Abrir formulario sin resultado esperado',
+            'expected_result': 'No aplica.',
+            'version': '1.0',
+            'status': CaseModel.Status.PENDING,
+        }
+    )
+
+    assert not form.is_valid()
+    assert 'requirement' in form.errors
+    assert 'steps' in form.errors
+
+
+@pytest.mark.django_db
+def test_modal_carga_plan_y_requisitos_disponibles(client, project, requirement, test_plan, user):
+    project.members.add(user)
+    client.force_login(user)
+
+    response = client.get(reverse('testcases:index'))
+    form = response.context['form']
+
+    assert response.status_code == 200
+    assert form.fields['test_plan'].initial == test_plan.pk
+    assert list(form.fields['requirement'].queryset) == [requirement]
+    assert test_plan.name in response.content.decode()
+    assert requirement.code in response.content.decode()

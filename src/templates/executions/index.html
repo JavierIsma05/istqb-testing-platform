@@ -8,18 +8,50 @@
         <h2>Ejecución de Pruebas</h2>
         <p>Ejecuta casos de prueba y registra resultados</p>
     </div>
-    <form method="GET" class="execution-case-picker">
-        <select name="case" class="form-select" onchange="this.form.submit()">
-            {% for test_case in test_cases %}
-                <option value="{{ test_case.id }}" {% if selected_case and selected_case.id == test_case.id %}selected{% endif %}>
-                    {{ test_case.code }} - {{ test_case.title }}
-                </option>
-            {% endfor %}
-        </select>
-    </form>
+    <div class="page-heading-actions">
+        <a class="btn btn-outline-brand" href="{% url 'executions:calendar' %}">
+            <i class="bi bi-calendar-week"></i>
+            Calendario
+        </a>
+        <form method="GET" class="execution-case-picker">
+            <select name="case" class="form-select" onchange="this.form.submit()">
+                {% for test_case in test_cases %}
+                    <option value="{{ test_case.id }}" {% if selected_case and selected_case.id == test_case.id %}selected{% endif %}>
+                        {{ test_case.code }} - {{ test_case.title }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
 </div>
 
+{% if messages %}
+    <div class="project-messages">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+{% endif %}
+
 {% if selected_case %}
+    <div class="execution-mode-shell" data-execution-mode-shell>
+        <section class="execution-mode-selector" aria-label="Seleccionar modo de ejecucion">
+            <button class="execution-mode-card active" type="button" data-execution-mode-tab="manual" aria-pressed="true">
+                <span class="execution-mode-icon"><i class="bi bi-person-check"></i></span>
+                <span>
+                    <strong>Ejecucion manual</strong>
+                    <small>Registra paso a paso el resultado observado y adjunta evidencia.</small>
+                </span>
+            </button>
+            <button class="execution-mode-card" type="button" data-execution-mode-tab="automated" aria-pressed="false">
+                <span class="execution-mode-icon"><i class="bi bi-robot"></i></span>
+                <span>
+                    <strong>Ejecucion automatizada</strong>
+                    <small>Configura reglas guiadas y ejecuta validaciones seguras.</small>
+                </span>
+            </button>
+        </section>
+
     <section class="execution-grid">
         <article class="execution-case-card">
             <div class="execution-case-head">
@@ -51,6 +83,14 @@
                 <div class="last-execution-note">
                     Última ejecución: {{ last_execution.executed_at|date:'d M Y H:i' }} por {{ last_execution.executed_by.get_full_name|default:last_execution.executed_by.email }}
                 </div>
+                <div class="execution-section">
+                    <h4>RevisiÃ³n docente:</h4>
+                    <p>{{ last_execution.get_review_status_display }}</p>
+                </div>
+                <div class="execution-section">
+                    <h4>Resultado obtenido:</h4>
+                    <p>{{ last_execution.actual_result|linebreaksbr|default:'Sin resultado obtenido registrado.' }}</p>
+                </div>
                 {% if last_execution.evidence %}
                     <div class="execution-evidence-preview">
                         <div class="execution-evidence-header">
@@ -68,35 +108,65 @@
             {% endif %}
         </article>
 
-        <article class="execution-result-card">
+        <article class="execution-result-card" data-execution-mode-panel="manual">
             {% if can_manage %}
-                <h3>Registrar Resultado</h3>
+                <div class="execution-panel-heading">
+                    <span class="execution-mode-kicker">Ejecucion manual</span>
+                    <h3>Registrar Resultado</h3>
+                    <p>Completa los pasos del caso. El resultado final se calcula con base en los estados registrados.</p>
+                </div>
                 <form method="POST" enctype="multipart/form-data" novalidate>
                     {% csrf_token %}
 
-                    <div class="execution-result-options">
-                        {% for radio in form.result %}
-                            <label class="execution-result-option execution-option-{{ radio.data.value|lower }}">
-                                {{ radio.tag }}
-                                <span class="result-icon">
-                                    {% if radio.choice_label == 'Aprobado' %}
-                                        <i class="bi bi-check-circle"></i>
-                                    {% elif radio.choice_label == 'Fallido' %}
-                                        <i class="bi bi-x-circle"></i>
-                                    {% else %}
-                                        <i class="bi bi-play"></i>
-                                    {% endif %}
-                                </span>
-                                <strong>{{ radio.choice_label }}</strong>
-                            </label>
-                        {% endfor %}
+                    {{ form.result }}
+                    {% if form.non_field_errors %}<div class="form-error mb-3">{{ form.non_field_errors|striptags }}</div>{% endif %}
+                    <div class="alert alert-info py-2">
+                        El resultado del caso se calcula automaticamente: FAIL si falla un paso, BLOCKED si alguno queda bloqueado y PASS si todos aprueban.
                     </div>
-                    {% if form.result.errors %}<div class="form-error">{{ form.result.errors|striptags }}</div>{% endif %}
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ form.execution_type.id_for_label }}">{{ form.execution_type.label }}</label>
+                            {{ form.execution_type }}
+                            {% if form.execution_type.errors %}<div class="form-error">{{ form.execution_type.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4" data-related-defect-field hidden>
+                            <label class="form-label" for="{{ form.related_defect.id_for_label }}">{{ form.related_defect.label }}</label>
+                            {{ form.related_defect }}
+                            <div class="form-text">Solo se usa al volver desde Defectos para confirmar una correccion.</div>
+                            {% if form.related_defect.errors %}<div class="form-error">{{ form.related_defect.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="{{ form.planned_date.id_for_label }}">{{ form.planned_date.label }}</label>
+                            {{ form.planned_date }}
+                            {% if form.planned_date.errors %}<div class="form-error">{{ form.planned_date.errors|striptags }}</div>{% endif %}
+                        </div>
+                    </div>
 
                     <div class="mb-3">
-                        <label class="form-label" for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
-                        {{ form.notes }}
-                        {% if form.notes.errors %}<div class="form-error">{{ form.notes.errors|striptags }}</div>{% endif %}
+                        <label class="form-label">Ejecucion paso a paso</label>
+                        <div class="execution-step-checklist">
+                            {% for step in test_steps %}
+                                <div class="border rounded p-3 mb-3">
+                                    <strong>Paso {{ step.number }}</strong>
+                                    <p class="mb-1"><b>Accion:</b> {{ step.action }}</p>
+                                    <p><b>Esperado:</b> {{ step.expected_result }}</p>
+                                    <label class="form-label" for="step_actual_{{ forloop.counter0 }}">Resultado obtenido</label>
+                                    <textarea class="form-control mb-2" id="step_actual_{{ forloop.counter0 }}" name="step_actual_{{ forloop.counter0 }}" rows="2" required></textarea>
+                                    <label class="form-label" for="step_status_{{ forloop.counter0 }}">Estado</label>
+                                    <select class="form-select mb-2" id="step_status_{{ forloop.counter0 }}" name="step_status_{{ forloop.counter0 }}" required>
+                                        <option value="">Selecciona el estado</option>
+                                        <option value="PASSED">PASS</option>
+                                        <option value="FAILED">FAIL</option>
+                                        <option value="BLOCKED">BLOCKED</option>
+                                    </select>
+                                    <label class="form-label" for="step_comment_{{ forloop.counter0 }}">Comentario</label>
+                                    <textarea class="form-control" id="step_comment_{{ forloop.counter0 }}" name="step_comment_{{ forloop.counter0 }}" rows="2"></textarea>
+                                </div>
+                            {% empty %}
+                                <p class="text-danger mb-0">Este caso no tiene pasos definidos y no puede ejecutarse.</p>
+                            {% endfor %}
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -118,8 +188,10 @@
                 {% if last_execution %}
                     <div class="detail-summary-list">
                         <div><span>Resultado</span><strong>{{ last_execution.get_result_display }}</strong></div>
+                        <div><span>RevisiÃ³n docente</span><strong>{{ last_execution.get_review_status_display }}</strong></div>
                         <div><span>Ejecutado por</span><strong>{{ last_execution.executed_by.get_full_name|default:last_execution.executed_by.email|default:'Sin asignar' }}</strong></div>
                         <div><span>Fecha</span><strong>{{ last_execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}</strong></div>
+                        <div><span>Resultado obtenido</span><strong>{{ last_execution.actual_result|default:'Sin registrar' }}</strong></div>
                         <div>
                             <span>Evidencia</span>
                             {% if last_execution.evidence %}
@@ -129,12 +201,169 @@
                             {% endif %}
                         </div>
                     </div>
+                    {% if last_execution.automated_results.all %}
+                        <div class="mt-3">
+                            <h4>Resultados automatizados</h4>
+                            {% for result in last_execution.automated_results.all %}
+                                <div class="border rounded p-2 mb-2">
+                                    <strong>{{ result.validation_rule.name }}: {{ result.get_status_display }}</strong>
+                                    <div>Esperado: {{ result.expected_behavior }}</div>
+                                    <div>Obtenido: {{ result.actual_behavior }}</div>
+                                    {% if result.screenshot %}
+                                        <a href="{{ result.screenshot.url }}" target="_blank" rel="noopener">
+                                            <img class="mt-2 img-fluid rounded" src="{{ result.screenshot.url }}" alt="Captura automatica de {{ result.validation_rule.name }}">
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if last_execution.technical_log %}
+                        <div class="mt-3">
+                            <h4>Log tecnico</h4>
+                            <pre class="border rounded p-3 small">{{ last_execution.technical_log }}</pre>
+                        </div>
+                    {% endif %}
+                    <div class="execution-review-box">
+                        <h4>Validar ejecuciÃ³n</h4>
+                        <form method="POST" novalidate>
+                            {% csrf_token %}
+                            <input type="hidden" name="execution_id" value="{{ last_execution.id }}">
+                            <div class="mb-3">
+                                <label class="form-label" for="{{ review_form.review_status.id_for_label }}">{{ review_form.review_status.label }}</label>
+                                {{ review_form.review_status }}
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" for="{{ review_form.review_notes.id_for_label }}">{{ review_form.review_notes.label }}</label>
+                                {{ review_form.review_notes }}
+                            </div>
+                            <button class="btn btn-brand w-100" type="submit">Guardar revisiÃ³n</button>
+                        </form>
+                    </div>
                 {% else %}
                     <p class="text-muted mb-0">Este caso todavia no tiene ejecuciones registradas.</p>
                 {% endif %}
             {% endif %}
         </article>
     </section>
+
+    <section class="execution-history-card execution-automation-panel" id="automation" data-execution-mode-panel="automated" hidden>
+        <div class="card-heading">
+            <div>
+                <span class="execution-mode-kicker">Ejecucion automatizada</span>
+                <h3>Ejecucion semi-automatizada</h3>
+                <p>Configura validaciones guiadas ejecutadas con HTTP seguro o Chromium headless mediante Playwright, sin permitir codigo libre.</p>
+            </div>
+            {% if can_manage %}
+                <form method="POST" action="{% url 'executions:run-automated' selected_case.pk %}">
+                    {% csrf_token %}
+                    <button class="btn btn-brand" type="submit" {% if not automated_rules %}disabled{% endif %}>
+                        <i class="bi bi-play-circle"></i>
+                        Ejecutar validaciones
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+
+        <div class="table-responsive mb-4">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Paso</th>
+                        <th>Regla</th>
+                        <th>Tipo</th>
+                        <th>URL</th>
+                        <th>Esperado</th>
+                        <th>Estado</th>
+                        {% if can_manage %}<th>Gestionar</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rule in automated_rules %}
+                        <tr>
+                            <td>{{ rule.step_number }}</td>
+                            <td>{{ rule.name }}</td>
+                            <td>{{ rule.get_validation_type_display }}</td>
+                            <td><code>{{ rule.target_url }}</code></td>
+                            <td>
+                                {% if rule.validation_type == 'HTTP_STATUS' %}
+                                    HTTP {{ rule.expected_http_status }}
+                                {% else %}
+                                    {{ rule.expected_text|default:rule.expected_value|default:'Segun configuracion' }}
+                                {% endif %}
+                            </td>
+                            <td>{% if rule.is_active %}Activa{% else %}Inactiva{% endif %}</td>
+                            {% if can_manage %}
+                                <td>
+                                    <form method="POST" action="{% url 'executions:rule-delete' rule.pk %}">
+                                        {% csrf_token %}
+                                        <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar esta regla automatizada. Si ya tiene historial, se ocultara de la lista y se conservara su evidencia. Deseas continuar?">
+                                            <i class="bi bi-trash"></i>
+                                            Eliminar
+                                        </button>
+                                    </form>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="7" class="text-center text-muted py-4">No hay reglas configuradas para este caso.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if last_automated_execution %}
+            <div class="alert alert-light border mt-3">
+                <strong>Ultima ejecucion: {{ last_automated_execution.get_result_display }}</strong>
+                <pre class="small mt-2 mb-3">{{ last_automated_execution.technical_log }}</pre>
+                <div class="row g-3">
+                    {% for result in last_automated_execution.automated_results.all %}
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 h-100">
+                                <strong>{{ result.validation_rule.name }}: {{ result.get_status_display }}</strong>
+                                <div class="small">{{ result.actual_behavior }}</div>
+                                {% if result.screenshot %}
+                                    <a href="{{ result.screenshot.url }}" target="_blank" rel="noopener">
+                                        <img class="mt-2 img-fluid rounded" src="{{ result.screenshot.url }}" alt="Captura automatica de {{ result.validation_rule.name }}">
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+
+        {% if can_manage and rule_form %}
+            <details>
+                <summary class="btn btn-outline-brand">Agregar regla guiada</summary>
+                <form class="mt-3" method="POST" action="{% url 'executions:rule-create' selected_case.pk %}" novalidate>
+                    {% csrf_token %}
+                    <div class="automation-rule-help mb-3" data-rule-type-help>
+                        <strong>Selecciona un tipo de validacion</strong>
+                        <span>El formulario mostrara solo los campos necesarios para esa regla.</span>
+                    </div>
+                    <div class="row g-3">
+                        {% for field in rule_form %}
+                            <div class="{% if field.name == 'input_value' or field.name == 'expected_text' %}col-12{% else %}col-md-6{% endif %}" data-rule-field="{{ field.name }}">
+                                {% if field.field.widget.input_type == 'checkbox' %}
+                                    <div class="form-check mt-4">{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+                                {% else %}
+                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                    {{ field }}
+                                {% endif %}
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <button class="btn btn-brand mt-3" type="submit">Guardar regla</button>
+                </form>
+            </details>
+        {% endif %}
+    </section>
+    </div>
 
     <section class="execution-history-card">
         <div class="card-heading">
@@ -169,8 +398,13 @@
                     <tr>
                         <th>Fecha</th>
                         <th>Resultado</th>
+                        <th>Tipo</th>
+                        <th>Modo</th>
                         <th>Usuario</th>
-                        <th>Observaciones</th>
+                        <th>RevisiÃ³n</th>
+                        <th>Resultado obtenido</th>
+                        <th>Pasos</th>
+                        <th>Log tecnico</th>
                         <th>Evidencia</th>
                         {% if can_manage %}<th>Gestionar</th>{% endif %}
                     </tr>
@@ -180,8 +414,27 @@
                         <tr>
                             <td>{{ item.execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}</td>
                             <td>{{ item.execution.get_result_display }}</td>
+                            <td>{{ item.execution.get_execution_type_display }}</td>
+                            <td>{{ item.execution.get_execution_mode_display }}</td>
                             <td>{{ item.execution.executed_by.get_full_name|default:item.execution.executed_by.email|default:'Sin asignar' }}</td>
-                            <td>{{ item.execution.notes|default:'Sin observaciones' }}</td>
+                            <td>{{ item.execution.get_review_status_display }}</td>
+                            <td>{{ item.execution.actual_result|default:'Sin registrar' }}</td>
+                            <td>
+                                {% if item.execution.step_results %}
+                                    {{ item.execution.step_results|length }} pasos registrados
+                                {% elif item.execution.automated_results.all %}
+                                    {{ item.execution.automated_results.all|length }} reglas ejecutadas
+                                {% else %}
+                                    <span class="text-muted">Sin checklist</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.execution.technical_log %}
+                                    <pre class="small mb-0">{{ item.execution.technical_log }}</pre>
+                                {% else %}
+                                    <span class="text-muted">Sin log</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if item.execution.evidence %}
                                     <a class="execution-evidence-link" href="{{ item.execution.evidence.url }}" target="_blank" rel="noopener">
@@ -208,7 +461,7 @@
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="{% if can_manage %}6{% else %}5{% endif %}" class="text-center text-muted py-4">Este caso aun no tiene ejecuciones registradas.</td>
+                            <td colspan="{% if can_manage %}11{% else %}10{% endif %}" class="text-center text-muted py-4">Este caso aun no tiene ejecuciones registradas.</td>
                         </tr>
                     {% endfor %}
                 </tbody>

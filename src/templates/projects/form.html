@@ -34,9 +34,16 @@
                 {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
             </div>
             <div class="col-md-4">
-                <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
-                {{ form.status }}
-                {% if form.status.errors %}<div class="form-error">{{ form.status.errors|striptags }}</div>{% endif %}
+                <label class="form-label" for="project-status-preview">Estado</label>
+                <input
+                    class="form-control"
+                    id="project-status-preview"
+                    type="text"
+                    value="{{ automatic_status_label }}"
+                    readonly
+                    data-planned-label="Planificado"
+                    data-active-label="Activo"
+                >
             </div>
             <div class="col-md-4">
                 <label class="form-label" for="{{ form.start_date.id_for_label }}">{{ form.start_date.label }}</label>
@@ -55,10 +62,10 @@
                 {% if form.end_date.errors %}<div class="form-error">{{ form.end_date.errors|striptags }}</div>{% endif %}
             </div>
             <div class="col-12">
-                <label class="form-label" for="{{ form.members.id_for_label }}">{{ form.members.label }}</label>
-                {{ form.members }}
-                <div class="form-text visually-hidden">{{ form.members.help_text }}</div>
-                {% if form.members.errors %}<div class="form-error">{{ form.members.errors|striptags }}</div>{% endif %}
+                <label class="form-label" for="{{ form.tutor_email.id_for_label }}">{{ form.tutor_email.label }}</label>
+                {{ form.tutor_email }}
+                <div class="form-text">{{ form.tutor_email.help_text }}</div>
+                {% if form.tutor_email.errors %}<div class="form-error">{{ form.tutor_email.errors|striptags }}</div>{% endif %}
             </div>
         </div>
 
@@ -71,4 +78,32 @@
         </div>
     </form>
 </section>
+<script>
+    (() => {
+        const startDateInput = document.getElementById('{{ form.start_date.id_for_label }}');
+        const statusPreview = document.getElementById('project-status-preview');
+
+        if (!startDateInput || !statusPreview) {
+            return;
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const refreshStatus = () => {
+            if (!startDateInput.value) {
+                statusPreview.value = statusPreview.dataset.plannedLabel;
+                return;
+            }
+
+            const selectedDate = new Date(`${startDateInput.value}T00:00:00`);
+            statusPreview.value = selectedDate <= today
+                ? statusPreview.dataset.activeLabel
+                : statusPreview.dataset.plannedLabel;
+        };
+
+        startDateInput.addEventListener('change', refreshStatus);
+        refreshStatus();
+    })();
+</script>
 {% endblock %}

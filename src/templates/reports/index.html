@@ -8,10 +8,12 @@
         <h2>Informes y Reportes</h2>
         <p>Genera informes profesionales en PDF</p>
     </div>
-    <button class="btn btn-brand" type="button" data-bs-toggle="modal" data-bs-target="#reportModal">
-        <i class="bi bi-file-earmark-bar-graph"></i>
-        Generar Nuevo Reporte
-    </button>
+    {% if can_manage %}
+        <button class="btn btn-brand" type="button" data-bs-toggle="modal" data-bs-target="#reportModal">
+            <i class="bi bi-file-earmark-bar-graph"></i>
+            Generar Nuevo Reporte
+        </button>
+    {% endif %}
 </div>
 
 <section class="report-type-grid">
@@ -47,6 +49,15 @@
                         <i class="bi bi-download"></i>
                         Descargar
                     </a>
+                    {% if can_manage %}
+                        <form method="POST" action="{% url 'reports:delete' report.pk %}">
+                            {% csrf_token %}
+                            <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar este reporte quitara el documento del listado. Deseas continuar?">
+                                <i class="bi bi-trash"></i>
+                                Eliminar
+                            </button>
+                        </form>
+                    {% endif %}
                 </div>
             </article>
         {% empty %}
@@ -54,51 +65,55 @@
                 <i class="bi bi-file-earmark-bar-graph"></i>
                 <h3>No hay reportes generados</h3>
                 <p>Genera el primer informe para documentar el avance del proyecto.</p>
-                <button class="btn btn-brand" type="button" data-bs-toggle="modal" data-bs-target="#reportModal">Generar Nuevo Reporte</button>
+                {% if can_manage %}
+                    <button class="btn btn-brand" type="button" data-bs-toggle="modal" data-bs-target="#reportModal">Generar Nuevo Reporte</button>
+                {% endif %}
             </div>
         {% endfor %}
     </div>
 </section>
 
-<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div>
-                    <h2 class="modal-title" id="reportModalLabel">Generar Nuevo Reporte</h2>
-                    <p>Selecciona proyecto y tipo de informe</p>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <form method="POST" novalidate>
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label" for="{{ form.project.id_for_label }}">{{ form.project.label }}</label>
-                        {{ form.project }}
-                        {% if form.project.errors %}<div class="form-error">{{ form.project.errors|striptags }}</div>{% endif %}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
-                        {{ form.title }}
-                        {% if form.title.errors %}<div class="form-error">{{ form.title.errors|striptags }}</div>{% endif %}
-                    </div>
+{% if can_manage %}
+    <div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
                     <div>
-                        <label class="form-label" for="{{ form.report_type.id_for_label }}">{{ form.report_type.label }}</label>
-                        {{ form.report_type }}
-                        {% if form.report_type.errors %}<div class="form-error">{{ form.report_type.errors|striptags }}</div>{% endif %}
+                        <h2 class="modal-title" id="reportModalLabel">Generar Nuevo Reporte</h2>
+                        <p>Selecciona proyecto y tipo de informe</p>
                     </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline-brand" type="button" data-bs-dismiss="modal">Cancelar</button>
-                    <button class="btn btn-brand" type="submit">Generar Reporte</button>
-                </div>
-            </form>
+                <form method="POST" novalidate>
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ form.project.id_for_label }}">{{ form.project.label }}</label>
+                            {{ form.project }}
+                            {% if form.project.errors %}<div class="form-error">{{ form.project.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+                            {{ form.title }}
+                            {% if form.title.errors %}<div class="form-error">{{ form.title.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label class="form-label" for="{{ form.report_type.id_for_label }}">{{ form.report_type.label }}</label>
+                            {{ form.report_type }}
+                            {% if form.report_type.errors %}<div class="form-error">{{ form.report_type.errors|striptags }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-brand" type="button" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-brand" type="submit">Generar Reporte</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
-</div>
+{% endif %}
 
-{% if show_modal %}
+{% if can_manage and show_modal %}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var modal = new bootstrap.Modal(document.getElementById('reportModal'));

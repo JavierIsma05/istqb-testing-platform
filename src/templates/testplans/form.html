@@ -10,26 +10,28 @@
         </a>
         <div>
             <h2>{{ form_title|default:'Crear Plan de Pruebas' }}</h2>
-            <p>Asistente paso a paso</p>
+            <p>Asistente paso a paso alineado al flujo ISTQB</p>
         </div>
     </div>
 
     <div class="wizard-steps" aria-label="Progreso del asistente">
-        <div class="wizard-step active" data-step-dot="1"><span>1</span><small>Información<br>General</small></div>
+        <div class="wizard-step active" data-step-dot="1"><span>1</span><small>Informacion<br>General</small></div>
         <div class="wizard-line"></div>
         <div class="wizard-step" data-step-dot="2"><span>2</span><small>Alcance y<br>Objetivos</small></div>
         <div class="wizard-line"></div>
-        <div class="wizard-step" data-step-dot="3"><span>3</span><small>Criterios</small></div>
+        <div class="wizard-step" data-step-dot="3"><span>3</span><small>Enfoque de<br>Prueba</small></div>
         <div class="wizard-line"></div>
-        <div class="wizard-step" data-step-dot="4"><span>4</span><small>Recursos y Calendario</small></div>
+        <div class="wizard-step" data-step-dot="4"><span>4</span><small>Criterios</small></div>
+        <div class="wizard-line"></div>
+        <div class="wizard-step" data-step-dot="5"><span>5</span><small>Recursos y<br>Calendario</small></div>
     </div>
 
     <form method="POST" class="wizard-form" novalidate>
         {% csrf_token %}
 
         <section class="wizard-panel active" data-step-panel="1">
-            <h3>Paso 1: Información General</h3>
-            <p>Completa la información requerida</p>
+            <h3>Paso 1: Informacion General</h3>
+            <p>Identifica el plan, version y proyecto asociado.</p>
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label" for="{{ form.project.id_for_label }}">{{ form.project.label }}</label>
@@ -56,7 +58,7 @@
 
         <section class="wizard-panel" data-step-panel="2">
             <h3>Paso 2: Alcance y Objetivos</h3>
-            <p>Completa la información requerida</p>
+            <p>Define que se probara, que queda fuera y que se espera lograr.</p>
             <div class="mb-3">
                 <label class="form-label" for="{{ form.scope.id_for_label }}">{{ form.scope.label }}</label>
                 {{ form.scope }}
@@ -70,27 +72,71 @@
         </section>
 
         <section class="wizard-panel" data-step-panel="3">
-            <h3>Paso 3: Criterios</h3>
-            <p>Completa la información requerida</p>
+            <h3>Paso 3: Enfoque de Prueba</h3>
+            <p>Explica como los riesgos, prioridades y tecnicas guiaran la prueba.</p>
+            <div class="mb-3">
+                <label class="form-label" for="{{ form.strategy.id_for_label }}">{{ form.strategy.label }}</label>
+                {{ form.strategy }}
+                {% if form.strategy.errors %}<div class="form-error">{{ form.strategy.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label">{{ form.test_types.label }}</label>
+                <div class="d-flex flex-wrap gap-3">{{ form.test_types }}</div>
+                {% if form.test_types.errors %}<div class="form-error">{{ form.test_types.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="{{ form.environment.id_for_label }}">{{ form.environment.label }}</label>
+                {{ form.environment }}
+                {% if form.environment.errors %}<div class="form-error">{{ form.environment.errors|striptags }}</div>{% endif %}
+            </div>
+            <div>
+                <label class="form-label" for="{{ form.estimation.id_for_label }}">{{ form.estimation.label }}</label>
+                {{ form.estimation }}
+                {% if form.estimation.errors %}<div class="form-error">{{ form.estimation.errors|striptags }}</div>{% endif %}
+            </div>
+        </section>
+
+        <section class="wizard-panel" data-step-panel="4">
+            <h3>Paso 4: Criterios</h3>
+            <p>Define condiciones de entrada y salida del ciclo de prueba.</p>
             <div class="mb-3">
                 <label class="form-label" for="{{ form.entry_criteria.id_for_label }}">{{ form.entry_criteria.label }}</label>
                 {{ form.entry_criteria }}
                 {% if form.entry_criteria.errors %}<div class="form-error">{{ form.entry_criteria.errors|striptags }}</div>{% endif %}
             </div>
-            <div>
+            <div class="mb-3">
                 <label class="form-label" for="{{ form.exit_criteria.id_for_label }}">{{ form.exit_criteria.label }}</label>
                 {{ form.exit_criteria }}
                 {% if form.exit_criteria.errors %}<div class="form-error">{{ form.exit_criteria.errors|striptags }}</div>{% endif %}
             </div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label" for="{{ form.minimum_pass_percentage.id_for_label }}">{{ form.minimum_pass_percentage.label }}</label>
+                    {{ form.minimum_pass_percentage }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="{{ form.maximum_critical_defects.id_for_label }}">{{ form.maximum_critical_defects.label }}</label>
+                    {{ form.maximum_critical_defects }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="{{ form.minimum_coverage_percentage.id_for_label }}">{{ form.minimum_coverage_percentage.label }}</label>
+                    {{ form.minimum_coverage_percentage }}
+                </div>
+            </div>
         </section>
 
-        <section class="wizard-panel" data-step-panel="4">
-            <h3>Paso 4: Recursos y Calendario</h3>
-            <p>Completa la información requerida</p>
+        <section class="wizard-panel" data-step-panel="5">
+            <h3>Paso 5: Recursos y Calendario</h3>
+            <p>Registra recursos, responsables, fechas y estado.</p>
             <div class="mb-3">
                 <label class="form-label" for="{{ form.resources.id_for_label }}">{{ form.resources.label }}</label>
                 {{ form.resources }}
                 {% if form.resources.errors %}<div class="form-error">{{ form.resources.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="{{ form.responsibilities.id_for_label }}">{{ form.responsibilities.label }}</label>
+                {{ form.responsibilities }}
+                {% if form.responsibilities.errors %}<div class="form-error">{{ form.responsibilities.errors|striptags }}</div>{% endif %}
             </div>
             <div class="row g-3">
                 <div class="col-md-4">

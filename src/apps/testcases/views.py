@@ -4,6 +4,7 @@ from django.db.models import Count
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.audit.services import log_action
 from apps.core.permissions import can_manage_artifacts, is_teacher, visible_projects_for
 from apps.core.codes import next_code
 
@@ -25,7 +26,7 @@ def testcase_list_view(request):
     status = request.GET.get('status', '').strip()
     priority = request.GET.get('priority', '').strip()
     can_manage = can_manage_artifacts(request.user)
-    form = TestCaseModalForm(request.POST or None)
+    form = TestCaseModalForm(request.POST or None, user=request.user)
 
     if request.method == 'POST' and is_teacher(request.user):
         return redirect('testcases:index')
@@ -38,6 +39,19 @@ def testcase_list_view(request):
         )
         test_case.created_by = request.user
         test_case.save()
+        log_action(
+            request.user,
+            'CREATE',
+            'TestCase',
+            test_case.pk,
+            {
+                'project_id': test_case.test_plan.project_id,
+                'test_plan_id': test_case.test_plan_id,
+                'requirement_id': test_case.requirement_id,
+                'code': test_case.code,
+                'title': test_case.title,
+            },
+        )
         return redirect('testcases:index')
 
     test_cases = TestCase.objects.select_related(
@@ -139,10 +153,23 @@ def testcase_update_view(request, pk):
         pk=pk,
         test_plan__project__in=visible_projects_for(request.user),
     )
-    form = TestCaseModalForm(request.POST or None, instance=test_case)
+    form = TestCaseModalForm(request.POST or None, instance=test_case, user=request.user)
 
     if request.method == 'POST' and form.is_valid():
-        form.save()
+        test_case = form.save()
+        log_action(
+            request.user,
+            'UPDATE',
+            'TestCase',
+            test_case.pk,
+            {
+                'project_id': test_case.test_plan.project_id,
+                'test_plan_id': test_case.test_plan_id,
+                'requirement_id': test_case.requirement_id,
+                'code': test_case.code,
+                'title': test_case.title,
+            },
+        )
         messages.success(request, 'Caso de prueba actualizado correctamente.')
         return redirect('testcases:detail', pk=test_case.pk)
 
@@ -169,6 +196,19 @@ def testcase_delete_view(request, pk):
     )
 
     if request.method == 'POST':
+        log_action(
+            request.user,
+            'DELETE',
+            'TestCase',
+            test_case.pk,
+            {
+                'project_id': test_case.test_plan.project_id,
+                'test_plan_id': test_case.test_plan_id,
+                'requirement_id': test_case.requirement_id,
+                'code': test_case.code,
+                'title': test_case.title,
+            },
+        )
         test_case.delete()
         messages.success(request, 'Caso de prueba eliminado correctamente.')
     else:

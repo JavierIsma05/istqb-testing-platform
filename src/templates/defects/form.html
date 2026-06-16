@@ -43,6 +43,11 @@
                 {{ form.description }}
                 {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
             </div>
+            <div class="col-12">
+                <label class="form-label" for="{{ form.steps_to_reproduce.id_for_label }}">{{ form.steps_to_reproduce.label }}</label>
+                {{ form.steps_to_reproduce }}
+                {% if form.steps_to_reproduce.errors %}<div class="form-error">{{ form.steps_to_reproduce.errors|striptags }}</div>{% endif %}
+            </div>
             <div class="col-md-3">
                 <label class="form-label" for="{{ form.severity.id_for_label }}">{{ form.severity.label }}</label>
                 {{ form.severity }}

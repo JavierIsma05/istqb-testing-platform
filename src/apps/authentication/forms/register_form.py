@@ -24,15 +24,9 @@ class RegisterForm(UserCreationForm):
             }
         )
     )
-    role = forms.ChoiceField(
-        label='Rol',
-        choices=User.Roles.choices,
-        widget=forms.Select(attrs={'class': 'form-select form-select-lg'})
-    )
-
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email', 'role', 'password1', 'password2')
+        fields = ('first_name', 'last_name', 'email', 'password1', 'password2')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,3 +34,27 @@ class RegisterForm(UserCreationForm):
         self.fields['password2'].label = 'Confirmar contrasena'
         self.fields['password1'].widget.attrs.update({'class': 'form-control form-control-lg'})
         self.fields['password2'].widget.attrs.update({'class': 'form-control form-control-lg'})
+
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        domain = email.split('@')[-1].lower()
+        public_domains = {
+            'gmail.com',
+            'hotmail.com',
+            'outlook.com',
+            'yahoo.com',
+            'icloud.com',
+            'live.com',
+        }
+
+        if domain in public_domains:
+            raise forms.ValidationError('Usa un correo institucional, no un correo personal.')
+
+        return email
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.role = User.Roles.STUDENT
+        if commit:
+            user.save()
+        return user

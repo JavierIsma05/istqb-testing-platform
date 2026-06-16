@@ -9,10 +9,16 @@
         <p>Gestión de requisitos funcionales y no funcionales</p>
     </div>
     {% if can_manage %}
-        <a class="btn btn-brand" href="{% url 'requirements:create' %}">
-            <i class="bi bi-plus-lg"></i>
-            Nuevo Requisito
-        </a>
+        <div class="page-heading-actions">
+            <a class="btn btn-outline-brand" href="{% url 'requirements:import' %}">
+                <i class="bi bi-upload"></i>
+                Cargar Requisitos
+            </a>
+            <a class="btn btn-brand" href="{% url 'requirements:create' %}">
+                <i class="bi bi-plus-lg"></i>
+                Nuevo Requisito
+            </a>
+        </div>
     {% endif %}
 </div>
 
@@ -63,11 +69,33 @@
 </section>
 
 <section class="requirements-list-card">
-    <h3>Lista de Requisitos</h3>
+    <div class="requirements-list-heading">
+        <h3>Lista de Requisitos</h3>
+        {% if can_manage and requirement_items %}
+            <div class="requirements-bulk-actions">
+                <label class="bulk-select-control">
+                    <input class="form-check-input" type="checkbox" data-bulk-select-all="requirements">
+                    <span>Seleccionar todos</span>
+                </label>
+                <form id="bulk-delete-requirements-form" method="POST" action="{% url 'requirements:bulk_delete' %}">
+                    {% csrf_token %}
+                    <button class="btn btn-outline-danger btn-sm" type="submit" data-bulk-action="requirements" data-confirm-message="Eliminar los requisitos seleccionados tambien eliminara sus enlaces de trazabilidad. Deseas continuar?" disabled>
+                        <i class="bi bi-trash"></i>
+                        Eliminar seleccionados
+                    </button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
 
     <div class="requirement-list">
         {% for item in requirement_items %}
-            <article class="requirement-row">
+            <article class="requirement-row {% if can_manage %}requirement-row-selectable{% endif %}">
+                {% if can_manage %}
+                    <div class="requirement-select">
+                        <input class="form-check-input" form="bulk-delete-requirements-form" type="checkbox" name="requirement_ids" value="{{ item.requirement.pk }}" aria-label="Seleccionar {{ item.requirement.code }}" data-bulk-select-item="requirements">
+                    </div>
+                {% endif %}
                 <div class="requirement-icon">
                     <i class="bi bi-file-earmark-text"></i>
                 </div>
@@ -80,6 +108,7 @@
                         Tipo: {{ item.requirement.get_requirement_type_display }}
                         <span>Prioridad: {{ item.requirement.get_priority_display }}</span>
                         <span>Cobertura: {{ item.coverage }}%</span>
+                        <span>Versiones: {{ item.version_count }}</span>
                     </p>
                 </div>
                 <div class="list-row-actions">

@@ -1,10 +1,13 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.audit.services import log_action
 from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
 
 from .forms import TestPlanWizardForm
+from .history import record_test_plan_version
 from .models import TestPlan
 
 
@@ -18,7 +21,10 @@ STATUS_BADGES = {
 
 @login_required
 def testplan_list_view(request):
-    plans = TestPlan.objects.select_related('project', 'created_by').order_by('-created_at')
+    plans = TestPlan.objects.select_related('project', 'created_by').annotate(
+        risk_count=Count('risks', distinct=True),
+        version_count=Count('versions', distinct=True),
+    ).order_by('-created_at')
     plans = plans.filter(project__in=visible_projects_for(request.user))
     return render(
         request,
@@ -48,6 +54,14 @@ def testplan_create_view(request):
         plan = form.save(commit=False)
         plan.created_by = request.user
         plan.save()
+        record_test_plan_version(plan, request.user, 'Creacion del plan de pruebas')
+        log_action(
+            request.user,
+            'CREATE',
+            'TestPlan',
+            plan.pk,
+            {'project_id': plan.project_id, 'name': plan.name, 'version': plan.version, 'status': plan.status},
+        )
         messages.success(request, 'Plan de pruebas creado correctamente.')
         return redirect('testplans:index')
 
@@ -68,7 +82,15 @@ def testplan_update_view(request, pk):
     form = TestPlanWizardForm(request.POST or None, instance=plan)
 
     if request.method == 'POST' and form.is_valid():
-        form.save()
+        plan = form.save()
+        record_test_plan_version(plan, request.user, 'Actualizacion del plan de pruebas')
+        log_action(
+            request.user,
+            'UPDATE',
+            'TestPlan',
+            plan.pk,
+            {'project_id': plan.project_id, 'name': plan.name, 'version': plan.version, 'status': plan.status},
+        )
         messages.success(request, 'Plan de pruebas actualizado correctamente.')
         return redirect('testplans:index')
 
@@ -88,6 +110,13 @@ def testplan_delete_view(request, pk):
     )
 
     if request.method == 'POST':
+        log_action(
+            request.user,
+            'DELETE',
+            'TestPlan',
+            plan.pk,
+            {'project_id': plan.project_id, 'name': plan.name, 'version': plan.version, 'status': plan.status},
+        )
         plan.delete()
         messages.success(request, 'Plan de pruebas eliminado correctamente.')
     else:

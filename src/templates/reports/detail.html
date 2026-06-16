@@ -1,4 +1,5 @@
 {% extends 'layouts/dashboard_base.html' %}
+{% load static %}
 
 {% block title %}{{ report.title }}{% endblock %}
 
@@ -9,26 +10,29 @@
         <p>Vista previa institucional del reporte</p>
     </div>
     <div class="d-flex gap-2">
-        <a class="btn btn-outline-brand" href="{% url 'reports:index' %}">
-            <i class="bi bi-arrow-left"></i>
-            Volver
-        </a>
-        <a class="btn btn-brand" href="{% url 'reports:download' report.pk %}">
-            <i class="bi bi-download"></i>
-            Descargar PDF
-        </a>
+        <a class="btn btn-outline-brand" href="{% url 'reports:index' %}"><i class="bi bi-arrow-left"></i> Volver</a>
+        <a class="btn btn-brand" href="{% url 'reports:download' report.pk %}"><i class="bi bi-download"></i> Descargar PDF</a>
     </div>
 </div>
 
-<section class="report-preview">
+<section class="report-preview {% if is_final %}final-report-preview{% endif %}">
     <header class="unl-report-header">
-        <div class="unl-emblem">UNL</div>
-        <div>
+        <img
+            class="report-brand-logo report-brand-logo-career"
+            src="{% static 'images/reports/career-logo.png' %}"
+            alt="Carrera de Ingenieria en Sistemas y Computacion"
+        >
+        <div class="report-institution-title">
             <h3>UNIVERSIDAD NACIONAL DE LOJA</h3>
-            <p>Facultad de la Energía, las Industrias y los Recursos Naturales no Renovables</p>
-            <p>Carrera de Computación</p>
-            <p>Plataforma ISTQB - Gestión del Ciclo de Vida de Pruebas</p>
+            <p>Facultad de la Energia, las Industrias y los Recursos Naturales no Renovables</p>
+            <p>Carrera de Computacion</p>
+            <p>Plataforma ISTQB - Gestion del Ciclo de Vida de Pruebas</p>
         </div>
+        <img
+            class="report-brand-logo report-brand-logo-unl"
+            src="{% static 'images/reports/unl-logo.png' %}"
+            alt="Universidad Nacional de Loja"
+        >
     </header>
 
     <div class="report-preview-title">
@@ -36,46 +40,105 @@
         <span>{{ report.get_report_type_display }}</span>
     </div>
 
-    <table class="report-preview-table">
-        <tbody>
-            <tr>
-                <th>Proyecto</th>
-                <td>{{ report.project.name }}</td>
-            </tr>
-            <tr>
-                <th>Generado por</th>
-                <td>{{ report.generated_by.get_full_name|default:report.generated_by.email|default:'Sistema' }}</td>
-            </tr>
-            <tr>
-                <th>Fecha</th>
-                <td>{{ report.created_at|date:'d/m/Y' }}</td>
-            </tr>
-        </tbody>
-    </table>
+    {% if is_final %}
+        <div class="final-report-meta">
+            <span><strong>Proyecto:</strong> {{ report.project.name }}</span>
+            <span><strong>Generado por:</strong> {{ report.generated_by.get_full_name|default:report.generated_by.email|default:'Sistema' }}</span>
+            <span><strong>Fecha:</strong> {{ report.created_at|date:'d/m/Y' }}</span>
+        </div>
 
-    <h5>Resumen del reporte</h5>
-    <table class="report-preview-table metrics">
-        <thead>
-            <tr>
-                <th>Métrica</th>
-                <th>Valor</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for label, value in content_items %}
-                <tr>
-                    <td>{{ label }}</td>
-                    <td>{{ value }}</td>
-                </tr>
+        <div class="final-report-summary">{{ summary_text }}</div>
+
+        <div class="final-kpi-grid">
+            {% for kpi in final_kpis %}
+                <article class="final-kpi-card">
+                    <i class="bi {{ kpi.icon }}"></i>
+                    <span>{{ kpi.label }}</span>
+                    <strong>{{ kpi.value }}</strong>
+                </article>
             {% endfor %}
-        </tbody>
-    </table>
+        </div>
 
-    <h5>Observación institucional</h5>
+        <h5>Indicadores de calidad y trazabilidad</h5>
+        <div class="quality-indicator-grid">
+            {% for indicator in quality_indicators %}
+                <article class="quality-indicator">
+                    <div><span>{{ indicator.label }}</span><strong>{{ indicator.value }}%</strong></div>
+                    <div class="quality-track"><span class="tone-{{ indicator.tone }}" style="width: {{ indicator.value }}%"></span></div>
+                </article>
+            {% endfor %}
+        </div>
+
+        <div class="final-chart-grid">
+            {% for group in chart_groups %}
+                <article class="final-chart-card">
+                    <h5>{{ group.title }}</h5>
+                    <p class="chart-caption">La longitud representa la cantidad relativa; el valor exacto aparece al final de cada barra.</p>
+                    <div class="bar-chart" role="img" aria-label="{{ group.title }}">
+                        {% for item in group.items %}
+                            <div class="bar-chart-row">
+                                <span>{{ item.label }}</span>
+                                <div class="bar-chart-track"><span class="tone-{{ item.tone }}" style="width: {{ item.percent }}%"></span></div>
+                                <strong>{{ item.value }}</strong>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="chart-legend">
+                        {% for item in group.items %}
+                            <span><i class="legend-dot tone-{{ item.tone }}"></i>{{ item.label }}: {{ item.value }}</span>
+                        {% endfor %}
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+
+        <h5>Distribuciones porcentuales</h5>
+        <div class="pie-chart-grid">
+            {% for group in pie_groups %}
+                <article class="pie-chart-card">
+                    <h5>{{ group.title }}</h5>
+                    <div class="pie-chart-layout">
+                        <div class="pie-chart" style="background: conic-gradient({{ group.gradient }});">
+                            <span>{{ group.total }}</span>
+                            <small>Total</small>
+                        </div>
+                        <div class="pie-legend">
+                            {% for item in group.items %}
+                                <div>
+                                    <i class="legend-dot" style="background: {{ item.color }};"></i>
+                                    <span>{{ item.label }}</span>
+                                    <strong>{{ item.value }} ({{ item.percent }}%)</strong>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <table class="report-preview-table">
+            <tbody>
+                <tr><th>Proyecto</th><td>{{ report.project.name }}</td></tr>
+                <tr><th>Generado por</th><td>{{ report.generated_by.get_full_name|default:report.generated_by.email|default:'Sistema' }}</td></tr>
+                <tr><th>Fecha</th><td>{{ report.created_at|date:'d/m/Y' }}</td></tr>
+            </tbody>
+        </table>
+
+        <h5>Resumen del reporte</h5>
+        <table class="report-preview-table metrics">
+            <thead><tr><th>Metrica</th><th>Valor</th></tr></thead>
+            <tbody>
+                {% for label, value in content_items %}
+                    <tr><td>{{ label }}</td><td>{{ value }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    <h5>Observacion institucional</h5>
     <p class="report-observation">
-        Este documento fue generado por la Plataforma ISTQB como evidencia de seguimiento académico
-        del ciclo de vida de pruebas de software. La información debe ser revisada por el docente tutor
-        o responsable del proyecto antes de su presentación formal.
+        Este documento fue generado por la Plataforma ISTQB como evidencia del ciclo de vida de pruebas.
+        La informacion debe ser revisada por el docente tutor antes de su presentacion formal.
     </p>
 </section>
 {% endblock %}
