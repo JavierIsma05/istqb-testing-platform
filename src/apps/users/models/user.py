@@ -24,6 +24,7 @@ class UserManager(BaseUserManager):
 
     def create_superuser(self, email, password=None, **extra_fields):
 
+        extra_fields.setdefault('role', User.Roles.ADMIN)
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
@@ -62,6 +63,16 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+    def save(self, *args, **kwargs):
+        """Keep Django administration privileges aligned with the user role."""
+        if self.role == self.Roles.ADMIN:
+            self.is_staff = True
+        else:
+            self.is_staff = False
+            self.is_superuser = False
+
+        super().save(*args, **kwargs)
 
     @property
     def is_admin_role(self):

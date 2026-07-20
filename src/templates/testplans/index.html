@@ -6,7 +6,7 @@
 <div class="page-heading testplan-heading">
     <div>
         <h2>Plan de Pruebas</h2>
-        <p>Gestion de planes de prueba segun ISTQB</p>
+        <p>Gestión de planes de prueba según ISTQB</p>
     </div>
     {% if can_manage %}
         <a class="btn btn-brand" href="{% url 'testplans:create' %}">
@@ -28,7 +28,7 @@
                 <div class="testplan-main">
                     <strong>{{ item.plan.name }}</strong>
                     <p>
-                        Version: {{ item.plan.version }}
+                        Versión: {{ item.plan.version }}
                         <span>Historial: {{ item.plan.version_count }}</span>
                         <span><i class="bi bi-calendar3"></i> {{ item.plan.created_at|date:'d M Y' }}</span>
                         <span>Por: {{ item.plan.created_by.get_full_name|default:item.plan.created_by.email|default:'Sin asignar' }}</span>

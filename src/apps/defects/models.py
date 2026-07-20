@@ -21,9 +21,9 @@ class Defect(TimeStampedModel):
 
     class Status(models.TextChoices):
         OPEN = 'OPEN', 'Abierto'
-        ANALYSIS = 'ANALYSIS', 'En analisis'
-        IN_PROGRESS = 'IN_PROGRESS', 'En correccion'
-        PENDING_CONFIRMATION = 'PENDING_CONFIRMATION', 'Pendiente de confirmacion'
+        ANALYSIS = 'ANALYSIS', 'En análisis'
+        IN_PROGRESS = 'IN_PROGRESS', 'En corrección'
+        PENDING_CONFIRMATION = 'PENDING_CONFIRMATION', 'Pendiente de confirmación'
         CLOSED = 'CLOSED', 'Cerrado'
         REJECTED = 'REJECTED', 'Rechazado'
         DUPLICATED = 'DUPLICATED', 'Duplicado'

@@ -1,0 +1,173 @@
+@startuml
+title Diagrama de casos de uso - Plataforma ISTQB Testing Lifecycle
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Usuario autenticado" as AUTH
+actor "Administrador" as ADMIN
+actor "Estudiante" as STUDENT
+actor "Docente" as TEACHER
+
+ADMIN --|> AUTH
+STUDENT --|> AUTH
+TEACHER --|> AUTH
+
+rectangle "Plataforma ISTQB Testing Lifecycle" {
+  package "Acceso y tablero" {
+    usecase "Iniciar sesion" as UC_LOGIN
+    usecase "Consultar dashboard" as UC_DASHBOARD
+    usecase "Gestionar perfil" as UC_PROFILE
+    usecase "Consultar notificaciones" as UC_NOTIFICATIONS
+  }
+
+  package "Proyecto academico" {
+    usecase "Gestionar proyectos" as UC_PROJECT_CRUD
+    usecase "Asignar tutor y miembros" as UC_ASSIGN_MEMBERS
+    usecase "Consultar detalle del proyecto" as UC_PROJECT_DETAIL
+    usecase "Filtrar proyectos visibles" as UC_PROJECT_FILTER
+    usecase "Gestionar fases ISTQB" as UC_PHASES
+  }
+
+  package "Artefactos de prueba" {
+    usecase "Gestionar requisitos" as UC_REQ_CRUD
+    usecase "Importar requisitos" as UC_REQ_IMPORT
+    usecase "Versionar requisitos" as UC_REQ_VERSION
+    usecase "Gestionar planes de prueba" as UC_PLAN_CRUD
+    usecase "Versionar planes de prueba" as UC_PLAN_VERSION
+    usecase "Gestionar casos de prueba" as UC_CASE_CRUD
+    usecase "Mantener trazabilidad requisito-caso" as UC_TRACEABILITY
+    usecase "Consultar matriz de trazabilidad" as UC_TRACEABILITY_VIEW
+  }
+
+  package "Ejecucion y seguimiento" {
+    usecase "Planificar ejecuciones" as UC_EXEC_PLAN
+    usecase "Registrar ejecucion manual" as UC_EXEC_MANUAL
+    usecase "Configurar reglas automatizadas" as UC_AUTOMATION_RULES
+    usecase "Ejecutar validaciones semi-automatizadas" as UC_AUTOMATION_RUN
+    usecase "Adjuntar evidencias y resultados" as UC_EVIDENCE
+    usecase "Revisar y validar ejecuciones" as UC_REVIEW_EXEC
+    usecase "Consultar historial de ejecuciones" as UC_EXEC_HISTORY
+  }
+
+  package "Riesgos y defectos" {
+    usecase "Gestionar riesgos/incidentes" as UC_RISK_CRUD
+    usecase "Calcular nivel de riesgo" as UC_RISK_LEVEL
+    usecase "Gestionar defectos" as UC_DEFECT_CRUD
+    usecase "Asignar responsable de defecto" as UC_DEFECT_ASSIGN
+    usecase "Registrar historial de defecto" as UC_DEFECT_HISTORY
+    usecase "Ejecutar confirmacion/regresion" as UC_CONFIRM_REGRESSION
+  }
+
+  package "Informes de calidad" {
+    usecase "Generar informe de calidad" as UC_REPORT_CREATE
+    usecase "Consultar informes" as UC_REPORT_VIEW
+    usecase "Descargar informe PDF" as UC_REPORT_DOWNLOAD
+    usecase "Eliminar informes" as UC_REPORT_DELETE
+    usecase "Consolidar metricas de calidad" as UC_QUALITY_METRICS
+  }
+
+  package "Administracion" {
+    usecase "Administrar usuarios y roles" as UC_USERS_ADMIN
+    usecase "Administrar catalogos del sistema" as UC_SYSTEM_ADMIN
+    usecase "Auditar acciones" as UC_AUDIT
+  }
+
+  package "Comunicacion academica" {
+    usecase "Enviar mensaje del proyecto" as UC_SEND_MESSAGE
+    usecase "Marcar notificaciones como leidas" as UC_MARK_READ
+  }
+}
+
+AUTH --> UC_LOGIN
+AUTH --> UC_DASHBOARD
+AUTH --> UC_PROFILE
+AUTH --> UC_NOTIFICATIONS
+AUTH --> UC_PROJECT_DETAIL
+AUTH --> UC_PROJECT_FILTER
+AUTH --> UC_TRACEABILITY_VIEW
+AUTH --> UC_EXEC_HISTORY
+AUTH --> UC_REPORT_VIEW
+AUTH --> UC_REPORT_DOWNLOAD
+AUTH --> UC_MARK_READ
+
+ADMIN --> UC_USERS_ADMIN
+ADMIN --> UC_SYSTEM_ADMIN
+ADMIN --> UC_PROJECT_CRUD
+ADMIN --> UC_ASSIGN_MEMBERS
+ADMIN --> UC_PHASES
+ADMIN --> UC_REQ_CRUD
+ADMIN --> UC_REQ_IMPORT
+ADMIN --> UC_PLAN_CRUD
+ADMIN --> UC_CASE_CRUD
+ADMIN --> UC_TRACEABILITY
+ADMIN --> UC_EXEC_PLAN
+ADMIN --> UC_EXEC_MANUAL
+ADMIN --> UC_AUTOMATION_RULES
+ADMIN --> UC_AUTOMATION_RUN
+ADMIN --> UC_RISK_CRUD
+ADMIN --> UC_DEFECT_CRUD
+ADMIN --> UC_REPORT_CREATE
+ADMIN --> UC_REPORT_DELETE
+ADMIN --> UC_AUDIT
+
+STUDENT --> UC_PROJECT_CRUD
+STUDENT --> UC_ASSIGN_MEMBERS
+STUDENT --> UC_PHASES
+STUDENT --> UC_REQ_CRUD
+STUDENT --> UC_REQ_IMPORT
+STUDENT --> UC_PLAN_CRUD
+STUDENT --> UC_CASE_CRUD
+STUDENT --> UC_TRACEABILITY
+STUDENT --> UC_EXEC_PLAN
+STUDENT --> UC_EXEC_MANUAL
+STUDENT --> UC_AUTOMATION_RULES
+STUDENT --> UC_AUTOMATION_RUN
+STUDENT --> UC_RISK_CRUD
+STUDENT --> UC_DEFECT_CRUD
+STUDENT --> UC_REPORT_CREATE
+STUDENT --> UC_REPORT_DELETE
+
+TEACHER --> UC_REVIEW_EXEC
+TEACHER --> UC_SEND_MESSAGE
+TEACHER --> UC_PROJECT_DETAIL
+TEACHER --> UC_TRACEABILITY_VIEW
+TEACHER --> UC_EXEC_HISTORY
+TEACHER --> UC_REPORT_VIEW
+TEACHER --> UC_REPORT_DOWNLOAD
+
+UC_PROJECT_CRUD ..> UC_ASSIGN_MEMBERS : <<include>>
+UC_PROJECT_CRUD ..> UC_PROJECT_FILTER : <<include>>
+UC_REQ_CRUD ..> UC_REQ_VERSION : <<include>>
+UC_REQ_IMPORT ..> UC_REQ_CRUD : <<extend>>
+UC_PLAN_CRUD ..> UC_PLAN_VERSION : <<include>>
+UC_CASE_CRUD ..> UC_TRACEABILITY : <<include>>
+UC_TRACEABILITY_VIEW ..> UC_TRACEABILITY : <<include>>
+UC_EXEC_MANUAL ..> UC_EVIDENCE : <<include>>
+UC_AUTOMATION_RUN ..> UC_AUTOMATION_RULES : <<include>>
+UC_AUTOMATION_RUN ..> UC_EVIDENCE : <<include>>
+UC_REVIEW_EXEC ..> UC_EXEC_HISTORY : <<include>>
+UC_RISK_CRUD ..> UC_RISK_LEVEL : <<include>>
+UC_DEFECT_CRUD ..> UC_DEFECT_ASSIGN : <<include>>
+UC_DEFECT_CRUD ..> UC_DEFECT_HISTORY : <<include>>
+UC_CONFIRM_REGRESSION ..> UC_EXEC_MANUAL : <<extend>>
+UC_REPORT_CREATE ..> UC_QUALITY_METRICS : <<include>>
+UC_REPORT_DOWNLOAD ..> UC_REPORT_VIEW : <<include>>
+
+note right of TEACHER
+  Segun las vistas actuales, el docente opera
+  principalmente en modo lectura sobre artefactos,
+  puede revisar ejecuciones y enviar mensajes.
+end note
+
+note bottom of STUDENT
+  El estudiante gestiona artefactos dentro de sus
+  proyectos visibles y registra ejecuciones,
+  evidencias, defectos y riesgos.
+end note
+
+note bottom of ADMIN
+  El administrador conserva alcance global sobre
+  usuarios, proyectos y artefactos del ciclo de pruebas.
+end note
+@enduml

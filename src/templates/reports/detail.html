@@ -24,9 +24,9 @@
         >
         <div class="report-institution-title">
             <h3>UNIVERSIDAD NACIONAL DE LOJA</h3>
-            <p>Facultad de la Energia, las Industrias y los Recursos Naturales no Renovables</p>
-            <p>Carrera de Computacion</p>
-            <p>Plataforma ISTQB - Gestion del Ciclo de Vida de Pruebas</p>
+            <p>Facultad de la Energía, las Industrias y los Recursos Naturales no Renovables</p>
+            <p>Carrera de Computación</p>
+            <p>Plataforma ISTQB - Gestión del Ciclo de Vida de Pruebas</p>
         </div>
         <img
             class="report-brand-logo report-brand-logo-unl"
@@ -68,6 +68,160 @@
                 </article>
             {% endfor %}
         </div>
+
+        <div class="final-chart-grid">
+            <article class="final-chart-card">
+                <h5>Hallazgos principales</h5>
+                <ul class="report-finding-list">
+                    {% for finding in final_findings %}
+                        <li>{{ finding }}</li>
+                    {% endfor %}
+                </ul>
+            </article>
+            <article class="final-chart-card">
+                <h5>Recomendaciones de cierre</h5>
+                <ul class="report-finding-list">
+                    {% for recommendation in final_recommendations %}
+                        <li>{{ recommendation }}</li>
+                    {% endfor %}
+                </ul>
+            </article>
+        </div>
+
+        <h5>Cobertura por módulo</h5>
+        <table class="report-preview-table metrics">
+            <thead><tr><th>Modulo</th><th>Requisitos Totales</th><th>Requisitos Cubiertos</th><th>Cobertura %</th></tr></thead>
+            <tbody>
+                {% for row in report.content.module_coverage %}
+                    <tr><td>{{ row.module }}</td><td>{{ row.total }}</td><td>{{ row.covered }}</td><td>{{ row.coverage }}%</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h5>Matriz de trazabilidad</h5>
+        <table class="report-preview-table metrics">
+            <thead><tr><th>Requisito</th><th>Caso de prueba</th><th>Ejecución</th><th>Defecto</th><th>Estado</th></tr></thead>
+            <tbody>
+                {% for row in report.content.traceability_matrix %}
+                    <tr><td>{{ row.requirement }}</td><td>{{ row.test_case }}</td><td>{{ row.execution }}</td><td>{{ row.defect }}</td><td>{{ row.status }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h5>Estado del ciclo de pruebas</h5>
+        <table class="report-preview-table metrics">
+            <thead><tr><th>Fase ISTQB</th><th>Estado</th></tr></thead>
+            <tbody>
+                {% for row in report.content.cycle_statuses %}
+                    <tr><td>{{ row.phase }}</td><td>{{ row.status }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h5>Revision docente por seccion</h5>
+        <table class="report-preview-table metrics">
+            <thead><tr><th>Seccion</th><th>Revisado</th><th>Total</th><th>Pendiente</th></tr></thead>
+            <tbody>
+                {% for row in report.content.teacher_review_summary %}
+                    <tr><td>{{ row.section }}</td><td>{{ row.reviewed }}</td><td>{{ row.total }}</td><td>{{ row.pending }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="final-chart-grid">
+            <article class="final-chart-card">
+                <h5>Estado de ejecuciones</h5>
+                <table class="report-preview-table metrics">
+                    <thead><tr><th>Estado</th><th>Cantidad</th><th>Porcentaje</th></tr></thead>
+                    <tbody>
+                        {% for row in report.content.execution_status_distribution %}
+                            <tr><td>{{ row.status }}</td><td>{{ row.count }}</td><td>{{ row.percent }}%</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </article>
+            <article class="final-chart-card">
+                <h5>Defectos por severidad</h5>
+                <table class="report-preview-table metrics">
+                    <thead><tr><th>Severidad</th><th>Cantidad</th></tr></thead>
+                    <tbody>
+                        {% for row in report.content.defect_severity_rows %}
+                            <tr><td>{{ row.severity }}</td><td>{{ row.count }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </article>
+        </div>
+
+        <h5>Defectos por estado</h5>
+        <table class="report-preview-table metrics">
+            <thead><tr><th>Estado</th><th>Cantidad</th></tr></thead>
+            <tbody>
+                {% for row in report.content.defect_status_rows %}
+                    <tr><td>{{ row.status }}</td><td>{{ row.count }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h5>Matriz de riesgos</h5>
+        <table class="report-preview-table metrics">
+            <thead><tr><th>Probabilidad</th><th>Impacto bajo</th><th>Impacto medio</th><th>Impacto alto</th></tr></thead>
+            <tbody>
+                {% for row in report.content.risk_matrix %}
+                    <tr><td>{{ row.probability }}</td><td>{{ row.low }}</td><td>{{ row.medium }}</td><td>{{ row.high }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="final-chart-grid">
+            <article class="final-chart-card">
+                <h5>Evidencias registradas</h5>
+                <table class="report-preview-table metrics">
+                    <thead><tr><th>Indicador</th><th>Valor</th></tr></thead>
+                    <tbody>
+                        {% for row in report.content.evidence_summary %}
+                            <tr><td>{{ row.metric }}</td><td>{{ row.value }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </article>
+            <article class="final-chart-card">
+                <h5>Metricas de calidad</h5>
+                <table class="report-preview-table metrics">
+                    <thead><tr><th>Metrica</th><th>Resultado</th></tr></thead>
+                    <tbody>
+                        {% for row in report.content.quality_metrics %}
+                            <tr><td>{{ row.metric }}</td><td>{{ row.result }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </article>
+        </div>
+
+        <h5>Historial de ejecuciones</h5>
+        <table class="report-preview-table metrics">
+            <thead><tr><th>Fecha</th><th>Caso de prueba</th><th>Resultado</th><th>Ejecutor</th></tr></thead>
+            <tbody>
+                {% for row in report.content.execution_history %}
+                    <tr><td>{{ row.date }}</td><td>{{ row.test_case }}</td><td>{{ row.result }}</td><td>{{ row.executor }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h5>Validacion de criterios de salida</h5>
+        <table class="report-preview-table metrics">
+            <thead><tr><th>Criterio</th><th>Objetivo</th><th>Resultado</th><th>Cumple</th></tr></thead>
+            <tbody>
+                {% for row in report.content.exit_criteria %}
+                    <tr><td>{{ row.criterion }}</td><td>{{ row.target }}</td><td>{{ row.result }}</td><td>{% if row.passed %}Si{% else %}No{% endif %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h5>Conclusion final del proyecto</h5>
+        <p class="report-observation">
+            {{ final_project_conclusion }}
+        </p>
 
         <div class="final-chart-grid">
             {% for group in chart_groups %}
@@ -135,10 +289,10 @@
         </table>
     {% endif %}
 
-    <h5>Observacion institucional</h5>
+    <h5>Observación institucional</h5>
     <p class="report-observation">
         Este documento fue generado por la Plataforma ISTQB como evidencia del ciclo de vida de pruebas.
-        La informacion debe ser revisada por el docente tutor antes de su presentacion formal.
+        La información debe ser revisada por el docente tutor antes de su presentación formal.
     </p>
 </section>
 {% endblock %}

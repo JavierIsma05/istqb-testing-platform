@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.validators import FileExtensionValidator
 
 from apps.core.models import OwnedModel
 from apps.core.models import TimeStampedModel
@@ -36,6 +37,12 @@ class TestPlan(OwnedModel):
     environment = models.TextField(blank=True)
     responsibilities = models.TextField(blank=True)
     estimation = models.TextField(blank=True)
+    base_document = models.FileField(
+        upload_to='test_plan_documents/%Y/%m/',
+        null=True,
+        blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'docx', 'xlsx', 'odt', 'txt'])],
+    )
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)

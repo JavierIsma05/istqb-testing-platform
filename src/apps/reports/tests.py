@@ -6,6 +6,7 @@ from django.urls import reverse
 from apps.defects.models import Defect
 from apps.executions.models import TestExecution as ExecutionModel
 from apps.audit.models import AuditLog
+from apps.phases.models import TestingPhase
 from apps.reports.forms import ReportForm
 from apps.reports.models import Report, ReportDownload
 from apps.reports.views import (
@@ -179,11 +180,11 @@ def test_pdf_sections_incluyen_estructura_normativa(project, user):
     titles = [section['title'] for section in sections]
 
     assert titles == [
-        'Identificacion del informe',
+        'Identificación del informe',
         'Alcance y objetivo',
         'Resumen ejecutivo',
-        'Metricas y resultados',
-        'Grafico automatico de metricas',
+        'Métricas y resultados',
+        'Gráfico automático de métricas',
         'Observaciones y cierre',
     ]
     assert any('ISO/IEC/IEEE 29119-3' in value for label, value in sections[1]['items'] if label == 'Referencia')
@@ -242,6 +243,54 @@ def test_informe_final_consolida_requisitos_ejecuciones_y_trazabilidad(project, 
     assert content['test_cases'] == 1
     assert content['executions'] == 1
     assert 0 <= content['traceability_index'] <= 100
+
+
+@pytest.mark.django_db
+def test_informe_final_usa_fases_reales_y_resumen_de_revision(project, test_case, execution, user):
+    execution.review_status = ExecutionModel.ReviewStatus.VALIDATED
+    execution.reviewed_by = user
+    execution.save(update_fields=['review_status', 'reviewed_by'])
+    TestingPhase.objects.create(
+        project=project,
+        order=1,
+        name='Analisis de requisitos',
+        status=TestingPhase.Status.DONE,
+        progress=100,
+    )
+    TestingPhase.objects.create(
+        project=project,
+        order=2,
+        name='Cierre',
+        status=TestingPhase.Status.IN_PROGRESS,
+        progress=50,
+    )
+    report = Report(project=project, title='Informe final', report_type=Report.ReportType.FINAL)
+
+    content = build_report_content(report)
+
+    assert content['cycle_statuses'] == [
+        {'phase': 'Analisis de requisitos', 'status': 'Completada'},
+        {'phase': 'Cierre', 'status': 'En progreso'},
+    ]
+    assert content['cycle_progress'] == 50
+    assert content['teacher_review_summary'][0] == {
+        'section': 'Requisitos',
+        'reviewed': 0,
+        'total': 1,
+        'pending': 1,
+    }
+    assert content['teacher_review_summary'][1] == {
+        'section': 'Ejecuciones',
+        'reviewed': 1,
+        'total': 1,
+        'pending': 0,
+    }
+    assert content['teacher_review_summary'][-1] == {
+        'section': 'Fases',
+        'reviewed': 1,
+        'total': 2,
+        'pending': 1,
+    }
 
 
 @pytest.mark.django_db

@@ -30,8 +30,8 @@ class RegisterForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['password1'].label = 'Contrasena'
-        self.fields['password2'].label = 'Confirmar contrasena'
+        self.fields['password1'].label = 'Contraseña'
+        self.fields['password2'].label = 'Confirmar contraseña'
         self.fields['password1'].widget.attrs.update({'class': 'form-control form-control-lg'})
         self.fields['password2'].widget.attrs.update({'class': 'form-control form-control-lg'})
 

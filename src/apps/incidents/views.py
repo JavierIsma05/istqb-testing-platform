@@ -4,7 +4,12 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.audit.services import log_action
-from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
+from apps.core.permissions import (
+    can_manage_artifacts,
+    get_active_project_for_request,
+    redirect_if_teacher_readonly,
+    visible_projects_for,
+)
 from apps.core.codes import next_code
 from apps.projects.models import Project
 
@@ -30,9 +35,10 @@ MATRIX_ROWS = [
 def incident_list_view(request):
     query = request.GET.get('q', '').strip()
     project_id = request.GET.get('project', '').strip()
-    visible_projects = visible_projects_for(request.user)
+    visible_projects = visible_projects_for(request.user, request=request)
+    active_project = get_active_project_for_request(request)
 
-    incidents = Incident.objects.select_related('project', 'reported_by', 'requirement', 'test_plan')
+    incidents = Incident.objects.select_related('project', 'reported_by', 'requirement', 'test_plan', 'test_case')
     incidents = incidents.filter(project__in=visible_projects)
 
     if query:
@@ -42,7 +48,9 @@ def incident_list_view(request):
             | Q(description__icontains=query)
         )
 
-    if project_id:
+    if active_project:
+        incidents = incidents.filter(project=active_project)
+    elif project_id:
         incidents = incidents.filter(project_id=project_id)
 
     return render(
@@ -71,7 +79,7 @@ def incident_create_view(request):
     if readonly_redirect:
         return readonly_redirect
 
-    form = IncidentForm(request.POST or None)
+    form = IncidentForm(request.POST or None, user=request.user)
 
     if request.method == 'POST' and form.is_valid():
         incident = form.save(commit=False)
@@ -108,9 +116,9 @@ def incident_update_view(request, pk):
     incident = get_object_or_404(
         Incident,
         pk=pk,
-        project__in=visible_projects_for(request.user),
+        project__in=visible_projects_for(request.user, request=request),
     )
-    form = IncidentForm(request.POST or None, instance=incident)
+    form = IncidentForm(request.POST or None, instance=incident, user=request.user)
 
     if request.method == 'POST' and form.is_valid():
         incident = form.save()
@@ -144,7 +152,7 @@ def incident_delete_view(request, pk):
     incident = get_object_or_404(
         Incident,
         pk=pk,
-        project__in=visible_projects_for(request.user),
+        project__in=visible_projects_for(request.user, request=request),
     )
 
     if request.method == 'POST':

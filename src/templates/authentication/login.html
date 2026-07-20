@@ -1,6 +1,7 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
-{% block title %}Iniciar Sesion{% endblock %}
+{% block title %}Iniciar Sesión{% endblock %}
 {% block body_class %}auth-page{% endblock %}
 
 {% block content %}
@@ -15,13 +16,13 @@
         </button>
 
         <div class="auth-heading">
-            <span class="brand-mark auth-logo"><i class="bi bi-beaker"></i></span>
+            <span class="brand-mark auth-logo"><img src="{% static 'images/brand/testflow-mark.svg' %}" alt="TestFlow"></span>
             <h1>Bienvenido de vuelta</h1>
             <p>Ingresa a tu cuenta para continuar</p>
         </div>
 
         <div class="auth-card">
-            <h2>Iniciar Sesion</h2>
+            <h2>Iniciar Sesión</h2>
             <p>Accede a la plataforma ISTQB</p>
 
             {% if messages %}
@@ -47,20 +48,19 @@
                         {{ form.remember_me }}
                         <span>{{ form.remember_me.label }}</span>
                     </label>
-                    <a class="auth-link" href="#">Olvidaste tu contrasena?</a>
                 </div>
                 <button class="btn btn-brand w-100 btn-lg" type="submit">
                     <i class="bi bi-box-arrow-in-right"></i>
-                    Iniciar Sesion
+                    Iniciar Sesión
                 </button>
             </form>
-            <p class="auth-footnote">No tienes cuenta? <a href="{% url 'register' %}">Registrate aqui</a></p>
+            <p class="auth-footnote">¿No tienes cuenta? <a href="{% url 'register' %}">Regístrate aquí</a></p>
         </div>
     </section>
 
     <section class="auth-info-panel">
         <div class="auth-info-content">
-            <h2>Gestion Profesional de Pruebas</h2>
+            <h2>Gestión Profesional de Pruebas</h2>
             <p>Plataforma completa para gestionar el ciclo de vida de pruebas segun estandares ISTQB</p>
             <div class="feature-stack">
                 <article><i class="bi bi-check-lg"></i><span><strong>Estandares Internacionales</strong><small>Cumple con ISTQB e ISO/IEC/IEEE 29119</small></span></article>

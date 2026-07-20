@@ -19,6 +19,24 @@
     </div>
 </div>
 
+<section class="dashboard-hero dashboard-hero-tutor">
+    <div class="dashboard-hero-copy">
+        <span class="dashboard-hero-kicker">Panel de seguimiento</span>
+        <h3>Supervisa proyectos y avanza con claridad</h3>
+        <p>Revisa el progreso de tus estudiantes y mantén el control del ciclo de pruebas desde un solo lugar.</p>
+    </div>
+    <div class="dashboard-hero-panel">
+        <div>
+            <span>Proyectos asignados</span>
+            <strong>{{ teacher_projects|length }}</strong>
+        </div>
+        <div>
+            <span>Indicadores activos</span>
+            <strong>{{ teacher_metrics|length }}</strong>
+        </div>
+    </div>
+</section>
+
 <section class="metric-grid tutor-metric-grid">
     {% for metric in teacher_metrics %}
         <article class="metric-card tutor-metric-card">
@@ -91,7 +109,7 @@
                             <i class="bi bi-chat-left"></i>
                             Mensaje
                         </button>
-                        <a class="btn btn-brand btn-sm" href="{% url 'projects:detail' item.project.pk %}">
+                        <a class="btn btn-brand btn-sm" href="{% url 'projects:detail' item.project.pk %}?project={{ item.project.pk }}">
                             Ver Proyecto
                         </a>
                     </div>
@@ -101,7 +119,7 @@
             <div class="empty-projects compact-empty">
                 <i class="bi bi-kanban"></i>
                 <h3>No tienes proyectos asignados</h3>
-                <p>Cuando seas miembro o creador de un proyecto, aparecera aqui para su seguimiento.</p>
+                <p>Cuando seas miembro o creador de un proyecto, aparecerá aquí para su seguimiento.</p>
             </div>
         {% endfor %}
     </div>
@@ -125,7 +143,7 @@
                         </div>
                         <div class="modal-body">
                             <label class="form-label" for="message{{ item.project.pk }}">Mensaje</label>
-                            <textarea class="form-control" id="message{{ item.project.pk }}" name="message" rows="5" placeholder="Escribe una observacion, correccion o indicacion para el estudiante..." required></textarea>
+                            <textarea class="form-control" id="message{{ item.project.pk }}" name="message" rows="5" placeholder="Escribe una observación, corrección o indicación para el estudiante..." required></textarea>
                         </div>
                         <div class="modal-footer">
                             <button class="btn btn-outline-brand" type="button" data-bs-dismiss="modal">Cancelar</button>
@@ -148,25 +166,68 @@
     </div>
 </div>
 
+<section class="dashboard-hero">
+    <div class="dashboard-hero-copy">
+        <span class="dashboard-hero-kicker">Resumen ejecutivo</span>
+        <h3>Tu tablero de seguimiento en un solo lugar</h3>
+        <p>Consulta tus proyectos, fases y actividades recientes para mantener el control del ciclo de pruebas.</p>
+    </div>
+    <div class="dashboard-hero-panel">
+        <div>
+            <span>Proyectos activos</span>
+            <strong>{{ project_summaries|length }}</strong>
+        </div>
+        <div>
+            <span>Fases del ciclo</span>
+            <strong>{{ student_phase_timeline.total|default:'6' }}</strong>
+        </div>
+    </div>
+</section>
+
 <section class="metric-grid">
     {% for label, total, icon, route_name in cards %}
         <a class="metric-card" href="{% url route_name %}">
             <div>
                 <span>{{ label }}</span>
                 <strong>{{ total }}</strong>
-                <small>Gestion disponible</small>
+                <small>Gestión disponible</small>
             </div>
             <i class="bi {{ icon }}"></i>
         </a>
     {% endfor %}
 </section>
 
+{% if student_phase_timeline %}
+<section class="content-card dashboard-phase-card">
+    <div class="card-heading">
+        <div>
+            <h3>Avance del ciclo de pruebas</h3>
+            <p>{{ student_phase_timeline.project.name }} · {{ student_phase_timeline.completed }}/{{ student_phase_timeline.total }} fases completadas</p>
+        </div>
+        <a class="btn btn-outline-brand btn-sm" href="{% url 'phases:index' %}?project={{ student_phase_timeline.project.pk }}">
+            Ver detalle <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+    <div class="dashboard-phase-timeline" aria-label="Estado de las fases del ciclo de pruebas">
+        {% for item in student_phase_timeline.items %}
+            <div class="dashboard-phase-item dashboard-phase-{{ item.status|lower }}">
+                <span class="dashboard-phase-marker" aria-hidden="true">
+                    {% if item.status == 'DONE' %}<i class="bi bi-check-lg"></i>{% elif item.status == 'IN_PROGRESS' %}<i class="bi bi-play-fill"></i>{% else %}<i class="bi bi-circle"></i>{% endif %}
+                </span>
+                <strong>{{ item.short_name }}</strong>
+                <small>{% if item.status == 'DONE' %}Completada{% elif item.status == 'IN_PROGRESS' %}En progreso{% else %}Pendiente{% endif %}</small>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
 <section class="dashboard-grid">
     <article class="content-card">
         <div class="card-heading">
             <div>
                 <h3>Mis Proyectos</h3>
-                <p>Proyectos de titulacion activos</p>
+                <p>Proyectos de titulación activos</p>
             </div>
             <a class="btn btn-outline-brand" href="{% url 'projects:index' %}">Ver todos <i class="bi bi-arrow-right"></i></a>
         </div>
@@ -197,7 +258,7 @@
                 <div class="empty-projects compact-empty">
                     <i class="bi bi-folder2-open"></i>
                     <h3>No hay proyectos activos</h3>
-                    <p>Cuando registres o te asignen proyectos, apareceran aqui.</p>
+                    <p>Cuando registres o te asignen proyectos, aparecerán aquí.</p>
                 </div>
             {% endfor %}
         </div>
@@ -207,7 +268,7 @@
         <div class="card-heading">
             <div>
                 <h3>Actividad Reciente</h3>
-                <p>Ultimas actualizaciones en tus proyectos</p>
+                <p>Últimas actualizaciones en tus proyectos</p>
             </div>
         </div>
         <div class="activity-list">
@@ -220,7 +281,7 @@
             {% empty %}
                 <div>
                     <span class="dot info"></span>
-                    <p>Sin actividad reciente<br><small>Los cambios del ciclo de pruebas apareceran aqui.</small></p>
+                    <p>Sin actividad reciente<br><small>Los cambios del ciclo de pruebas aparecerán aquí.</small></p>
                     <i class="bi bi-clock text-info"></i>
                 </div>
             {% endfor %}

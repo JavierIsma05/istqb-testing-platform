@@ -6,7 +6,7 @@
 <div class="page-heading profile-heading">
     <div>
         <h2>Perfil</h2>
-        <p>Informacion de tu cuenta y actividad en la plataforma</p>
+        <p>Información de tu cuenta y actividad en la plataforma</p>
     </div>
     <a class="btn btn-outline-brand" href="{% url 'dashboard' %}">
         <i class="bi bi-arrow-left"></i>
@@ -58,7 +58,7 @@
         <div class="card-heading">
             <div>
                 <h3>Datos personales</h3>
-                <p>Informacion principal de la cuenta</p>
+                <p>Información principal de la cuenta</p>
             </div>
         </div>
         <div class="profile-detail-list">
@@ -95,13 +95,13 @@
 
     <div class="profile-project-list">
         {% for project in projects %}
-            <a href="{% url 'projects:detail' project.pk %}">
+            <a href="{% url 'projects:detail' project.pk %}?project={{ project.pk }}">
                 <span class="project-status project-status-{% if project.status == 'ACTIVE' %}success{% elif project.status == 'CLOSED' %}muted{% else %}warning{% endif %}">
                     {{ project.get_status_display }}
                 </span>
                 <div>
                     <strong>{{ project.name }}</strong>
-                    <small>{{ project.code }} · {{ project.description|default:'Sin descripcion' }}</small>
+                    <small>{{ project.code }} · {{ project.description|default:'Sin descripción' }}</small>
                 </div>
                 <i class="bi bi-chevron-right"></i>
             </a>

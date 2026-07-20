@@ -25,7 +25,7 @@ def testplan_list_view(request):
         risk_count=Count('risks', distinct=True),
         version_count=Count('versions', distinct=True),
     ).order_by('-created_at')
-    plans = plans.filter(project__in=visible_projects_for(request.user))
+    plans = plans.filter(project__in=visible_projects_for(request.user, request=request))
     return render(
         request,
         'testplans/index.html',
@@ -48,13 +48,13 @@ def testplan_create_view(request):
     if readonly_redirect:
         return readonly_redirect
 
-    form = TestPlanWizardForm(request.POST or None)
+    form = TestPlanWizardForm(request.POST or None, request.FILES or None, user=request.user)
 
     if request.method == 'POST' and form.is_valid():
         plan = form.save(commit=False)
         plan.created_by = request.user
         plan.save()
-        record_test_plan_version(plan, request.user, 'Creacion del plan de pruebas')
+        record_test_plan_version(plan, request.user, 'Creación del plan de pruebas')
         log_action(
             request.user,
             'CREATE',
@@ -77,13 +77,13 @@ def testplan_update_view(request, pk):
     plan = get_object_or_404(
         TestPlan,
         pk=pk,
-        project__in=visible_projects_for(request.user),
+        project__in=visible_projects_for(request.user, request=request),
     )
-    form = TestPlanWizardForm(request.POST or None, instance=plan)
+    form = TestPlanWizardForm(request.POST or None, request.FILES or None, instance=plan, user=request.user)
 
     if request.method == 'POST' and form.is_valid():
         plan = form.save()
-        record_test_plan_version(plan, request.user, 'Actualizacion del plan de pruebas')
+        record_test_plan_version(plan, request.user, 'Actualización del plan de pruebas')
         log_action(
             request.user,
             'UPDATE',
@@ -106,7 +106,7 @@ def testplan_delete_view(request, pk):
     plan = get_object_or_404(
         TestPlan,
         pk=pk,
-        project__in=visible_projects_for(request.user),
+        project__in=visible_projects_for(request.user, request=request),
     )
 
     if request.method == 'POST':

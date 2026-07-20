@@ -66,7 +66,7 @@
     <div class="defect-list">
         {% for item in items %}
             <article class="defect-row">
-                <div class="defect-icon">
+                <div class="defect-icon defect-icon-{{ item.severity_badge }}">
                     <i class="bi bi-bug"></i>
                 </div>
                 <div class="defect-main">
@@ -74,10 +74,22 @@
                         <span class="defect-code">{{ item.defect.code }}</span>
                         <strong>{{ item.defect.title }}</strong>
                     </div>
-                    <p>
-                        Severidad: {{ item.defect.get_severity_display }}
-                        <span>Prioridad: {{ item.defect.get_priority_display }}</span>
+                    <p class="defect-meta">
+                        <span class="defect-meta-pill defect-meta-{{ item.severity_badge }}">
+                            Severidad: {{ item.defect.get_severity_display }}
+                        </span>
+                        <span class="defect-meta-pill defect-meta-{{ item.priority_badge }}">
+                            Prioridad: {{ item.defect.get_priority_display }}
+                        </span>
                         <span>Historial: {{ item.defect.history_count }}</span>
+                        {% if item.defect.execution %}
+                            <span>
+                                Caso: {{ item.defect.execution.test_case.code }}
+                            </span>
+                            <span>
+                                Ejecución #{{ item.defect.execution.id }} - {{ item.defect.execution.get_execution_mode_display }}
+                            </span>
+                        {% endif %}
                         <span>
                             Asignado:
                             {% if item.defect.assigned_to %}

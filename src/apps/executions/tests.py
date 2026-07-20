@@ -50,12 +50,26 @@ def test_formulario_de_resultado_exige_resultado_obtenido_para_aprobado():
     form = ExecutionResultForm(
         data={
             'result': ExecutionModel.Result.PASSED,
-            'notes': 'Ejecucion sin resultado obtenido.',
+            'notes': 'Ejecución sin resultado obtenido.',
         }
     )
 
     assert not form.is_valid()
     assert 'actual_result' in form.errors
+
+
+def test_formulario_de_resultado_rechaza_evidencia_no_permitida():
+    evidence = SimpleUploadedFile('archivo.exe', b'not-allowed', content_type='application/octet-stream')
+    form = ExecutionResultForm(
+        data={
+            'result': ExecutionModel.Result.PASSED,
+            'actual_result': 'La ejecución registró un resultado válido.',
+        },
+        files={'evidence': evidence},
+    )
+
+    assert not form.is_valid()
+    assert 'evidence' in form.errors
 
 
 @pytest.mark.django_db
@@ -76,7 +90,7 @@ def test_vista_de_ejecucion_guarda_y_muestra_evidencia(client, test_case, user, 
                 'actual_result': 'El sistema mostro la confirmacion esperada.',
                 'test_data': 'usuario=estudiante@example.com',
                 'environment': 'Chrome en Windows',
-                'notes': 'Ejecucion con evidencia.',
+                'notes': 'Ejecución con evidencia.',
                 'evidence': evidence,
                 **step_payload(
                     ExecutionModel.Result.PASSED,
@@ -186,7 +200,7 @@ def test_prueba_de_confirmacion_aprobada_cierra_defecto(client, test_case, execu
             'related_defect': defect.pk,
             'planned_date': timezone.localdate().isoformat(),
             'result': ExecutionModel.Result.PASSED,
-            'actual_result': 'La correccion queda verificada.',
+            'actual_result': 'La corrección queda verificada.',
             'test_data': 'usuario=estudiante@example.com',
             'environment': 'Chrome',
             'notes': 'Confirmacion correcta.',
@@ -318,6 +332,46 @@ def test_vista_de_ejecucion_elimina_ejecucion_del_historial(client, execution, t
 
 
 @pytest.mark.django_db
+def test_historial_separa_ejecuciones_manuales_y_automatizadas(client, test_case, execution, user):
+    rule = AutomatedValidationRule.objects.create(
+        test_case=test_case,
+        requirement=test_case.requirement,
+        step_number=1,
+        name='Titulo visible',
+        validation_type=AutomatedValidationRule.ValidationType.TEXT_VISIBLE,
+        target_url='http://localhost:8000/login/',
+        expected_text='Iniciar Sesión',
+    )
+    automated_execution = ExecutionModel.objects.create(
+        test_case=test_case,
+        execution_mode=ExecutionModel.ExecutionMode.SEMI_AUTOMATED,
+        execution_type=ExecutionModel.ExecutionType.NORMAL,
+        executed_by=user,
+        result=ExecutionModel.Result.PASSED,
+        actual_result='Texto visible: Iniciar Sesión',
+        technical_log='[PASS] Titulo visible',
+    )
+    AutomatedExecutionResult.objects.create(
+        test_execution=automated_execution,
+        validation_rule=rule,
+        status=ExecutionModel.Result.PASSED,
+        expected_behavior='Debe mostrar Iniciar Sesión',
+        actual_behavior='Texto visible',
+    )
+    client.force_login(user)
+
+    response = client.get(reverse('executions:history', args=[test_case.pk]))
+
+    assert response.status_code == 200
+    assert response.context['manual_history'][0]['execution'] == execution
+    assert response.context['automated_history'][0]['execution'] == automated_execution
+    assert b'Historial manual' in response.content
+    assert b'Historial semi-automatizado' in response.content
+    assert response.context['test_cases'].filter(pk=test_case.pk).exists()
+    assert test_case.code.encode() in response.content
+
+
+@pytest.mark.django_db
 def test_vista_elimina_ejecucion_automatizada_revisada_del_historial(client, test_case, user):
     rule = AutomatedValidationRule.objects.create(
         test_case=test_case,
@@ -326,7 +380,7 @@ def test_vista_elimina_ejecucion_automatizada_revisada_del_historial(client, tes
         name='Titulo de login visible',
         validation_type=AutomatedValidationRule.ValidationType.TEXT_VISIBLE,
         target_url='http://localhost:8000/login/',
-        expected_text='Iniciar Sesion',
+        expected_text='Iniciar Sesión',
     )
     execution = ExecutionModel.objects.create(
         test_case=test_case,
@@ -334,7 +388,7 @@ def test_vista_elimina_ejecucion_automatizada_revisada_del_historial(client, tes
         execution_type=ExecutionModel.ExecutionType.NORMAL,
         executed_by=user,
         result=ExecutionModel.Result.PASSED,
-        actual_result='Texto visible: Iniciar Sesion',
+        actual_result='Texto visible: Iniciar Sesión',
         technical_log='[PASS] Titulo de login visible',
         review_status=ExecutionModel.ReviewStatus.VALIDATED,
     )
@@ -342,7 +396,7 @@ def test_vista_elimina_ejecucion_automatizada_revisada_del_historial(client, tes
         test_execution=execution,
         validation_rule=rule,
         status=ExecutionModel.Result.PASSED,
-        expected_behavior='Debe mostrar Iniciar Sesion',
+        expected_behavior='Debe mostrar Iniciar Sesión',
         actual_behavior='Texto visible',
     )
     client.force_login(user)
@@ -353,7 +407,7 @@ def test_vista_elimina_ejecucion_automatizada_revisada_del_historial(client, tes
     assert not ExecutionModel.objects.filter(pk=execution.pk).exists()
     assert not AutomatedExecutionResult.objects.filter(pk=result.pk).exists()
     assert AutomatedValidationRule.objects.filter(pk=rule.pk).exists()
-    assert b'Ejecucion eliminada correctamente.' in response.content
+    assert 'Ejecución eliminada correctamente.'.encode() in response.content
 
 
 @pytest.mark.django_db
@@ -365,7 +419,7 @@ def test_vista_elimina_regla_automatizada_sin_historial(client, test_case, user)
         name='Titulo de login visible',
         validation_type=AutomatedValidationRule.ValidationType.TEXT_VISIBLE,
         target_url='http://localhost:8000/login/',
-        expected_text='Iniciar Sesion',
+        expected_text='Iniciar Sesión',
     )
     client.force_login(user)
 
@@ -385,13 +439,13 @@ def test_vista_oculta_regla_automatizada_con_historial(client, test_case, execut
         name='Titulo de login visible',
         validation_type=AutomatedValidationRule.ValidationType.TEXT_VISIBLE,
         target_url='http://localhost:8000/login/',
-        expected_text='Iniciar Sesion',
+        expected_text='Iniciar Sesión',
     )
     AutomatedExecutionResult.objects.create(
         test_execution=execution,
         validation_rule=rule,
         status=ExecutionModel.Result.PASSED,
-        expected_behavior='Debe mostrar Iniciar Sesion',
+        expected_behavior='Debe mostrar Iniciar Sesión',
         actual_behavior='Texto visible',
     )
     client.force_login(user)
@@ -480,7 +534,7 @@ def test_playwright_valida_texto_visible_en_servidor_django(live_server, setting
         step_number=1,
         validation_type=AutomatedValidationRule.ValidationType.TEXT_VISIBLE,
         target_url=f'{live_server.url}/login/',
-        expected_text='Iniciar Sesion',
+        expected_text='Iniciar Sesión',
         timeout_seconds=10,
         browser='chromium',
         capture_evidence=True,

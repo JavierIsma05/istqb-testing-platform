@@ -1,0 +1,407 @@
+@startuml
+title Diagrama de clases - Plataforma ISTQB Testing Lifecycle
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+hide circle
+
+abstract class TimeStampedModel {
+  +created_at: DateTime
+  +updated_at: DateTime
+}
+
+abstract class OwnedModel {
+  +created_by: User
+}
+
+TimeStampedModel <|-- OwnedModel
+
+package "Usuarios y roles" {
+  class User {
+    +email: Email
+    +role: Role
+    +is_staff: Boolean
+    +is_superuser: Boolean
+    +is_admin_role: Boolean
+    +is_teacher_role: Boolean
+    +is_student_role: Boolean
+    +unread_notifications_count: Integer
+  }
+
+  enum Role {
+    ADMIN
+    STUDENT
+    TEACHER
+  }
+
+  User --> Role
+}
+
+package "Gestion de proyectos" {
+  class Project {
+    +name: String
+    +code: String
+    +description: Text
+    +status: ProjectStatus
+    +start_date: Date
+    +end_date: Date
+  }
+
+  enum ProjectStatus {
+    PLANNED
+    ACTIVE
+    PAUSED
+    CLOSED
+  }
+}
+
+package "Requisitos" {
+  class Requirement {
+    +code: String
+    +title: String
+    +description: Text
+    +requirement_type: RequirementType
+    +priority: Priority
+    +status: RequirementStatus
+  }
+
+  class RequirementVersion {
+    +version_number: Integer
+    +title: String
+    +description: Text
+    +change_reason: String
+    +snapshot: JSON
+  }
+
+  enum RequirementType {
+    FUNCTIONAL
+    NON_FUNCTIONAL
+  }
+}
+
+package "Planificacion de pruebas" {
+  class TestPlan {
+    +name: String
+    +version: String
+    +description: Text
+    +objective: Text
+    +scope: Text
+    +strategy: Text
+    +test_types: JSON
+    +entry_criteria: Text
+    +exit_criteria: Text
+    +minimum_pass_percentage: Integer
+    +maximum_critical_defects: Integer
+    +minimum_coverage_percentage: Integer
+    +resources: Text
+    +environment: Text
+    +responsibilities: Text
+    +estimation: Text
+    +base_document: File
+    +start_date: Date
+    +end_date: Date
+    +status: TestPlanStatus
+  }
+
+  class TestPlanVersion {
+    +version_number: Integer
+    +version_label: String
+    +name: String
+    +objective: Text
+    +status: TestPlanStatus
+    +change_reason: String
+    +snapshot: JSON
+  }
+}
+
+package "Diseno y trazabilidad" {
+  class TestCase {
+    +code: String
+    +title: String
+    +description: Text
+    +technique: Technique
+    +level: TestLevel
+    +preconditions: Text
+    +test_data: Text
+    +steps: Text
+    +steps_data: JSON
+    +expected_result: Text
+    +version: String
+    +priority: Priority
+    +status: TestCaseStatus
+  }
+
+  class TraceabilityLink {
+    +rationale: Text
+  }
+}
+
+package "Ejecucion de pruebas" {
+  class TestExecution {
+    +execution_mode: ExecutionMode
+    +execution_type: ExecutionType
+    +planned_date: Date
+    +executed_at: DateTime
+    +result: ExecutionResult
+    +actual_result: Text
+    +test_data: Text
+    +environment: String
+    +environment_url: URL
+    +browser: String
+    +duration_seconds: Decimal
+    +technical_log: Text
+    +step_results: JSON
+    +evidence: File
+    +notes: Text
+    +review_status: ReviewStatus
+    +reviewed_at: DateTime
+    +review_notes: Text
+  }
+
+  class TestStepExecution {
+    +step_number: Integer
+    +action: Text
+    +expected_result: Text
+    +obtained_result: Text
+    +status: ExecutionResult
+    +comment: Text
+    +evidence_file: File
+    +screenshot: Image
+    +execution_log: Text
+  }
+
+  class AutomatedValidationRule {
+    +step_number: Integer
+    +name: String
+    +validation_type: ValidationType
+    +target_url: URL
+    +selector_type: SelectorType
+    +selector_value: String
+    +expected_value: String
+    +timeout_seconds: Integer
+    +browser: String
+    +capture_evidence: Boolean
+    +is_active: Boolean
+  }
+
+  class AutomatedExecutionResult {
+    +status: ExecutionResult
+    +expected_behavior: Text
+    +actual_behavior: Text
+    +input_used: Text
+    +technical_log: Text
+    +screenshot: Image
+    +error_message: Text
+  }
+}
+
+package "Riesgos y defectos" {
+  class Incident {
+    +code: String
+    +title: String
+    +description: Text
+    +mitigation_strategy: Text
+    +probability: Probability
+    +impact: Impact
+    +status: IncidentStatus
+    +risk_level: String
+  }
+
+  class Defect {
+    +code: String
+    +title: String
+    +description: Text
+    +steps_to_reproduce: Text
+    +severity: Severity
+    +priority: Priority
+    +status: DefectStatus
+  }
+
+  class DefectHistory {
+    +status: DefectStatus
+    +severity: Severity
+    +priority: Priority
+    +change_reason: String
+    +snapshot: JSON
+  }
+}
+
+package "Informes de calidad" {
+  class Report {
+    +title: String
+    +report_type: ReportType
+    +content: JSON
+  }
+
+  class ReportDownload {
+    +filename: String
+    +metadata: JSON
+  }
+}
+
+package "Seguimiento academico" {
+  class TestingPhase {
+    +name: String
+    +order: Integer
+    +status: PhaseStatus
+    +description: Text
+    +entry_criteria: Text
+    +exit_criteria: Text
+    +progress: Integer
+    +completed_tasks: Integer
+    +pending_tasks: Integer
+  }
+
+  class Notification {
+    +title: String
+    +message: Text
+    +is_read: Boolean
+    +url: String
+  }
+}
+
+package "Catalogos principales" {
+  enum Priority {
+    LOW
+    MEDIUM
+    HIGH
+    CRITICAL
+  }
+
+  enum RequirementStatus {
+    PENDING
+    REVIEW
+    APPROVED
+    CHANGED
+    RETIRED
+  }
+
+  enum TestPlanStatus {
+    DRAFT
+    REVIEW
+    APPROVED
+    CLOSED
+  }
+
+  enum TestCaseStatus {
+    PENDING
+    PASSED
+    FAILED
+    BLOCKED
+  }
+
+  enum ExecutionResult {
+    NOT_RUN
+    RUNNING
+    PASSED
+    FAILED
+    BLOCKED
+    ERROR
+  }
+
+  enum ReviewStatus {
+    PENDING
+    VALIDATED
+    REJECTED
+    NEEDS_FIX
+  }
+
+  enum DefectStatus {
+    OPEN
+    ANALYSIS
+    IN_PROGRESS
+    PENDING_CONFIRMATION
+    CLOSED
+    REJECTED
+    DUPLICATED
+  }
+
+  enum IncidentStatus {
+    OPEN
+    ANALYSIS
+    MITIGATED
+    CLOSED
+  }
+
+  enum ReportType {
+    SUMMARY
+    COVERAGE
+    DEFECTS
+    EXECUTION
+    FINAL
+  }
+}
+
+OwnedModel <|-- Project
+OwnedModel <|-- Requirement
+OwnedModel <|-- TestPlan
+OwnedModel <|-- TestCase
+
+TimeStampedModel <|-- RequirementVersion
+TimeStampedModel <|-- TestPlanVersion
+TimeStampedModel <|-- TraceabilityLink
+TimeStampedModel <|-- TestExecution
+TimeStampedModel <|-- TestStepExecution
+TimeStampedModel <|-- AutomatedValidationRule
+TimeStampedModel <|-- AutomatedExecutionResult
+TimeStampedModel <|-- Incident
+TimeStampedModel <|-- Defect
+TimeStampedModel <|-- DefectHistory
+TimeStampedModel <|-- Report
+TimeStampedModel <|-- ReportDownload
+TimeStampedModel <|-- TestingPhase
+TimeStampedModel <|-- Notification
+
+User "1" -- "0..*" OwnedModel : created_by
+User "0..*" -- "0..*" Project : members
+
+Project "1" *-- "0..*" Requirement : contiene
+Project "1" *-- "0..*" TestPlan : planifica
+Project "1" *-- "0..*" Incident : registra riesgos
+Project "1" *-- "0..*" Defect : registra defectos
+Project "1" *-- "0..*" Report : genera informes
+Project "1" *-- "0..*" TestingPhase : organiza fases
+Project "0..1" -- "0..*" Notification : contextualiza
+
+Requirement "1" *-- "0..*" RequirementVersion : versiona
+TestPlan "1" *-- "0..*" TestPlanVersion : versiona
+TestPlan "1" *-- "0..*" TestCase : define
+Requirement "0..1" -- "0..*" TestCase : cubre
+
+Requirement "1" -- "0..*" TraceabilityLink
+TestCase "1" -- "0..*" TraceabilityLink
+
+TestCase "1" *-- "0..*" TestExecution : ejecuta
+TestExecution "1" *-- "0..*" TestStepExecution : detalla pasos
+TestCase "1" *-- "0..*" AutomatedValidationRule : automatiza reglas
+Requirement "1" -- "0..*" AutomatedValidationRule : valida
+TestExecution "1" *-- "0..*" AutomatedExecutionResult : produce
+AutomatedValidationRule "1" -- "0..*" AutomatedExecutionResult : resultado
+
+Incident "0..*" -- "0..1" Requirement : riesgo asociado
+Incident "0..*" -- "0..1" TestPlan : riesgo asociado
+Incident "0..*" -- "0..1" TestCase : riesgo asociado
+
+Defect "0..*" -- "0..1" TestExecution : detectado en
+Defect "1" *-- "0..*" DefectHistory : historial
+TestExecution "0..*" -- "0..1" Defect : confirma/regresiona
+
+Report "1" *-- "0..*" ReportDownload : descargas
+User "1" -- "0..*" Report : generated_by
+User "1" -- "0..*" ReportDownload : downloaded_by
+User "1" -- "0..*" TestExecution : executed_by/reviewed_by
+User "1" -- "0..*" Defect : reported_by/assigned_to
+User "1" -- "0..*" Incident : reported_by
+User "1" -- "0..*" Notification : recipient/sender
+User "1" -- "0..*" TestingPhase : updated_by
+
+note right of TraceabilityLink
+  La trazabilidad principal une Requirement y TestCase.
+  Tambien existe relacion directa TestCase.requirement.
+end note
+
+note bottom of Report
+  El informe de calidad consolida metricas de requisitos,
+  cobertura, ejecucion, defectos, riesgos y revision docente.
+end note
+@enduml

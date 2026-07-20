@@ -139,7 +139,7 @@ class TestCaseModalForm(forms.ModelForm):
             'requirement': 'Requisito cubierto por el caso; ayuda a medir trazabilidad.',
             'test_data': 'Datos concretos que deben usarse durante la ejecucion.',
             'steps': 'Escribe un paso por linea con el formato Accion => Resultado esperado.',
-            'version': 'Version del caso aplicable a la version actual del proyecto.',
+            'version': 'Versión del caso aplicable a la versión actual del proyecto.',
             'priority': 'Importancia del caso para ordenar la ejecucion.',
             'technique': 'Tecnica ISTQB usada para disenar el caso, como particion de equivalencia o valores limite.',
             'level': 'Nivel donde aplica el caso: componente, integracion, sistema o aceptacion.',
@@ -162,7 +162,7 @@ class TestCaseModalForm(forms.ModelForm):
                 )
             action, expected = (part.strip() for part in line.split('=>', 1))
             if not action or not expected:
-                raise forms.ValidationError(f'Completa la accion y el resultado esperado del paso {number}.')
+                raise forms.ValidationError(f'Completa la acción y el resultado esperado del paso {number}.')
             parsed_steps.append({'number': len(parsed_steps) + 1, 'action': action, 'expected_result': expected})
         if not parsed_steps:
             raise forms.ValidationError('Registra al menos un paso de ejecucion.')

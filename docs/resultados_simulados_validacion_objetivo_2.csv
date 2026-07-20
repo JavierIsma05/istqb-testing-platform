@@ -1,0 +1,11 @@
+Participante,Correo,UP1,UP2,UP3,UP4,UP5,FU1,FU2,FU3,FU4,FU5,SG1,SG2,Comentario
+P01,javier.aguilar@unl.edu.ec,5,5,5,5,4,4,4,4,5,4,5,5,"La plataforma ayuda a tener todo el proceso de pruebas en un solo lugar y la matriz facilita justificar la trazabilidad."
+P02,qa@example.com,4,5,4,5,4,4,4,4,4,4,5,4,"El sistema permite registrar evidencias, defectos y ejecuciones con mejor control que hacerlo manualmente."
+P03,estudiante01@unl.edu.ec,5,5,4,5,5,4,5,4,4,4,5,5,"La trazabilidad entre requisitos y casos de prueba se entiende con claridad."
+P04,estudiante02@unl.edu.ec,4,4,4,4,4,4,4,3,4,4,4,4,"La plataforma es util, aunque algunos formularios pueden simplificarse."
+P05,estudiante03@unl.edu.ec,5,5,5,4,5,5,4,4,5,4,5,5,"Los informes de calidad son utiles para sustentar el avance del proyecto."
+P06,estudiante04@unl.edu.ec,4,5,5,5,4,4,4,4,4,3,5,4,"La matriz de trazabilidad permite ver rapidamente que requisitos estan cubiertos."
+P07,estudiante05@unl.edu.ec,4,4,4,5,4,3,4,4,4,4,4,4,"El sistema mejora el orden del proceso, pero se requiere una guia inicial para nuevos usuarios."
+P08,estudiante06@unl.edu.ec,5,5,5,5,5,4,5,4,5,4,5,5,"La plataforma facilita evidenciar pruebas, defectos, riesgos e informes."
+P09,estudiante07@unl.edu.ec,4,5,4,4,4,4,4,4,4,4,4,5,"Es util para proyectos de tesis porque evita perder informacion del proceso de pruebas."
+P10,estudiante08@unl.edu.ec,5,4,5,5,4,5,4,4,5,4,5,4,"La navegacion es comprensible y los resultados del informe final ayudan a interpretar la calidad."

@@ -12,7 +12,7 @@ class LoginForm(forms.Form):
         )
     )
     password = forms.CharField(
-        label='Contrasena',
+        label='Contraseña',
         widget=forms.PasswordInput(
             attrs={
                 'class': 'form-control form-control-lg',

@@ -3,6 +3,7 @@ import json
 from django import forms
 
 from apps.core.codes import next_code
+from apps.core.permissions import visible_projects_for
 from apps.projects.models import Project
 
 from .models import Requirement
@@ -46,7 +47,10 @@ class RequirementForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        if user:
+            self.fields['project'].queryset = visible_projects_for(user).order_by('name')
         project_id = self.data.get('project') if self.is_bound else self.instance.project_id
         queryset = Requirement.objects.filter(project_id=project_id) if project_id else Requirement.objects.none()
         self.fields['code'].required = False

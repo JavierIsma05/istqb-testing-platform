@@ -1,0 +1,199 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Historial de ejecuciones{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading executions-heading">
+    <div>
+        <h2>Historial de ejecuciones</h2>
+        <p>{{ case.code }} - {{ case.title }}</p>
+    </div>
+    <div class="page-heading-actions">
+        <select class="form-select" aria-label="Seleccionar caso de prueba" onchange="if (this.value) { window.location.href = this.value; }">
+            {% for test_case in test_cases %}
+                <option value="{% url 'executions:history' test_case.pk %}" {% if test_case.pk == case.pk %}selected{% endif %}>
+                    {{ test_case.code }} - {{ test_case.title }} ({{ test_case.test_plan.project.name }})
+                </option>
+            {% endfor %}
+        </select>
+        <a class="btn btn-outline-brand" href="{% url 'executions:index' %}?case={{ case.pk }}">
+            <i class="bi bi-arrow-left"></i>
+            Volver a ejecucion
+        </a>
+    </div>
+</div>
+
+<section class="execution-history-card">
+    <div class="card-heading">
+        <div>
+            <h3>Resumen</h3>
+            <p>Total de ejecuciones registradas para el caso seleccionado.</p>
+        </div>
+    </div>
+    <div class="execution-history-metrics mb-0">
+        <article>
+            <span>Total</span>
+            <strong>{{ execution_total }}</strong>
+        </article>
+        <article>
+            <span>Aprobadas</span>
+            <strong>{{ passed_count }}</strong>
+        </article>
+        <article>
+            <span>Fallidas</span>
+            <strong>{{ failed_count }}</strong>
+        </article>
+        <article>
+            <span>Exito</span>
+            <strong>{{ success_percent }}%</strong>
+        </article>
+    </div>
+</section>
+
+<section class="execution-history-card mt-4">
+    <div class="card-heading">
+        <div>
+            <h3>Historial manual ({{ manual_count }})</h3>
+            <p>Ejecuciones registradas paso a paso por el usuario.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Resultado</th>
+                    <th>Tipo</th>
+                    <th>Usuario</th>
+                    <th>Revisión</th>
+                    <th>Resultado obtenido</th>
+                    <th>Pasos</th>
+                    <th>Evidencia</th>
+                    {% if can_manage %}<th>Gestionar</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in manual_history %}
+                    <tr>
+                        <td>{{ item.execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}</td>
+                        <td>{{ item.execution.get_result_display }}</td>
+                        <td>{{ item.execution.get_execution_type_display }}</td>
+                        <td>{{ item.execution.executed_by.get_full_name|default:item.execution.executed_by.email|default:'Sin asignar' }}</td>
+                        <td>{{ item.execution.get_review_status_display }}</td>
+                        <td>{{ item.execution.actual_result|default:'Sin registrar' }}</td>
+                        <td>
+                            {% if item.execution.step_executions.all %}
+                                {{ item.execution.step_executions.all|length }} pasos registrados
+                            {% elif item.execution.step_results %}
+                                {{ item.execution.step_results|length }} pasos registrados
+                            {% else %}
+                                <span class="text-muted">Sin checklist</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.execution.evidence %}
+                                <a class="execution-evidence-link" href="{{ item.execution.evidence.url }}" target="_blank" rel="noopener">
+                                    {% if item.evidence_is_image %}
+                                        <img src="{{ item.execution.evidence.url }}" alt="Evidencia de ejecucion">
+                                    {% endif %}
+                                    <span>Ver archivo</span>
+                                </a>
+                            {% else %}
+                                <span class="text-muted">Sin evidencia</span>
+                            {% endif %}
+                        </td>
+                        {% if can_manage %}
+                            <td>
+                                <form method="POST" action="{% url 'executions:delete' item.execution.pk %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar esta ejecucion del historial. Deseas continuar?">
+                                        <i class="bi bi-trash"></i>
+                                        Eliminar
+                                    </button>
+                                </form>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="{% if can_manage %}9{% else %}8{% endif %}" class="text-center text-muted py-4">
+                            Este caso aun no tiene ejecuciones manuales registradas.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="execution-history-card mt-4">
+    <div class="card-heading">
+        <div>
+            <h3>Historial semi-automatizado ({{ automated_count }})</h3>
+            <p>Validaciones ejecutadas con reglas guiadas seguras.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Resultado</th>
+                    <th>Usuario</th>
+                    <th>Revisión</th>
+                    <th>Reglas</th>
+                    <th>Resultado obtenido</th>
+                    <th>Log técnico</th>
+                    {% if can_manage %}<th>Gestionar</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in automated_history %}
+                    <tr>
+                        <td>{{ item.execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}</td>
+                        <td>{{ item.execution.get_result_display }}</td>
+                        <td>{{ item.execution.executed_by.get_full_name|default:item.execution.executed_by.email|default:'Sin asignar' }}</td>
+                        <td>{{ item.execution.get_review_status_display }}</td>
+                        <td>
+                            <div class="trace-pill-list">
+                                {% for result in item.execution.automated_results.all %}
+                                    <span class="trace-pill execution-pill">
+                                        {{ result.validation_rule.name }}: {{ result.get_status_display }}
+                                    </span>
+                                {% empty %}
+                                    <span class="text-muted">Sin reglas registradas</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>{{ item.execution.actual_result|default:'Sin registrar' }}</td>
+                        <td>
+                            {% if item.execution.technical_log %}
+                                <pre class="small mb-0">{{ item.execution.technical_log }}</pre>
+                            {% else %}
+                                <span class="text-muted">Sin log</span>
+                            {% endif %}
+                        </td>
+                        {% if can_manage %}
+                            <td>
+                                <form method="POST" action="{% url 'executions:delete' item.execution.pk %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar esta ejecucion del historial. Deseas continuar?">
+                                        <i class="bi bi-trash"></i>
+                                        Eliminar
+                                    </button>
+                                </form>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="{% if can_manage %}8{% else %}7{% endif %}" class="text-center text-muted py-4">
+                            Este caso aun no tiene ejecuciones semi-automatizadas registradas.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

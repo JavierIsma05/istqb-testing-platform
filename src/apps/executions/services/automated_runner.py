@@ -184,7 +184,7 @@ def _browser_rule_result(page, rule):
         passed = stored_length <= rule.max_length
         if not passed:
             passed = _click_and_detect_block(page, secondary, initial_url, rule)
-        actual = f'Longitud almacenada: {stored_length}; maximo esperado: {rule.max_length}.'
+        actual = f'Longitud almacenada: {stored_length}; máximo esperado: {rule.max_length}.'
     elif validation_type == AutomatedValidationRule.ValidationType.MIN_LENGTH:
         primary.fill(rule.input_value)
         passed = _click_and_detect_block(page, secondary, initial_url, rule)
@@ -195,7 +195,7 @@ def _browser_rule_result(page, rule):
         passed = _click_and_detect_block(page, secondary, initial_url, rule)
         actual = 'El envio fue bloqueado.' if passed else f'El formulario navego a {page.url}.'
     else:
-        raise ValidationError('Tipo de validacion de navegador no soportado.')
+        raise ValidationError('Tipo de validación de navegador no soportado.')
 
     return passed, actual
 
@@ -229,7 +229,7 @@ def _execute_browser_rule(rule):
         return {
             'status': TestExecution.Result.ERROR,
             'expected': rule.expected_text or rule.expected_value or rule.get_validation_type_display(),
-            'actual': 'La pagina o el elemento excedio el tiempo de espera.',
+            'actual': 'La página o el elemento excedió el tiempo de espera.',
             'log': f'[ERROR] Timeout en {rule.name}: {exc}',
             'error': str(exc),
             'screenshot': None,
@@ -238,7 +238,7 @@ def _execute_browser_rule(rule):
         return {
             'status': TestExecution.Result.ERROR,
             'expected': rule.expected_text or rule.expected_value or rule.get_validation_type_display(),
-            'actual': 'La validacion no pudo ejecutarse.',
+            'actual': 'La validación no pudo ejecutarse.',
             'log': f'[ERROR] {rule.name}: {exc}',
             'error': str(exc),
             'screenshot': None,
@@ -286,7 +286,7 @@ def _create_automatic_defect(execution, failed_results):
         description=(
             f'La ejecucion semi-automatizada detecto reglas fallidas: {failed_names}.\n\n'
             f'Caso: {execution.test_case.code} - {execution.test_case.title}\n\n'
-            f'Log tecnico:\n{execution.technical_log}'
+            f'Log técnico:\n{execution.technical_log}'
         ),
         steps_to_reproduce='Ejecutar nuevamente las reglas automatizadas asociadas al caso de prueba.',
         severity=Defect.Severity.MEDIUM,
@@ -309,7 +309,7 @@ def run_automated_execution(test_case, user):
         result=TestExecution.Result.RUNNING,
         environment_url=rules[0].target_url if rules else '',
         browser=rules[0].browser if rules else '',
-        environment='Ejecucion asistida por reglas seguras',
+        environment='Ejecución asistida por reglas seguras',
     )
 
     result_rows = []
@@ -370,6 +370,14 @@ def run_automated_execution(test_case, user):
             'updated_at',
         ]
     )
+    case_status = {
+        TestExecution.Result.PASSED: test_case.Status.PASSED,
+        TestExecution.Result.FAILED: test_case.Status.FAILED,
+        TestExecution.Result.BLOCKED: test_case.Status.BLOCKED,
+        TestExecution.Result.ERROR: test_case.Status.BLOCKED,
+    }.get(execution.result, test_case.Status.PENDING)
+    test_case.status = case_status
+    test_case.save(update_fields=['status', 'updated_at'])
 
     failed_results = [item for item in result_rows if item.status == TestExecution.Result.FAILED]
     if failed_results:

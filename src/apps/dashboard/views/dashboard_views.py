@@ -8,6 +8,8 @@ from apps.defects.models import Defect
 from apps.executions.models import TestExecution
 from apps.incidents.models import Incident
 from apps.projects.models import Project
+from apps.phases.models import TestingPhase
+from apps.phases.views import ensure_default_phases, phase_criteria_status
 from apps.requirements.models import Requirement
 from apps.testcases.models import TestCase
 from apps.testplans.models import TestPlan
@@ -188,7 +190,7 @@ def build_teacher_dashboard(request):
                 'tone': 'green',
             },
             {
-                'label': 'Revisiones Pendientes',
+                'label': 'Revisiones pendientes',
                 'total': sum(project.pending_cases or 0 for project in teacher_projects),
                 'icon': 'bi-exclamation-triangle',
                 'tone': 'yellow',
@@ -204,6 +206,47 @@ def build_teacher_dashboard(request):
     }
 
 
+def build_student_phase_timeline(projects):
+    project = projects.filter(status=Project.Status.ACTIVE).first() or projects.first()
+    if not project:
+        return None
+
+    ensure_default_phases(project)
+    phases = TestingPhase.objects.filter(project=project).order_by('order')
+    short_names = {
+        1: 'Requisitos',
+        2: 'Riesgos',
+        3: 'Diseño',
+        4: 'Implementación',
+        5: 'Ejecución y defectos',
+        6: 'Cierre',
+    }
+    items = []
+    for phase in phases:
+        criteria = phase_criteria_status(phase)
+        status = phase.status
+        if phase.order == 5 and (
+            TestExecution.objects.filter(test_case__test_plan__project=project).exists() or
+            Defect.objects.filter(project=project).exists()
+        ):
+            status = TestingPhase.Status.IN_PROGRESS
+        elif status != TestingPhase.Status.DONE and criteria['progress'] == 100:
+            status = TestingPhase.Status.IN_PROGRESS
+        items.append({
+            'name': phase.name,
+            'short_name': short_names.get(phase.order, phase.name),
+            'status': status,
+            'progress': criteria['progress'],
+        })
+
+    return {
+        'project': project,
+        'items': items,
+        'completed': sum(item['status'] == TestingPhase.Status.DONE for item in items),
+        'total': len(items),
+    }
+
+
 @login_required
 def dashboard_view(request):
     if request.user.role == User.Roles.TEACHER:
@@ -213,7 +256,7 @@ def dashboard_view(request):
             build_teacher_dashboard(request),
         )
 
-    visible_projects = visible_projects_for(request.user)
+    visible_projects = visible_projects_for(request.user, request=request)
     cards = [
         ('Proyectos', visible_projects.count(), 'bi-folder2-open', 'projects:index'),
         ('Requisitos', Requirement.objects.filter(project__in=visible_projects).count(), 'bi-card-checklist', 'requirements:index'),
@@ -231,5 +274,10 @@ def dashboard_view(request):
             'cards': cards,
             'project_summaries': build_project_summaries(visible_projects),
             'recent_activities': build_recent_activity(visible_projects),
+            'student_phase_timeline': (
+                build_student_phase_timeline(visible_projects)
+                if request.user.role == User.Roles.STUDENT
+                else None
+            ),
         },
     )

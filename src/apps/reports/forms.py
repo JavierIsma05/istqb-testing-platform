@@ -21,9 +21,9 @@ class ReportForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         help_texts = {
-            'project': 'Proyecto del que se generara la informacion del reporte.',
+            'project': 'Proyecto del que se generará la información del reporte.',
             'title': 'Nombre visible del reporte para identificarlo en el historial.',
-            'report_type': 'Tipo de analisis o resumen que necesitas generar.',
+            'report_type': 'Tipo de análisis o resumen que necesitas generar.',
         }
         for name, help_text in help_texts.items():
             self.fields[name].help_text = help_text

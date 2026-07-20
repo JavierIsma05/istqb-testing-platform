@@ -1,11 +1,11 @@
 {% extends 'layouts/dashboard_base.html' %}
 
-{% block title %}Fases ISTQB{% endblock %}
+{% block title %}Control de Fases ISTQB{% endblock %}
 
 {% block dashboard_content %}
 <div class="page-heading phases-heading">
     <div>
-        <h2>Fases ISTQB</h2>
+        <h2>Control de Fases ISTQB</h2>
         <p>Gestión del ciclo de vida de pruebas</p>
     </div>
     {% if projects %}
@@ -23,15 +23,15 @@
 
 {% if selected_project %}
     <section class="phase-summary-card">
-        <h3>Progreso General del Ciclo ISTQB</h3>
+        <h3>Avance General del Ciclo ISTQB</h3>
         <div class="phase-summary-progress">
-            <span>Progreso Total</span>
+            <span>Criterios cumplidos</span>
             <strong>{{ general_progress }}%</strong>
         </div>
         <div class="progress phase-progress-track">
             <div class="progress-bar" style="width: {{ general_progress }}%"></div>
         </div>
-        <p>{{ completed_count }} de {{ total_phases }} fases completadas</p>
+        <p>{{ completed_count }} de {{ total_phases }} fases cerradas formalmente</p>
     </section>
 
     <section class="phase-list">
@@ -63,7 +63,7 @@
 
                     <div class="phase-task-chips">
                         <span>Inicio: {{ phase.started_at|date:'d M Y H:i'|default:'Sin iniciar' }}</span>
-                        <span>Completitud: {{ phase.completed_at|date:'d M Y H:i'|default:'Pendiente' }}</span>
+                        <span>Cierre: {{ phase.completed_at|date:'d M Y H:i'|default:'Pendiente' }}</span>
                     </div>
 
                     <div class="phase-task-chips">
@@ -72,7 +72,7 @@
                     </div>
 
                     <div class="phase-card-progress">
-                        <span>Progreso de la Fase</span>
+                        <span>Criterios cumplidos de la fase</span>
                         <strong>{{ phase.progress }}%</strong>
                     </div>
                     <div class="progress phase-progress-track">
@@ -86,20 +86,43 @@
                         </div>
                     {% endif %}
 
-                    <div class="phase-task-chips">
-                        {% for label, is_done in item.criteria.checks %}
-                            <span>{% if is_done %}OK{% else %}Pendiente{% endif %}: {{ label }}</span>
+                    <div class="phase-criteria-list">
+                        {% for criterion in item.criteria.details %}
+                            <div class="phase-criterion {% if criterion.is_done %}is-done{% else %}is-pending{% endif %}">
+                                <div>
+                                    <span class="phase-criterion-state">
+                                        {% if criterion.is_done %}
+                                            <i class="bi bi-check-lg"></i>
+                                            Cumplido
+                                        {% else %}
+                                            <i class="bi bi-exclamation-circle"></i>
+                                            Pendiente
+                                        {% endif %}
+                                    </span>
+                                    <strong>{{ criterion.label }}</strong>
+                                    <small>Modulo relacionado: {{ criterion.module }}</small>
+                                </div>
+                                <a class="btn btn-outline-brand btn-sm" href="{% url criterion.route_name %}">
+                                    {{ criterion.action }}
+                                </a>
+                            </div>
                         {% endfor %}
                     </div>
 
                     {% if request.user.is_student_role and phase.status != 'DONE' %}
-                        <form method="POST" action="{% url 'phases:advance' phase.pk %}">
-                            {% csrf_token %}
-                            <input type="hidden" name="next" value="{% url 'phases:index' %}">
-                            <button class="btn btn-brand btn-sm" type="submit" {% if not item.can_start %}disabled{% endif %}>
-                                {% if phase.status == 'PENDING' %}Iniciar fase{% else %}Completar fase{% endif %}
-                            </button>
-                        </form>
+                        {% if item.can_start %}
+                            <form method="POST" action="{% url 'phases:advance' phase.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{% url 'phases:index' %}">
+                                <button class="btn btn-brand btn-sm" type="submit">
+                                    {% if phase.status == 'PENDING' %}Iniciar fase{% else %}Cerrar fase{% endif %}
+                                </button>
+                            </form>
+                        {% else %}
+                            <div class="phase-waiting-note">
+                                Completa la fase anterior para habilitar esta fase.
+                            </div>
+                        {% endif %}
                     {% endif %}
                 </div>
             </article>

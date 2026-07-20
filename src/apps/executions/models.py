@@ -11,8 +11,8 @@ class TestExecution(TimeStampedModel):
         SEMI_AUTOMATED = 'SEMI_AUTOMATED', 'Semi-automatizada'
 
     class ExecutionType(models.TextChoices):
-        NORMAL = 'NORMAL', 'Ejecucion funcional'
-        CONFIRMATION = 'CONFIRMATION', 'Prueba de confirmacion'
+        NORMAL = 'NORMAL', 'Ejecución funcional'
+        CONFIRMATION = 'CONFIRMATION', 'Prueba de confirmación'
         REGRESSION = 'REGRESSION', 'Prueba de regresion'
 
     class Result(models.TextChoices):
@@ -21,13 +21,13 @@ class TestExecution(TimeStampedModel):
         PASSED = 'PASSED', 'Aprobado'
         FAILED = 'FAILED', 'Fallido'
         BLOCKED = 'BLOCKED', 'Bloqueado'
-        ERROR = 'ERROR', 'Error tecnico'
+        ERROR = 'ERROR', 'Error técnico'
 
     class ReviewStatus(models.TextChoices):
-        PENDING = 'PENDING', 'Pendiente de revision'
+        PENDING = 'PENDING', 'Pendiente de revisión'
         VALIDATED = 'VALIDATED', 'Validada'
         REJECTED = 'REJECTED', 'Rechazada'
-        NEEDS_FIX = 'NEEDS_FIX', 'Requiere correccion'
+        NEEDS_FIX = 'NEEDS_FIX', 'Requiere corrección'
 
     test_case = models.ForeignKey(TestCase, on_delete=models.CASCADE, related_name='executions')
     execution_mode = models.CharField(
@@ -106,8 +106,8 @@ class AutomatedValidationRule(TimeStampedModel):
     class ValidationType(models.TextChoices):
         FIELD_REQUIRED = 'FIELD_REQUIRED', 'Campo obligatorio'
         EMAIL_FORMAT = 'EMAIL_FORMAT', 'Formato de correo'
-        MAX_LENGTH = 'MAX_LENGTH', 'Longitud maxima'
-        MIN_LENGTH = 'MIN_LENGTH', 'Longitud minima'
+        MAX_LENGTH = 'MAX_LENGTH', 'Longitud máxima'
+        MIN_LENGTH = 'MIN_LENGTH', 'Longitud mínima'
         TEXT_VISIBLE = 'TEXT_VISIBLE', 'Texto visible'
         ELEMENT_VISIBLE = 'ELEMENT_VISIBLE', 'Elemento visible'
         REDIRECT_URL = 'REDIRECT_URL', 'Redireccion URL'

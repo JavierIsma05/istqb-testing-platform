@@ -262,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     Array.prototype.slice.call(document.querySelectorAll('[data-file-input]')).forEach(function (input) {
         input.addEventListener('change', function () {
-            var fileName = input.files && input.files.length ? input.files[0].name : 'Adjuntar capturas de pantalla';
+            var fileName = input.files && input.files.length ? input.files[0].name : 'Adjuntar evidencia';
             var label = input.closest('.execution-upload');
             var target = label ? label.querySelector('[data-file-name]') : null;
 
@@ -523,12 +523,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var ruleHelpText = {
             FIELD_REQUIRED: 'Valida que un campo obligatorio no permita enviar el formulario vacio. Usa selector principal para el campo y selector secundario para el boton de envio.',
             EMAIL_FORMAT: 'Escribe un correo invalido en el campo principal y comprueba que el formulario lo rechace.',
-            MAX_LENGTH: 'Escribe un texto mayor al permitido y comprueba que el campo o el formulario respeten la longitud maxima.',
-            MIN_LENGTH: 'Escribe un texto menor al minimo y comprueba que el formulario bloquee el envio.',
-            TEXT_VISIBLE: 'Comprueba que la pagina muestre un texto. No necesitas selector principal para este tipo.',
-            ELEMENT_VISIBLE: 'Comprueba que un elemento especifico exista y sea visible.',
-            REDIRECT_URL: 'Hace clic en el elemento principal y valida que la pagina termine en la URL esperada.',
-            HTTP_STATUS: 'Comprueba que la URL objetivo responda con el codigo HTTP esperado. No usa navegador ni selectores.',
+            MAX_LENGTH: 'Escribe un texto mayor al permitido y comprueba que el campo o el formulario respeten la longitud máxima.',
+            MIN_LENGTH: 'Escribe un texto menor al mínimo y comprueba que el formulario bloquee el envío.',
+            TEXT_VISIBLE: 'Comprueba que la página muestre un texto. No necesitas selector principal para este tipo.',
+            ELEMENT_VISIBLE: 'Comprueba que un elemento específico exista y sea visible.',
+            REDIRECT_URL: 'Hace clic en el elemento principal y valida que la página termine en la URL esperada.',
+            HTTP_STATUS: 'Comprueba que la URL objetivo responda con el código HTTP esperado. No usa navegador ni selectores.',
             BUTTON_DISABLED: 'Comprueba que un boton o control este deshabilitado.',
             FORM_SUBMISSION_BLOCKED: 'Intenta enviar un formulario y valida que no navegue ni acepte datos invalidos.'
         };
@@ -544,7 +544,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (ruleHelp) {
                 var title = validationTypeField.options[validationTypeField.selectedIndex]
                     ? validationTypeField.options[validationTypeField.selectedIndex].text
-                    : 'Selecciona un tipo de validacion';
+                    : 'Selecciona un tipo de validación';
                 ruleHelp.querySelector('strong').textContent = title;
                 ruleHelp.querySelector('span').textContent = ruleHelpText[validationTypeField.value] || 'El formulario mostrara solo los campos necesarios para esa regla.';
             }

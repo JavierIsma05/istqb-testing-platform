@@ -23,7 +23,20 @@ REQUIREMENT_START_RE = re.compile(
 )
 NUMBERED_START_RE = re.compile(r'^\s*\d+[\).:-]\s+.+$')
 REQUIREMENT_WORD_RE = re.compile(
-    r'\b(el sistema|la aplicacion|la plataforma|se debe|debe|debera|permitira|permite|requisito)\b',
+    r'\b(el sistema|la aplicacion|la plataforma|se debe|debe|debera|permitir|permitira|permite|registrar|mostrar|generar|requisito)\b',
+    re.IGNORECASE,
+)
+CODE_PREFIX_RE = re.compile(r'^(?P<prefix>REQ|RF|RNF|FR|NFR)[-\s]*$', re.IGNORECASE)
+CODE_NUMBER_RE = re.compile(r'^\d{1,4}$')
+COMPLETE_CODE_RE = re.compile(r'^(?P<prefix>REQ|RF|RNF|FR|NFR)[-\s]?(?P<number>\d{1,4})$', re.IGNORECASE)
+PRIORITY_TYPE_RE = re.compile(
+    r'^(?P<priority>alta|media|baja|critica|crítica)\s+(?P<type>no funcional|funcional)$',
+    re.IGNORECASE,
+)
+PRIORITY_RE = re.compile(r'^(alta|media|baja|critica|crítica)$', re.IGNORECASE)
+TYPE_RE = re.compile(r'^(no funcional|funcional)$', re.IGNORECASE)
+TABLE_DESCRIPTION_START_RE = re.compile(
+    r'\b(permitir|registrar|mostrar|guiar|mantener|calcular|vincular|crear|proporcionar|asignar|agrupar|ejecutar|gestionar|generar|estructurar|identificar|notificar|incluir|validar|garantizar|el sistema|la plataforma|la aplicacion)\b',
     re.IGNORECASE,
 )
 
@@ -54,6 +67,10 @@ def extract_text_from_pdf(pdf_file):
 
 def parse_requirements_from_text(text, defaults=None, limit=100):
     defaults = defaults or {}
+    table_items = _parse_table_requirements(text, defaults, limit)
+    if table_items:
+        return table_items
+
     blocks = _split_requirement_blocks(text)
     parsed = []
 
@@ -65,6 +82,147 @@ def parse_requirements_from_text(text, defaults=None, limit=100):
             break
 
     return parsed
+
+
+def _parse_table_requirements(text, defaults, limit):
+    lines = [_clean_line(line) for line in text.splitlines()]
+    lines = [line for line in lines if line]
+    parsed = []
+    index = 0
+
+    while index < len(lines):
+        code_info = _read_code_at(lines, index)
+        if not code_info:
+            index += 1
+            continue
+
+        code, index = code_info
+        row_lines = []
+        priority = defaults.get('priority')
+        requirement_type = defaults.get('requirement_type')
+
+        while index < len(lines) and not _read_code_at(lines, index):
+            line = lines[index]
+            priority_type = PRIORITY_TYPE_RE.match(line)
+            if priority_type:
+                priority = _priority_from_label(priority_type.group('priority')) or priority
+                requirement_type = _type_from_label(priority_type.group('type')) or requirement_type
+                index += 1
+                break
+
+            if (
+                PRIORITY_RE.match(line)
+                and index + 1 < len(lines)
+                and TYPE_RE.match(lines[index + 1])
+            ):
+                priority = _priority_from_label(line) or priority
+                requirement_type = _type_from_label(lines[index + 1]) or requirement_type
+                index += 2
+                break
+
+            if not _is_table_header_line(line):
+                row_lines.append(line)
+            index += 1
+
+        item = _build_table_requirement(code, row_lines, defaults, priority, requirement_type)
+        if item:
+            parsed.append(item)
+        if len(parsed) >= limit:
+            break
+
+    # A single detected code can be a normal paragraph. Use table parsing only
+    # when there is enough structure to prove the PDF extraction came from rows.
+    return parsed if len(parsed) > 1 else []
+
+
+def _read_code_at(lines, index):
+    line = lines[index]
+    complete = COMPLETE_CODE_RE.match(line)
+    if complete:
+        return _format_code(complete.group('prefix'), complete.group('number')), index + 1
+
+    prefix = CODE_PREFIX_RE.match(line)
+    if prefix and index + 1 < len(lines) and CODE_NUMBER_RE.match(lines[index + 1]):
+        return _format_code(prefix.group('prefix'), lines[index + 1]), index + 2
+
+    return None
+
+
+def _format_code(prefix, number):
+    return f'{prefix.upper()}-{number.zfill(3)}'
+
+
+def _is_table_header_line(line):
+    lowered = line.lower()
+    return lowered in {
+        'codigo',
+        'código',
+        'nombre del',
+        'requisito',
+        'descripción',
+        'prioridad',
+        'tipo',
+    }
+
+
+def _build_table_requirement(code, row_lines, defaults, priority, requirement_type):
+    title, description = _split_table_title_description(row_lines)
+    if not title or not description:
+        return None
+
+    return ParsedRequirement(
+        title=title[:180],
+        description=description,
+        requirement_type=requirement_type or _detect_requirement_type(description, defaults.get('requirement_type'), code=code),
+        priority=priority or _detect_priority(description, defaults.get('priority')),
+        status=defaults.get('status', Requirement.Status.PENDING),
+    )
+
+
+def _split_table_title_description(row_lines):
+    for index, line in enumerate(row_lines):
+        match = TABLE_DESCRIPTION_START_RE.search(line)
+        if not match:
+            continue
+
+        title_parts = row_lines[:index]
+        description_parts = row_lines[index:]
+        if match.start() > 0:
+            title_parts.append(line[: match.start()].strip())
+            description_parts = [line[match.start() :].strip(), *row_lines[index + 1 :]]
+
+        title = _join_parts(title_parts)
+        description = _join_parts(description_parts)
+        return title, description
+
+    description = _join_parts(row_lines)
+    return _build_title(description), description
+
+
+def _join_parts(parts):
+    return re.sub(r'\s+', ' ', ' '.join(part for part in parts if part)).strip(' .:-')
+
+
+def _priority_from_label(label):
+    normalized = label.strip().lower()
+    if normalized == 'alta':
+        return Requirement.Priority.HIGH
+    if normalized == 'media':
+        return Requirement.Priority.MEDIUM
+    if normalized == 'baja':
+        return Requirement.Priority.LOW
+    if normalized in {'critica', 'crítica'}:
+        return Requirement.Priority.CRITICAL
+    return None
+
+
+def _type_from_label(label):
+    normalized = label.strip().lower()
+    if normalized == 'no funcional':
+        return Requirement.RequirementType.NON_FUNCTIONAL
+    if normalized == 'funcional':
+        return Requirement.RequirementType.FUNCTIONAL
+    return None
 
 
 def _split_requirement_blocks(text):

@@ -48,6 +48,11 @@
                 {{ form.test_plan }}
                 {% if form.test_plan.errors %}<div class="form-error">{{ form.test_plan.errors|striptags }}</div>{% endif %}
             </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.test_case.id_for_label }}">{{ form.test_case.label }}</label>
+                {{ form.test_case }}
+                {% if form.test_case.errors %}<div class="form-error">{{ form.test_case.errors|striptags }}</div>{% endif %}
+            </div>
             <div class="col-12">
                 <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
                 {{ form.title }}

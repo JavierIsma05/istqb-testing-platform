@@ -1,6 +1,7 @@
+{% load static %}
 <aside class="app-sidebar">
     <div class="sidebar-brand">
-        <span class="brand-mark"><i class="bi bi-beaker"></i></span>
+        <span class="brand-mark"><img src="{% static 'images/brand/testflow-mark.svg' %}" alt="TestFlow"></span>
         <span>
             <strong>TestFlow<br>ISTQB</strong>
             <small>Testing Lifecycle</small>
@@ -17,7 +18,7 @@
         <a class="{% if request.resolver_match.namespace == 'testplans' %}active{% endif %}" href="{% url 'testplans:index' %}" title="Plan de Pruebas"><i class="bi bi-clipboard-check"></i><span>Plan de Pruebas</span></a>
         <a class="{% if request.resolver_match.namespace == 'incidents' %}active{% endif %}" href="{% url 'incidents:index' %}" title="Riesgos del Plan"><i class="bi bi-exclamation-triangle"></i><span>Riesgos del Plan</span></a>
         <a class="{% if request.resolver_match.namespace == 'testcases' %}active{% endif %}" href="{% url 'testcases:index' %}" title="Casos de Prueba"><i class="bi bi-file-check"></i><span>Casos de Prueba</span></a>
-        <a class="{% if request.resolver_match.namespace == 'executions' %}active{% endif %}" href="{% url 'executions:index' %}" title="Ejecucion"><i class="bi bi-play"></i><span>Ejecucion</span></a>
+        <a class="{% if request.resolver_match.namespace == 'executions' %}active{% endif %}" href="{% url 'executions:index' %}" title="Ejecución"><i class="bi bi-play"></i><span>Ejecución</span></a>
         <a class="{% if request.resolver_match.namespace == 'defects' %}active{% endif %}" href="{% url 'defects:index' %}" title="Defectos"><i class="bi bi-bug"></i><span>Defectos</span></a>
         <a class="{% if request.resolver_match.namespace == 'traceability' %}active{% endif %}" href="{% url 'traceability:index' %}" title="Trazabilidad"><i class="bi bi-diagram-2"></i><span>Trazabilidad</span></a>
         <a class="{% if request.resolver_match.namespace == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}" title="Informes"><i class="bi bi-bar-chart"></i><span>Informes</span></a>

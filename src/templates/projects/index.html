@@ -112,7 +112,7 @@
                             </td>
                             <td>{{ item.total_cases }}</td>
                             <td class="text-end">
-                                <a class="btn btn-outline-brand btn-sm" href="{% url 'projects:detail' item.project.pk %}">
+                                <a class="btn btn-outline-brand btn-sm" href="{% url 'projects:detail' item.project.pk %}?project={{ item.project.pk }}">
                                     <i class="bi bi-eye"></i>
                                     Ver
                                 </a>
@@ -206,7 +206,7 @@
                             {% endif %}
                         </strong>
                     </div>
-                    <a class="btn btn-outline-brand view-project-button" href="{% url 'projects:detail' item.project.pk %}">
+                    <a class="btn btn-outline-brand view-project-button" href="{% url 'projects:detail' item.project.pk %}?project={{ item.project.pk }}">
                         <i class="bi bi-eye"></i>
                         Ver Proyecto
                     </a>

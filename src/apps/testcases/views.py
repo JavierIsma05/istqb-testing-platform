@@ -5,7 +5,12 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.audit.services import log_action
-from apps.core.permissions import can_manage_artifacts, is_teacher, visible_projects_for
+from apps.core.permissions import (
+    can_manage_artifacts,
+    get_active_project_for_request,
+    is_teacher,
+    visible_projects_for,
+)
 from apps.core.codes import next_code
 
 from .forms import TestCaseModalForm
@@ -54,13 +59,15 @@ def testcase_list_view(request):
         )
         return redirect('testcases:index')
 
+    visible_projects = visible_projects_for(request.user, request=request)
+    active_project = get_active_project_for_request(request)
     test_cases = TestCase.objects.select_related(
         'test_plan',
         'test_plan__project',
         'requirement',
         'created_by',
     ).annotate(execution_count=Count('executions', distinct=True))
-    test_cases = test_cases.filter(test_plan__project__in=visible_projects_for(request.user))
+    test_cases = test_cases.filter(test_plan__project__in=visible_projects)
 
     if query:
         test_cases = test_cases.filter(
@@ -69,6 +76,9 @@ def testcase_list_view(request):
             | Q(description__icontains=query)
             | Q(expected_result__icontains=query)
         )
+
+    if active_project:
+        test_cases = test_cases.filter(test_plan__project=active_project)
 
     if status:
         test_cases = test_cases.filter(status=status)
@@ -118,7 +128,7 @@ def testcase_detail_view(request, pk):
             'created_by',
         ).prefetch_related('executions__defects', 'traceability_links'),
         pk=pk,
-        test_plan__project__in=visible_projects_for(request.user),
+        test_plan__project__in=visible_projects_for(request.user, request=request),
     )
     executions = test_case.executions.select_related('executed_by').prefetch_related('defects')
     defects = []
@@ -151,7 +161,7 @@ def testcase_update_view(request, pk):
     test_case = get_object_or_404(
         TestCase,
         pk=pk,
-        test_plan__project__in=visible_projects_for(request.user),
+        test_plan__project__in=visible_projects_for(request.user, request=request),
     )
     form = TestCaseModalForm(request.POST or None, instance=test_case, user=request.user)
 
@@ -192,7 +202,7 @@ def testcase_delete_view(request, pk):
     test_case = get_object_or_404(
         TestCase,
         pk=pk,
-        test_plan__project__in=visible_projects_for(request.user),
+        test_plan__project__in=visible_projects_for(request.user, request=request),
     )
 
     if request.method == 'POST':

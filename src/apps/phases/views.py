@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.audit.services import log_action
-from apps.core.permissions import redirect_if_teacher_readonly, visible_projects_for
+from apps.core.permissions import get_active_project_for_request, redirect_if_teacher_readonly, visible_projects_for
 from apps.defects.models import Defect
 from apps.executions.models import TestExecution
 from apps.incidents.models import Incident
@@ -19,7 +19,7 @@ from .models import TestingPhase
 DEFAULT_PHASES = [
     {
         'order': 1,
-        'name': 'Analisis de requisitos',
+        'name': 'Análisis de requisitos',
         'description': 'Identifica, revisa y prioriza los requisitos que deben probarse.',
         'entry_criteria': 'Proyecto creado y tutor vinculado.',
         'exit_criteria': 'Requisitos registrados, revisados y disponibles para planificacion.',
@@ -28,7 +28,7 @@ DEFAULT_PHASES = [
     },
     {
         'order': 2,
-        'name': 'Planificacion y riesgos',
+        'name': 'Planificación y riesgos',
         'description': 'Define alcance, estrategia, recursos, ambiente, criterios y riesgos del plan.',
         'entry_criteria': 'Requisitos disponibles para estimar y priorizar las pruebas.',
         'exit_criteria': 'Plan aprobado con criterios de entrada, salida y riesgos asociados.',
@@ -37,16 +37,16 @@ DEFAULT_PHASES = [
     },
     {
         'order': 3,
-        'name': 'Diseno',
-        'description': 'Disena casos de prueba trazables.',
-        'entry_criteria': 'Requisitos disponibles para diseno.',
+        'name': 'Diseño',
+        'description': 'Diseña casos de prueba trazables.',
+        'entry_criteria': 'Requisitos disponibles para diseño.',
         'exit_criteria': 'Casos de prueba vinculados a requisitos.',
         'status': TestingPhase.Status.PENDING,
         'progress': 0,
     },
     {
         'order': 4,
-        'name': 'Implementacion',
+        'name': 'Implementación',
         'description': 'Prepara ambiente, datos y responsabilidades.',
         'entry_criteria': 'Casos de prueba disenados.',
         'exit_criteria': 'Ambiente y responsables definidos en el plan.',
@@ -55,7 +55,7 @@ DEFAULT_PHASES = [
     },
     {
         'order': 5,
-        'name': 'Ejecucion y defectos',
+        'name': 'Ejecución y defectos',
         'description': 'Ejecuta cada paso, registra resultados obtenidos y gestiona defectos reales.',
         'entry_criteria': 'Casos de prueba disponibles.',
         'exit_criteria': 'Ejecuciones registradas con resultados y evidencias.',
@@ -67,7 +67,7 @@ DEFAULT_PHASES = [
         'name': 'Cierre',
         'description': 'Genera informes y consolida cierre.',
         'entry_criteria': 'Ejecuciones y defectos revisados.',
-        'exit_criteria': 'Reporte generado y defectos criticos cerrados o justificados.',
+        'exit_criteria': 'Reporte generado y defectos críticos cerrados o justificados.',
         'status': TestingPhase.Status.PENDING,
         'progress': 0,
     },
@@ -104,7 +104,7 @@ def phase_criteria_status(phase):
         1: [
             ('Proyecto creado', True),
             ('Requisitos registrados', requirements.exists()),
-            ('Requisitos aprobados o en revision', requirements.exclude(status=Requirement.Status.PENDING).exists()),
+            ('Requisitos aprobados o en revisión', requirements.exclude(status=Requirement.Status.PENDING).exists()),
         ],
         2: [
             ('Requisitos registrados', requirements.exists()),
@@ -131,16 +131,62 @@ def phase_criteria_status(phase):
         6: [
             ('Ejecuciones registradas', executions.exists()),
             ('Reportes generados', project.reports.exists()),
-            ('Defectos criticos cerrados o sin pendientes', not defects.filter(severity=Defect.Severity.CRITICAL).exclude(status=Defect.Status.CLOSED).exists()),
+            ('Defectos críticos cerrados o sin pendientes', not defects.filter(severity=Defect.Severity.CRITICAL).exclude(status=Defect.Status.CLOSED).exists()),
         ],
     }
     checks = checks_by_order.get(phase.order, [])
     completed = sum(1 for _label, is_done in checks if is_done)
     pending = len(checks) - completed
     progress = round((completed / len(checks)) * 100) if checks else phase.progress
+    details_by_order = {
+        1: [
+            ('Proyecto creado', 'Proyectos', 'Ver proyecto', 'projects:index'),
+            ('Requisitos registrados', 'Requisitos', 'Registrar requisitos', 'requirements:index'),
+            ('Requisitos aprobados o en revisión', 'Requisitos', 'Revisar requisitos', 'requirements:index'),
+        ],
+        2: [
+            ('Requisitos registrados', 'Requisitos', 'Ver requisitos', 'requirements:index'),
+            ('Plan de pruebas registrado', 'Plan de pruebas', 'Crear plan', 'testplans:index'),
+            ('Criterios de entrada y salida definidos', 'Plan de pruebas', 'Completar plan', 'testplans:index'),
+            ('Riesgos asociados al plan', 'Riesgos', 'Registrar riesgos', 'incidents:index'),
+        ],
+        3: [
+            ('Requisitos disponibles', 'Requisitos', 'Ver requisitos', 'requirements:index'),
+            ('Casos de prueba creados', 'Casos de prueba', 'Crear casos', 'testcases:index'),
+            ('Casos vinculados a requisitos', 'Casos de prueba', 'Vincular casos', 'testcases:index'),
+        ],
+        4: [
+            ('Casos de prueba disponibles', 'Casos de prueba', 'Ver casos', 'testcases:index'),
+            ('Ambiente de prueba definido', 'Plan de pruebas', 'Definir ambiente', 'testplans:index'),
+            ('Responsabilidades definidas', 'Plan de pruebas', 'Definir responsables', 'testplans:index'),
+        ],
+        5: [
+            ('Casos de prueba disponibles', 'Casos de prueba', 'Ver casos', 'testcases:index'),
+            ('Ejecuciones registradas', 'Ejecución', 'Ejecutar pruebas', 'executions:index'),
+            ('Resultados obtenidos registrados', 'Ejecución', 'Completar resultados', 'executions:index'),
+            ('Defectos vinculados a ejecuciones fallidas', 'Defectos', 'Revisar defectos', 'defects:index'),
+        ],
+        6: [
+            ('Ejecuciones registradas', 'Ejecución', 'Ver ejecuciones', 'executions:index'),
+            ('Reportes generados', 'Informes', 'Generar informe', 'reports:index'),
+            ('Defectos críticos cerrados o sin pendientes', 'Defectos', 'Cerrar defectos críticos', 'defects:index'),
+        ],
+    }
+    details = [
+        {
+            'label': label,
+            'is_done': is_done,
+            'module': module,
+            'action': action,
+            'route_name': route_name,
+        }
+        for (label, is_done), (_detail_label, module, action, route_name)
+        in zip(checks, details_by_order.get(phase.order, []))
+    ]
 
     return {
         'checks': checks,
+        'details': details,
         'completed_tasks': completed,
         'pending_tasks': pending,
         'progress': progress,
@@ -169,8 +215,13 @@ def phase_redirect_url(request, project_id):
 
 @login_required
 def phase_list_view(request):
-    projects = visible_projects_for(request.user)
-    selected_project = projects.filter(pk=request.GET.get('project')).first() or projects.first()
+    projects = visible_projects_for(request.user, request=request)
+    active_project = get_active_project_for_request(request)
+    selected_project = (
+        projects.filter(pk=request.GET.get('project')).first()
+        or (active_project if active_project and active_project in projects else None)
+        or projects.first()
+    )
     phases = TestingPhase.objects.none()
     phase_items = []
     general_progress = 0
@@ -214,7 +265,7 @@ def phase_advance_view(request, pk):
     if readonly_redirect:
         return readonly_redirect
 
-    phase = get_object_or_404(TestingPhase, pk=pk, project__in=visible_projects_for(request.user))
+    phase = get_object_or_404(TestingPhase, pk=pk, project__in=visible_projects_for(request.user, request=request))
     criteria = phase_criteria_status(phase)
 
     if not can_start_phase(phase):

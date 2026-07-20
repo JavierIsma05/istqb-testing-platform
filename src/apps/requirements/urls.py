@@ -2,10 +2,12 @@ from django.urls import path
 
 from apps.requirements.views import (
     requirement_bulk_delete_view,
+    requirement_bulk_mark_reviewed_view,
     requirement_create_view,
     requirement_delete_view,
     requirement_import_view,
     requirement_list_view,
+    requirement_mark_reviewed_view,
     requirement_update_view,
 )
 
@@ -16,6 +18,8 @@ urlpatterns = [
     path('new/', requirement_create_view, name='create'),
     path('import/', requirement_import_view, name='import'),
     path('bulk-delete/', requirement_bulk_delete_view, name='bulk_delete'),
+    path('bulk-review/', requirement_bulk_mark_reviewed_view, name='bulk_review'),
     path('<int:pk>/edit/', requirement_update_view, name='edit'),
     path('<int:pk>/delete/', requirement_delete_view, name='delete'),
+    path('<int:pk>/review/', requirement_mark_reviewed_view, name='review'),
 ]

@@ -5,7 +5,13 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.audit.services import log_action
-from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
+from apps.core.permissions import (
+    can_manage_artifacts,
+    get_active_project_for_request,
+    is_teacher,
+    redirect_if_teacher_readonly,
+    visible_projects_for,
+)
 from apps.core.codes import next_code
 from apps.projects.models import Project
 
@@ -23,13 +29,20 @@ STATUS_BADGES = {
     Requirement.Status.RETIRED: 'muted',
 }
 
+REVIEWABLE_STATUSES = (
+    Requirement.Status.PENDING,
+    Requirement.Status.REVIEW,
+    Requirement.Status.CHANGED,
+)
+
 
 @login_required
 def requirement_list_view(request):
     query = request.GET.get('q', '').strip()
     project_id = request.GET.get('project', '').strip()
     status = request.GET.get('status', '').strip()
-    visible_projects = visible_projects_for(request.user)
+    visible_projects = visible_projects_for(request.user, request=request)
+    active_project = get_active_project_for_request(request)
 
     requirements = Requirement.objects.select_related('project').annotate(
         direct_cases=Count('test_cases', distinct=True),
@@ -45,7 +58,9 @@ def requirement_list_view(request):
             | Q(description__icontains=query)
         )
 
-    if project_id:
+    if active_project:
+        requirements = requirements.filter(project=active_project)
+    elif project_id:
         requirements = requirements.filter(project_id=project_id)
 
     if status:
@@ -70,6 +85,9 @@ def requirement_list_view(request):
 
     total = len(requirement_items)
     pending = sum(1 for item in requirement_items if item['requirement'].status != Requirement.Status.APPROVED)
+    reviewable_count = sum(
+        1 for item in requirement_items if item['requirement'].status in REVIEWABLE_STATUSES
+    )
     coverage_percent = round((covered / total) * 100) if total else 0
 
     return render(
@@ -87,6 +105,9 @@ def requirement_list_view(request):
             'selected_status': status,
             'query': query,
             'can_manage': can_manage_artifacts(request.user),
+            'can_review': is_teacher(request.user),
+            'reviewable_count': reviewable_count,
+            'reviewable_statuses': REVIEWABLE_STATUSES,
         },
     )
 
@@ -97,14 +118,14 @@ def requirement_create_view(request):
     if readonly_redirect:
         return readonly_redirect
 
-    form = RequirementForm(request.POST or None)
+    form = RequirementForm(request.POST or None, user=request.user)
 
     if request.method == 'POST' and form.is_valid():
         requirement = form.save(commit=False)
         requirement.code = next_code(Requirement.objects.filter(project=requirement.project), 'REQ')
         requirement.created_by = request.user
         requirement.save()
-        record_requirement_version(requirement, request.user, 'Creacion del requisito')
+        record_requirement_version(requirement, request.user, 'Creación del requisito')
         log_action(
             request.user,
             'CREATE',
@@ -132,7 +153,7 @@ def requirement_import_view(request):
     if readonly_redirect:
         return readonly_redirect
 
-    visible_projects = visible_projects_for(request.user).order_by('name')
+    visible_projects = visible_projects_for(request.user, request=request).order_by('name')
 
     if request.method == 'POST' and request.POST.get('action') == 'confirm':
         return _confirm_requirement_import(request, visible_projects)
@@ -198,7 +219,7 @@ def _confirm_requirement_import(request, visible_projects):
                 status=Requirement.Status.PENDING,
                 created_by=request.user,
             )
-            record_requirement_version(requirement, request.user, 'Importacion desde PDF')
+            record_requirement_version(requirement, request.user, 'Importación desde PDF')
             log_action(
                 request.user,
                 'IMPORT',
@@ -211,7 +232,7 @@ def _confirm_requirement_import(request, visible_projects):
     if created:
         messages.success(request, f'{created} requisitos cargados correctamente.')
     else:
-        messages.warning(request, 'No se cargo ningun requisito. Mantén titulo y descripcion en al menos una fila.')
+        messages.warning(request, 'No se cargó ningún requisito. Mantén título y descripción en al menos una fila.')
 
     return redirect('requirements:index')
 
@@ -225,13 +246,13 @@ def requirement_update_view(request, pk):
     requirement = get_object_or_404(
         Requirement,
         pk=pk,
-        project__in=visible_projects_for(request.user),
+        project__in=visible_projects_for(request.user, request=request),
     )
-    form = RequirementForm(request.POST or None, instance=requirement)
+    form = RequirementForm(request.POST or None, instance=requirement, user=request.user)
 
     if request.method == 'POST' and form.is_valid():
         requirement = form.save()
-        record_requirement_version(requirement, request.user, 'Actualizacion del requisito')
+        record_requirement_version(requirement, request.user, 'Actualización del requisito')
         log_action(
             request.user,
             'UPDATE',
@@ -262,7 +283,7 @@ def requirement_delete_view(request, pk):
     requirement = get_object_or_404(
         Requirement,
         pk=pk,
-        project__in=visible_projects_for(request.user),
+        project__in=visible_projects_for(request.user, request=request),
     )
 
     if request.method == 'POST':
@@ -277,6 +298,98 @@ def requirement_delete_view(request, pk):
         messages.success(request, 'Requisito eliminado correctamente.')
     else:
         messages.error(request, 'La eliminacion debe confirmarse desde el listado.')
+
+    return redirect('requirements:index')
+
+
+@login_required
+def requirement_mark_reviewed_view(request, pk):
+    if not is_teacher(request.user):
+        messages.error(request, 'Solo los docentes pueden marcar requisitos como revisados.')
+        return redirect('requirements:index')
+
+    requirement = get_object_or_404(
+        Requirement,
+        pk=pk,
+        project__in=visible_projects_for(request.user, request=request),
+    )
+
+    if request.method != 'POST':
+        messages.error(request, 'La revision debe confirmarse desde el listado.')
+        return redirect('requirements:index')
+
+    if requirement.status not in REVIEWABLE_STATUSES:
+        messages.info(request, f'{requirement.code} no requiere revision docente.')
+        return redirect('requirements:index')
+
+    requirement.status = Requirement.Status.APPROVED
+    requirement.save(update_fields=['status'])
+    record_requirement_version(requirement, request.user, 'Revision docente')
+    log_action(
+        request.user,
+        'TEACHER_REVIEW',
+        'Requirement',
+        requirement.pk,
+        {'project_id': requirement.project_id, 'code': requirement.code, 'status': requirement.status},
+    )
+    messages.success(request, f'{requirement.code} marcado como revisado.')
+
+    return redirect('requirements:index')
+
+
+@login_required
+def requirement_bulk_mark_reviewed_view(request):
+    if not is_teacher(request.user):
+        messages.error(request, 'Solo los docentes pueden marcar requisitos como revisados.')
+        return redirect('requirements:index')
+
+    if request.method != 'POST':
+        messages.error(request, 'La revision masiva debe confirmarse desde el listado.')
+        return redirect('requirements:index')
+
+    query = request.POST.get('q', '').strip()
+    project_id = request.POST.get('project', '').strip()
+    status = request.POST.get('status', '').strip()
+    requirements = Requirement.objects.filter(project__in=visible_projects_for(request.user, request=request))
+
+    if query:
+        requirements = requirements.filter(
+            Q(code__icontains=query)
+            | Q(title__icontains=query)
+            | Q(description__icontains=query)
+        )
+
+    if project_id:
+        requirements = requirements.filter(project_id=project_id)
+
+    if status:
+        requirements = requirements.filter(status=status)
+
+    requirements = requirements.filter(status__in=REVIEWABLE_STATUSES)
+    reviewed = 0
+    reviewed_items = []
+
+    with transaction.atomic():
+        for requirement in requirements:
+            requirement.status = Requirement.Status.APPROVED
+            requirement.save(update_fields=['status'])
+            record_requirement_version(requirement, request.user, 'Revision docente masiva')
+            reviewed_items.append(
+                {'id': requirement.pk, 'project_id': requirement.project_id, 'code': requirement.code}
+            )
+            reviewed += 1
+
+    if reviewed_items:
+        log_action(
+            request.user,
+            'BULK_TEACHER_REVIEW',
+            'Requirement',
+            '',
+            {'count': reviewed, 'items': reviewed_items},
+        )
+        messages.success(request, f'{reviewed} requisitos marcados como revisados.')
+    else:
+        messages.info(request, 'No habia requisitos pendientes en el listado actual.')
 
     return redirect('requirements:index')
 
@@ -298,7 +411,7 @@ def requirement_bulk_delete_view(request):
 
     selected_requirements = Requirement.objects.filter(
         pk__in=requirement_ids,
-        project__in=visible_projects_for(request.user),
+        project__in=visible_projects_for(request.user, request=request),
     )
     deleted_count = selected_requirements.count()
     deleted_items = [
@@ -318,6 +431,6 @@ def requirement_bulk_delete_view(request):
     if deleted_count:
         messages.success(request, f'{deleted_count} requisitos eliminados correctamente.')
     else:
-        messages.warning(request, 'No se encontro ningun requisito seleccionable para eliminar.')
+        messages.warning(request, 'No se encontró ningún requisito seleccionable para eliminar.')
 
     return redirect('requirements:index')

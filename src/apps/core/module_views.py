@@ -112,7 +112,7 @@ MODULES = {
 def module_index(request, module_key):
     module = MODULES[module_key]
     objects = module['model'].objects.all()
-    visible_projects = visible_projects_for(request.user)
+    visible_projects = visible_projects_for(request.user, request=request)
 
     if is_teacher(request.user):
         if module['model'] is Project:

@@ -1,5 +1,7 @@
 from django import forms
 
+from apps.core.permissions import visible_projects_for
+
 from .models import TestPlan
 
 
@@ -31,6 +33,7 @@ class TestPlanWizardForm(forms.ModelForm):
             'environment',
             'responsibilities',
             'estimation',
+            'base_document',
             'start_date',
             'end_date',
             'status',
@@ -38,21 +41,22 @@ class TestPlanWizardForm(forms.ModelForm):
         labels = {
             'project': 'Proyecto',
             'name': 'Nombre del Plan',
-            'version': 'Version',
-            'description': 'Descripcion',
+            'version': 'Versión',
+            'description': 'Descripción',
             'scope': 'Alcance',
             'objective': 'Objetivos',
             'strategy': 'Enfoque / estrategia de prueba',
             'test_types': 'Tipos de prueba',
             'entry_criteria': 'Criterios de Entrada',
             'exit_criteria': 'Criterios de Salida',
-            'minimum_pass_percentage': 'Aprobacion minima (%)',
-            'maximum_critical_defects': 'Defectos criticos permitidos',
-            'minimum_coverage_percentage': 'Cobertura minima (%)',
+            'minimum_pass_percentage': 'Aprobación mínima (%)',
+            'maximum_critical_defects': 'Defectos críticos permitidos',
+            'minimum_coverage_percentage': 'Cobertura mínima (%)',
             'resources': 'Recursos Necesarios',
             'environment': 'Ambiente de prueba',
             'responsibilities': 'Responsables y roles',
             'estimation': 'Estimacion de esfuerzo',
+            'base_document': 'Documento base (opcional)',
             'start_date': 'Fecha de Inicio',
             'end_date': 'Fecha de Finalizacion',
             'status': 'Estado',
@@ -90,13 +94,16 @@ class TestPlanWizardForm(forms.ModelForm):
                 attrs={'class': 'form-control', 'placeholder': 'Herramientas, datos, personas y equipos necesarios...', 'rows': 3}
             ),
             'environment': forms.Textarea(
-                attrs={'class': 'form-control', 'placeholder': 'Navegador, sistema operativo, servidor, base de datos, version...', 'rows': 3}
+                attrs={'class': 'form-control', 'placeholder': 'Navegador, sistema operativo, servidor, base de datos, versión...', 'rows': 3}
             ),
             'responsibilities': forms.Textarea(
-                attrs={'class': 'form-control', 'placeholder': 'Responsables de diseno, ejecucion, revision y correccion...', 'rows': 3}
+                attrs={'class': 'form-control', 'placeholder': 'Responsables de diseño, ejecución, revisión y corrección...', 'rows': 3}
             ),
             'estimation': forms.Textarea(
                 attrs={'class': 'form-control', 'placeholder': 'Horas, cantidad de casos, ventanas de ejecucion o esfuerzo esperado...', 'rows': 3}
+            ),
+            'base_document': forms.ClearableFileInput(
+                attrs={'class': 'form-control', 'accept': '.pdf,.docx,.xlsx,.odt,.txt'}
             ),
             'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
             'end_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
@@ -104,7 +111,10 @@ class TestPlanWizardForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        if user:
+            self.fields['project'].queryset = visible_projects_for(user).order_by('name')
         self.fields['start_date'].input_formats = ['%Y-%m-%d']
         self.fields['end_date'].input_formats = ['%Y-%m-%d']
         self.fields['test_types'].initial = self.instance.test_types or [TestPlan.TestType.FUNCTIONAL]
@@ -118,21 +128,22 @@ class TestPlanWizardForm(forms.ModelForm):
         help_texts = {
             'project': 'Selecciona el proyecto al que pertenece este plan de pruebas.',
             'name': 'Usa un nombre descriptivo que permita diferenciar este plan de otros.',
-            'version': 'Registra la version del plan para controlar cambios y revisiones.',
-            'description': 'Explica brevemente que cubre el plan y por que se ejecutara.',
-            'scope': 'Define que funcionalidades, modulos o entregables entran y cuales quedan fuera.',
+            'version': 'Registra la versión del plan para controlar cambios y revisiones.',
+            'description': 'Explica brevemente qué cubre el plan y por qué se ejecutará.',
+            'scope': 'Define qué funcionalidades, módulos o entregables entran y cuáles quedan fuera.',
             'objective': 'Describe los resultados que se esperan lograr con las pruebas.',
             'strategy': 'Describe como se seleccionaran, priorizaran y ejecutaran las pruebas.',
             'test_types': 'Selecciona los niveles o tipos incluidos en el alcance del plan.',
-            'entry_criteria': 'Condiciones minimas que deben cumplirse antes de iniciar la ejecucion.',
+            'entry_criteria': 'Condiciones mínimas que deben cumplirse antes de iniciar la ejecución.',
             'exit_criteria': 'Condiciones que indican que las pruebas pueden darse por finalizadas.',
-            'minimum_pass_percentage': 'Porcentaje minimo de ejecuciones aprobadas para cerrar el plan.',
-            'maximum_critical_defects': 'Cantidad maxima de defectos criticos abiertos permitida.',
-            'minimum_coverage_percentage': 'Porcentaje minimo de requisitos que deben tener casos asociados.',
+            'minimum_pass_percentage': 'Porcentaje mínimo de ejecuciones aprobadas para cerrar el plan.',
+            'maximum_critical_defects': 'Cantidad máxima de defectos críticos abiertos permitida.',
+            'minimum_coverage_percentage': 'Porcentaje mínimo de requisitos que deben tener casos asociados.',
             'resources': 'Lista personas, datos, herramientas y equipos necesarios.',
-            'environment': 'Identifica ambiente, navegador, sistema, version y configuracion de prueba.',
-            'responsibilities': 'Asigna responsabilidades de diseno, ejecucion, revision y seguimiento.',
+            'environment': 'Identifica ambiente, navegador, sistema, versión y configuración de prueba.',
+            'responsibilities': 'Asigna responsabilidades de diseño, ejecución, revisión y seguimiento.',
             'estimation': 'Registra esfuerzo, tiempo o volumen esperado de trabajo de pruebas.',
+            'base_document': 'Adjunta un documento de requisitos, alcance o referencia. Formatos: PDF, DOCX, XLSX, ODT o TXT; máximo 10 MB.',
             'start_date': 'Fecha planificada para iniciar las actividades del plan.',
             'end_date': 'Fecha planificada para terminar o cerrar el ciclo de pruebas.',
             'status': 'Marca el estado actual del plan dentro del flujo de trabajo.',
@@ -155,6 +166,12 @@ class TestPlanWizardForm(forms.ModelForm):
     def clean_minimum_coverage_percentage(self):
         value = self.cleaned_data.get('minimum_coverage_percentage')
         return 90 if value is None else value
+
+    def clean_base_document(self):
+        document = self.cleaned_data.get('base_document')
+        if document and document.size > 10 * 1024 * 1024:
+            raise forms.ValidationError('El documento base no debe superar 10 MB.')
+        return document
 
     def clean(self):
         cleaned_data = super().clean()

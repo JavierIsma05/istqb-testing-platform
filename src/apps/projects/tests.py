@@ -96,6 +96,24 @@ def test_estudiante_no_puede_ver_detalle_de_proyecto_ajeno(client, user):
 
 
 @pytest.mark.django_db
+def test_detalle_de_proyecto_visible_actualiza_proyecto_activo(client, project, user):
+    other_project = Project.objects.create(
+        code='PRJ-010',
+        name='Proyecto visible alterno',
+        created_by=user,
+    )
+    client.force_login(user)
+    session = client.session
+    session['active_project_id'] = project.pk
+    session.save()
+
+    response = client.get(reverse('projects:detail', args=[other_project.pk]))
+
+    assert response.status_code == 200
+    assert client.session['active_project_id'] == other_project.pk
+
+
+@pytest.mark.django_db
 def test_tutor_no_puede_crear_proyectos(client):
     tutor = get_user_model().objects.create_user(
         email='tutor@example.edu',

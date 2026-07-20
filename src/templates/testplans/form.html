@@ -15,7 +15,7 @@
     </div>
 
     <div class="wizard-steps" aria-label="Progreso del asistente">
-        <div class="wizard-step active" data-step-dot="1"><span>1</span><small>Informacion<br>General</small></div>
+        <div class="wizard-step active" data-step-dot="1"><span>1</span><small>Información<br>general</small></div>
         <div class="wizard-line"></div>
         <div class="wizard-step" data-step-dot="2"><span>2</span><small>Alcance y<br>Objetivos</small></div>
         <div class="wizard-line"></div>
@@ -26,12 +26,12 @@
         <div class="wizard-step" data-step-dot="5"><span>5</span><small>Recursos y<br>Calendario</small></div>
     </div>
 
-    <form method="POST" class="wizard-form" novalidate>
+    <form method="POST" enctype="multipart/form-data" class="wizard-form" novalidate>
         {% csrf_token %}
 
         <section class="wizard-panel active" data-step-panel="1">
-            <h3>Paso 1: Informacion General</h3>
-            <p>Identifica el plan, version y proyecto asociado.</p>
+            <h3>Paso 1: Información general</h3>
+            <p>Identifica el plan, versión y proyecto asociado.</p>
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label" for="{{ form.project.id_for_label }}">{{ form.project.label }}</label>
@@ -52,6 +52,12 @@
                     <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
                     {{ form.description }}
                     {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="{{ form.base_document.id_for_label }}">{{ form.base_document.label }}</label>
+                    {{ form.base_document }}
+                    <small class="text-muted">{{ form.base_document.help_text }}</small>
+                    {% if form.base_document.errors %}<div class="form-error">{{ form.base_document.errors|striptags }}</div>{% endif %}
                 </div>
             </div>
         </section>

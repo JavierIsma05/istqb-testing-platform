@@ -204,7 +204,7 @@ def build_execution_calendar(projects):
             'project': execution.test_case.test_plan.project,
             'test_case': execution.test_case,
             'defect': execution.related_defect or execution.defects.first(),
-            'reason': f'Ejecucion registrada: {execution.get_result_display()}',
+            'reason': f'Ejecución registrada: {execution.get_result_display()}',
             'result': execution.result,
             'result_label': execution.get_result_display(),
             'is_recorded': True,
@@ -245,7 +245,7 @@ def build_execution_calendar(projects):
             'project': defect.project,
             'test_case': test_case,
             'defect': defect,
-            'reason': 'Confirmar correccion del defecto',
+            'reason': 'Confirmar corrección del defecto',
             'result': '',
             'result_label': 'Planificada',
             'is_recorded': False,
@@ -265,7 +265,7 @@ def build_execution_calendar(projects):
             'project': test_case.test_plan.project,
             'test_case': test_case,
             'defect': None,
-            'reason': 'Verificar que la correccion no afecto funcionalidad existente',
+            'reason': 'Verificar que la corrección no afectó funcionalidad existente',
             'result': '',
             'result_label': 'Planificada',
             'is_recorded': False,
@@ -287,8 +287,13 @@ def build_execution_calendar(projects):
 @login_required
 def execution_workspace_view(request):
     case_id = request.GET.get('case')
-    test_cases = TestCase.objects.select_related('requirement', 'test_plan', 'created_by').order_by('code')
-    test_cases = test_cases.filter(test_plan__project__in=visible_projects_for(request.user))
+    test_cases = TestCase.objects.select_related(
+        'requirement',
+        'test_plan',
+        'test_plan__project',
+        'created_by',
+    ).order_by('test_plan__project__name', 'code')
+    test_cases = test_cases.filter(test_plan__project__in=visible_projects_for(request.user, request=request))
 
     if case_id:
         selected_case = test_cases.filter(id=case_id).first()
@@ -314,7 +319,7 @@ def execution_workspace_view(request):
         execution = get_object_or_404(
             TestExecution,
             pk=request.POST.get('execution_id'),
-            test_case__test_plan__project__in=visible_projects_for(request.user),
+            test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
         )
         review_form = ExecutionReviewForm(request.POST, instance=execution)
         if review_form.is_valid():
@@ -333,7 +338,7 @@ def execution_workspace_view(request):
                     'review_status': reviewed_execution.review_status,
                 },
             )
-            messages.success(request, 'Revision de ejecucion registrada correctamente.')
+            messages.success(request, 'Revisión de ejecución registrada correctamente.')
         return redirect(f'{request.path}?case={execution.test_case.id}')
 
     if request.method == 'POST' and selected_case and step_errors:
@@ -391,7 +396,7 @@ def execution_workspace_view(request):
             execution.result == TestExecution.Result.FAILED
             and execution.execution_type == TestExecution.ExecutionType.CONFIRMATION
         ):
-            messages.warning(request, 'La prueba de confirmacion fallo y el defecto volvio a correccion.')
+            messages.warning(request, 'La prueba de confirmación falló y el defecto volvió a corrección.')
         else:
             messages.success(request, 'Resultado de ejecucion registrado correctamente.')
 
@@ -458,8 +463,69 @@ def execution_workspace_view(request):
 
 
 @login_required
+def execution_history_view(request, case_id):
+    test_cases = TestCase.objects.select_related('requirement', 'test_plan', 'created_by').order_by('code')
+    test_cases = test_cases.filter(test_plan__project__in=visible_projects_for(request.user, request=request))
+    test_case = get_object_or_404(
+        TestCase.objects.select_related('requirement', 'test_plan', 'test_plan__project', 'created_by'),
+        pk=case_id,
+        test_plan__project__in=visible_projects_for(request.user, request=request),
+    )
+    executions = test_case.executions.select_related('executed_by').prefetch_related(
+        'automated_results__validation_rule',
+        'step_executions',
+    )
+    manual_history = [
+        {
+            'execution': execution,
+            'evidence_is_image': is_image_evidence(execution.evidence),
+        }
+        for execution in executions
+        if execution.execution_mode == TestExecution.ExecutionMode.MANUAL
+    ]
+    automated_history = [
+        {
+            'execution': execution,
+            'evidence_is_image': is_image_evidence(execution.evidence),
+        }
+        for execution in executions
+        if execution.execution_mode == TestExecution.ExecutionMode.SEMI_AUTOMATED
+    ]
+    total = len(manual_history) + len(automated_history)
+    passed = sum(
+        1
+        for item in [*manual_history, *automated_history]
+        if item['execution'].result == TestExecution.Result.PASSED
+    )
+    failed = sum(
+        1
+        for item in [*manual_history, *automated_history]
+        if item['execution'].result == TestExecution.Result.FAILED
+    )
+    success_percent = round((passed / total) * 100) if total else 0
+
+    return render(
+        request,
+        'executions/history.html',
+        {
+            'case': test_case,
+            'test_cases': test_cases,
+            'manual_history': manual_history,
+            'automated_history': automated_history,
+            'manual_count': len(manual_history),
+            'automated_count': len(automated_history),
+            'execution_total': total,
+            'passed_count': passed,
+            'failed_count': failed,
+            'success_percent': success_percent,
+            'can_manage': can_manage_artifacts(request.user),
+        },
+    )
+
+
+@login_required
 def execution_calendar_view(request):
-    projects = visible_projects_for(request.user).order_by('name')
+    projects = visible_projects_for(request.user, request=request).order_by('name')
     selected_project_id = request.GET.get('project', '').strip()
     selected_projects = projects
 
@@ -488,7 +554,7 @@ def execution_delete_view(request, pk):
     execution = get_object_or_404(
         TestExecution.objects.select_related('test_case', 'test_case__test_plan__project'),
         pk=pk,
-        test_case__test_plan__project__in=visible_projects_for(request.user),
+        test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
     )
     if not request.user.is_superuser and execution.executed_by_id != request.user.id:
         messages.error(request, 'Solo puedes eliminar tus propias ejecuciones.')
@@ -509,7 +575,7 @@ def execution_delete_view(request, pk):
     )
     execution.delete()
     sync_case_status_from_last_execution(test_case)
-    messages.success(request, 'Ejecucion eliminada correctamente.')
+    messages.success(request, 'Ejecución eliminada correctamente.')
 
     return redirect(f'{reverse("executions:index")}?case={test_case.id}')
 
@@ -522,7 +588,7 @@ def automated_rule_create_view(request, case_id):
     test_case = get_object_or_404(
         TestCase.objects.select_related('requirement', 'test_plan__project'),
         pk=case_id,
-        test_plan__project__in=visible_projects_for(request.user),
+        test_plan__project__in=visible_projects_for(request.user, request=request),
     )
     form = AutomatedValidationRuleForm(request.POST, test_case=test_case)
     if form.is_valid():
@@ -552,7 +618,7 @@ def automated_rule_delete_view(request, pk):
     rule = get_object_or_404(
         AutomatedValidationRule.objects.select_related('test_case__test_plan__project'),
         pk=pk,
-        test_case__test_plan__project__in=visible_projects_for(request.user),
+        test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
     )
     test_case_id = rule.test_case_id
     if rule.execution_results.exists():
@@ -572,7 +638,7 @@ def automated_execution_run_view(request, case_id):
     test_case = get_object_or_404(
         TestCase.objects.select_related('requirement', 'test_plan__project'),
         pk=case_id,
-        test_plan__project__in=visible_projects_for(request.user),
+        test_plan__project__in=visible_projects_for(request.user, request=request),
     )
     execution = run_automated_execution(test_case, request.user)
     test_case.status = RESULT_TO_CASE_STATUS.get(execution.result, TestCase.Status.PENDING)
@@ -582,5 +648,5 @@ def automated_execution_run_view(request, case_id):
     elif execution.result == TestExecution.Result.PASSED:
         messages.success(request, 'Todas las reglas automatizadas aprobaron.')
     else:
-        messages.warning(request, f'Ejecucion finalizada con estado {execution.get_result_display()}.')
+        messages.warning(request, f'Ejecución finalizada con estado {execution.get_result_display()}.')
     return redirect(f'{reverse("executions:index")}?case={test_case.id}#automation')

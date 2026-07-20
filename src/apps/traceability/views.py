@@ -11,7 +11,7 @@ from apps.testcases.models import TestCase
 
 @login_required
 def traceability_matrix_view(request):
-    visible_projects = visible_projects_for(request.user)
+    visible_projects = visible_projects_for(request.user, request=request)
     executions_with_defects = TestExecution.objects.prefetch_related('defects')
     test_cases_with_risks = TestCase.objects.select_related('test_plan').prefetch_related(
         'test_plan__risks',
@@ -52,8 +52,6 @@ def traceability_matrix_view(request):
         for test_case in test_cases:
             for rule in test_case.automated_rules.all():
                 automated_rules_by_id[rule.id] = rule
-            for risk in test_case.test_plan.risks.all():
-                risks_by_id[risk.id] = risk
             for execution in test_case.executions.all():
                 executions_by_id[execution.id] = execution
                 for defect in execution.defects.all():

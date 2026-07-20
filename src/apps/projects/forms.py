@@ -58,7 +58,7 @@ class ProjectForm(forms.ModelForm):
         })
         help_texts = {
             'code': 'Usa un identificador corto y unico para reconocer el proyecto en listados y reportes.',
-            'name': 'Escribe un nombre claro del sistema o modulo que sera probado.',
+            'name': 'Escribe un nombre claro del sistema o módulo que será probado.',
             'description': 'Resume el objetivo, contexto y alcance general del proyecto.',
             'start_date': 'Fecha desde la que se planifica iniciar las actividades de prueba.',
             'end_date': 'Fecha estimada para cerrar las actividades principales del proyecto.',

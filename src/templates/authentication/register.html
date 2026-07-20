@@ -1,4 +1,5 @@
 {% extends 'layouts/base.html' %}
+{% load static %}
 
 {% block title %}Registro{% endblock %}
 {% block body_class %}auth-page{% endblock %}
@@ -15,9 +16,9 @@
         </button>
 
         <div class="auth-heading compact">
-            <span class="brand-mark auth-logo"><i class="bi bi-beaker"></i></span>
+            <span class="brand-mark auth-logo"><img src="{% static 'images/brand/testflow-mark.svg' %}" alt="TestFlow"></span>
             <h1>Crear cuenta</h1>
-            <p>Registra tu acceso academico a la plataforma</p>
+            <p>Registra tu acceso académico a la plataforma</p>
         </div>
 
         <div class="auth-card">
@@ -41,18 +42,18 @@
                     Crear Cuenta
                 </button>
             </form>
-            <p class="auth-footnote">Ya tienes cuenta? <a href="{% url 'login' %}">Inicia sesion</a></p>
+            <p class="auth-footnote">¿Ya tienes cuenta? <a href="{% url 'login' %}">Inicia sesión</a></p>
         </div>
     </section>
 
     <section class="auth-info-panel">
         <div class="auth-info-content">
             <h2>Un espacio para docentes y estudiantes</h2>
-            <p>Administra proyectos de titulacion, casos de prueba, evidencias y defectos en un flujo trazable.</p>
+            <p>Administra proyectos de titulación, casos de prueba, evidencias y defectos en un flujo trazable.</p>
             <div class="feature-stack">
                 <article><i class="bi bi-check-lg"></i><span><strong>Roles definidos</strong><small>Administrador, docente y estudiante</small></span></article>
-                <article><i class="bi bi-check-lg"></i><span><strong>Gestion por modulo</strong><small>Requisitos, planes, casos y ejecuciones</small></span></article>
-                <article><i class="bi bi-check-lg"></i><span><strong>Base academica</strong><small>Preparada para el proyecto de tesis</small></span></article>
+                <article><i class="bi bi-check-lg"></i><span><strong>Gestión por módulo</strong><small>Requisitos, planes, casos y ejecuciones</small></span></article>
+                <article><i class="bi bi-check-lg"></i><span><strong>Base académica</strong><small>Preparada para el proyecto de tesis</small></span></article>
             </div>
         </div>
     </section>

@@ -1,9 +1,62 @@
 import pytest
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from apps.audit.models import AuditLog
+from apps.projects.models import Project
 from apps.testplans.forms import TestPlanWizardForm as PlanForm
 from apps.testplans.models import TestPlan as PlanModel, TestPlanVersion as PlanVersionModel
+
+
+@pytest.mark.django_db
+def test_formulario_de_plan_solo_muestra_proyectos_visibles(project, user):
+    other_user = get_user_model().objects.create_user(
+        email='other.plan@example.edu', password='StrongPass123',
+    )
+    other_project = Project.objects.create(
+        code='PRJ-PLAN-OTHER', name='Proyecto ajeno', created_by=other_user,
+    )
+
+    form = PlanForm(user=user)
+
+    assert list(form.fields['project'].queryset) == [project]
+    assert other_project not in form.fields['project'].queryset
+
+
+@pytest.mark.django_db
+def test_formulario_de_plan_acepta_documento_base_permitido(project, requirement):
+    document = SimpleUploadedFile('requisitos.pdf', b'%PDF-1.4 contenido de prueba', content_type='application/pdf')
+    form = PlanForm(
+        data={
+            'project': project.id,
+            'name': 'Plan con documento',
+            'version': '1.0',
+            'objective': 'Validar el registro de documento base.',
+            'status': PlanModel.Status.DRAFT,
+        },
+        files={'base_document': document},
+    )
+
+    assert form.is_valid(), form.errors
+
+
+@pytest.mark.django_db
+def test_formulario_de_plan_rechaza_documento_base_no_permitido(project, requirement):
+    document = SimpleUploadedFile('script.exe', b'not-an-executable', content_type='application/octet-stream')
+    form = PlanForm(
+        data={
+            'project': project.id,
+            'name': 'Plan con archivo invalido',
+            'version': '1.0',
+            'objective': 'Validar el filtro de documentos.',
+            'status': PlanModel.Status.DRAFT,
+        },
+        files={'base_document': document},
+    )
+
+    assert not form.is_valid()
+    assert 'base_document' in form.errors
 
 
 @pytest.mark.django_db

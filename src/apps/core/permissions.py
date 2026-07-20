@@ -18,7 +18,7 @@ def teacher_project_filter(user):
     return Q(members=user) | Q(created_by=user)
 
 
-def visible_projects_for(user):
+def _visible_projects_queryset(user):
     projects = Project.objects.all()
 
     if not user.is_authenticated:
@@ -34,6 +34,56 @@ def visible_projects_for(user):
         return projects.filter(Q(members=user) | Q(created_by=user)).distinct()
 
     return projects.none()
+
+
+def get_active_project_for_request(request, user=None):
+    if not getattr(request, 'user', None) or not getattr(request.user, 'is_authenticated', False):
+        return None
+
+    active_user = user or request.user
+    visible_projects = _visible_projects_queryset(active_user)
+
+    project_id = (
+        request.GET.get('project', '').strip()
+        or request.POST.get('project', '').strip()
+        or request.session.get('active_project_id')
+    )
+    if project_id:
+        try:
+            project_id = int(project_id)
+        except (TypeError, ValueError):
+            project_id = None
+
+    if project_id:
+        project = visible_projects.filter(pk=project_id).first()
+        if project:
+            request.session['active_project_id'] = project.pk
+            return project
+
+    stored_project_id = request.session.get('active_project_id')
+    if stored_project_id:
+        try:
+            stored_project_id = int(stored_project_id)
+        except (TypeError, ValueError):
+            stored_project_id = None
+
+    if stored_project_id:
+        project = visible_projects.filter(pk=stored_project_id).first()
+        if project:
+            return project
+
+    return None
+
+
+def visible_projects_for(user, request=None):
+    projects = _visible_projects_queryset(user)
+
+    if request is not None:
+        active_project = get_active_project_for_request(request, user)
+        if active_project:
+            return projects.filter(pk=active_project.pk).distinct()
+
+    return projects
 
 
 def redirect_if_teacher_readonly(request, route_name, module_name):

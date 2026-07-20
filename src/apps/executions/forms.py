@@ -4,6 +4,10 @@ from django.core.exceptions import ValidationError
 from .models import AutomatedValidationRule, TestExecution
 
 
+EVIDENCE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf', '.txt', '.log', '.csv')
+MAX_EVIDENCE_SIZE = 10 * 1024 * 1024
+
+
 class ExecutionResultForm(forms.ModelForm):
     result = forms.ChoiceField(
         label='Resultado',
@@ -74,7 +78,7 @@ class ExecutionResultForm(forms.ModelForm):
             ),
             'evidence': forms.FileInput(
                 attrs={
-                    'accept': 'image/*',
+                    'accept': '.png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.log,.csv',
                     'class': 'form-control execution-file-input',
                     'data-file-input': '',
                 }
@@ -99,10 +103,10 @@ class ExecutionResultForm(forms.ModelForm):
             'planned_date': 'Fecha sugerida o planificada para dar seguimiento a esta ejecucion.',
             'result': 'Selecciona el resultado observado durante la ejecucion del caso.',
             'actual_result': 'Compara este resultado con el resultado esperado del caso de prueba.',
-            'test_data': 'Registra los datos concretos usados para que el docente pueda reproducir la ejecucion.',
-            'environment': 'Identifica navegador, sistema, version o ambiente donde se ejecuto la prueba.',
-            'notes': 'Registra bloqueos o diferencias encontradas durante la ejecucion.',
-            'evidence': 'Adjunta una captura que respalde el resultado de la ejecucion.',
+            'test_data': 'Registra los datos concretos usados para que el docente pueda reproducir la ejecución.',
+            'environment': 'Identifica navegador, sistema, versión o ambiente donde se ejecutó la prueba.',
+            'notes': 'Registra bloqueos o diferencias encontradas durante la ejecución.',
+            'evidence': 'Adjunta una captura, PDF, archivo de texto, CSV o log que respalde el resultado. Máximo 10 MB.',
         }
         for name, help_text in help_texts.items():
             self.fields[name].help_text = help_text
@@ -132,6 +136,18 @@ class ExecutionResultForm(forms.ModelForm):
             )
 
         return cleaned_data
+
+    def clean_evidence(self):
+        evidence = self.cleaned_data.get('evidence')
+        if not evidence:
+            return evidence
+
+        filename = evidence.name.lower()
+        if not filename.endswith(EVIDENCE_EXTENSIONS):
+            raise forms.ValidationError('La evidencia debe ser una imagen, PDF, TXT, LOG o CSV.')
+        if evidence.size > MAX_EVIDENCE_SIZE:
+            raise forms.ValidationError('La evidencia no debe superar 10 MB.')
+        return evidence
 
 
 class AutomatedValidationRuleForm(forms.ModelForm):
@@ -167,8 +183,8 @@ class AutomatedValidationRuleForm(forms.ModelForm):
         )
         labels = {
             'name': 'Nombre de la regla',
-            'step_number': 'Numero de paso',
-            'validation_type': 'Tipo de validacion',
+            'step_number': 'Número de paso',
+            'validation_type': 'Tipo de validación',
             'target_url': 'URL objetivo',
             'selector_type': 'Tipo de selector',
             'selector_value': 'Selector principal',
@@ -176,8 +192,8 @@ class AutomatedValidationRuleForm(forms.ModelForm):
             'input_value': 'Dato de prueba',
             'expected_value': 'Valor esperado',
             'expected_text': 'Texto esperado',
-            'min_length': 'Longitud minima',
-            'max_length': 'Longitud maxima',
+            'min_length': 'Longitud mínima',
+            'max_length': 'Longitud máxima',
             'expected_url': 'URL esperada',
             'expected_http_status': 'Estado HTTP esperado',
             'timeout_seconds': 'Timeout en segundos',
@@ -212,28 +228,28 @@ class AutomatedValidationRuleForm(forms.ModelForm):
             'name': 'Nombre corto para reconocer la regla en el historial. Ejemplo: Titulo de login visible.',
             'step_number': 'Numero del paso manual que esta regla valida. Debe existir en el caso de prueba.',
             'validation_type': 'Define que comprobara la regla: texto visible, estado HTTP, campo obligatorio, redireccion, etc.',
-            'target_url': 'Pagina que abrira la automatizacion. Solo se permiten URLs autorizadas como localhost o 127.0.0.1.',
-            'selector_type': 'Forma de ubicar un elemento en la pagina. Para la mayoria de casos usa CSS.',
-            'selector_value': 'Elemento principal que se validara o rellenara. Ejemplos CSS: #email, input[name="password"], .btn-login.',
-            'secondary_selector_value': 'Boton o elemento que dispara el envio del formulario. Ejemplo: button[type="submit"].',
-            'input_value': 'Dato que la prueba escribira en el campo principal. Se usa en email, longitud minima/maxima o envio bloqueado.',
-            'expected_value': 'Valor esperado generico. Usalo solo si el tipo de validacion lo necesita.',
-            'expected_text': 'Texto que debe aparecer visible en la pagina. Ejemplo: Iniciar Sesion.',
-            'min_length': 'Cantidad minima esperada cuando se valida longitud minima.',
-            'max_length': 'Cantidad maxima permitida cuando se valida longitud maxima.',
-            'expected_url': 'URL final esperada despues de hacer clic en el selector principal.',
-            'expected_http_status': 'Codigo HTTP esperado para la URL objetivo. Ejemplo: 200, 302 o 404.',
-            'timeout_seconds': 'Tiempo maximo de espera antes de marcar error tecnico. Usa 10 segundos salvo que la pagina sea lenta.',
+            'target_url': 'Página que abrirá la automatización. Solo se permiten URLs autorizadas como localhost o 127.0.0.1.',
+            'selector_type': 'Forma de ubicar un elemento en la página. Para la mayoría de casos usa CSS.',
+            'selector_value': 'Elemento principal que se validará o rellenará. Ejemplos CSS: #email, input[name="password"], .btn-login.',
+            'secondary_selector_value': 'Botón o elemento que dispara el envío del formulario. Ejemplo: button[type="submit"].',
+            'input_value': 'Dato que la prueba escribirá en el campo principal. Se usa en email, longitud mínima/máxima o envío bloqueado.',
+            'expected_value': 'Valor esperado genérico. Úsalo solo si el tipo de validación lo necesita.',
+            'expected_text': 'Texto que debe aparecer visible en la página. Ejemplo: Iniciar Sesión.',
+            'min_length': 'Cantidad mínima esperada cuando se valida longitud mínima.',
+            'max_length': 'Cantidad máxima permitida cuando se valida longitud máxima.',
+            'expected_url': 'URL final esperada después de hacer clic en el selector principal.',
+            'expected_http_status': 'Código HTTP esperado para la URL objetivo. Ejemplo: 200, 302 o 404.',
+            'timeout_seconds': 'Tiempo máximo de espera antes de marcar error técnico. Usa 10 segundos salvo que la página sea lenta.',
             'browser': 'Navegador usado para reglas visuales. Actualmente la plataforma ejecuta Chromium.',
-            'capture_evidence': 'Guarda captura automatica cuando la regla se ejecuta en navegador.',
-            'is_active': 'Si esta marcado, la regla se incluye al ejecutar validaciones automatizadas.',
+            'capture_evidence': 'Guarda captura automática cuando la regla se ejecuta en navegador.',
+            'is_active': 'Si está marcado, la regla se incluye al ejecutar validaciones automatizadas.',
         }
         placeholders = {
             'name': 'Ej. Titulo de login visible',
             'secondary_selector_value': 'Ej. button[type="submit"]',
             'input_value': 'Ej. correo-invalido, texto demasiado largo o valor de prueba',
             'expected_value': 'Ej. valor exacto esperado',
-            'expected_text': 'Ej. Iniciar Sesion',
+            'expected_text': 'Ej. Iniciar Sesión',
             'expected_url': 'Ej. http://localhost:8000/dashboard/',
             'expected_http_status': 'Ej. 200',
         }
@@ -259,7 +275,7 @@ class AutomatedValidationRuleForm(forms.ModelForm):
             if not cleaned_data.get('expected_http_status'):
                 self.add_error('expected_http_status', 'Indica el codigo HTTP esperado.')
         elif validation_type != AutomatedValidationRule.ValidationType.TEXT_VISIBLE and not selector_value:
-            self.add_error('selector_value', 'Esta validacion requiere un selector principal.')
+            self.add_error('selector_value', 'Esta validación requiere un selector principal.')
 
         submit_validations = {
             AutomatedValidationRule.ValidationType.FIELD_REQUIRED,
@@ -274,14 +290,14 @@ class AutomatedValidationRuleForm(forms.ModelForm):
             self.add_error('input_value', 'Indica el correo invalido que se probara.')
         if validation_type == AutomatedValidationRule.ValidationType.MAX_LENGTH:
             if cleaned_data.get('max_length') is None:
-                self.add_error('max_length', 'Indica la longitud maxima permitida.')
+                self.add_error('max_length', 'Indica la longitud máxima permitida.')
             if not cleaned_data.get('input_value'):
-                self.add_error('input_value', 'Indica un valor que supere la longitud maxima.')
+                self.add_error('input_value', 'Indica un valor que supere la longitud máxima.')
         if validation_type == AutomatedValidationRule.ValidationType.MIN_LENGTH:
             if cleaned_data.get('min_length') is None:
-                self.add_error('min_length', 'Indica la longitud minima permitida.')
+                self.add_error('min_length', 'Indica la longitud mínima permitida.')
             if not cleaned_data.get('input_value'):
-                self.add_error('input_value', 'Indica un valor menor que la longitud minima.')
+                self.add_error('input_value', 'Indica un valor menor que la longitud mínima.')
         if validation_type == AutomatedValidationRule.ValidationType.TEXT_VISIBLE and not cleaned_data.get('expected_text'):
             self.add_error('expected_text', 'Indica el texto que debe aparecer.')
         if validation_type == AutomatedValidationRule.ValidationType.REDIRECT_URL and not cleaned_data.get('expected_url'):
@@ -289,7 +305,7 @@ class AutomatedValidationRuleForm(forms.ModelForm):
 
         timeout = cleaned_data.get('timeout_seconds')
         if timeout and timeout > 60:
-            self.add_error('timeout_seconds', 'El timeout maximo permitido es 60 segundos.')
+            self.add_error('timeout_seconds', 'El timeout máximo permitido es 60 segundos.')
 
         target_url = cleaned_data.get('target_url')
         if target_url:
@@ -307,7 +323,7 @@ class ExecutionReviewForm(forms.ModelForm):
         model = TestExecution
         fields = ('review_status', 'review_notes')
         labels = {
-            'review_status': 'Revision docente',
+            'review_status': 'Revisión docente',
             'review_notes': 'Comentario del docente',
         }
         widgets = {

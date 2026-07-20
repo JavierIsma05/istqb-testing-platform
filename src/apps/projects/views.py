@@ -67,7 +67,7 @@ def project_list_view(request):
     member_id = request.GET.get('member', request.GET.get('tutor', '')).strip()
     view_mode = request.GET.get('view', 'cards')
 
-    projects = visible_projects_for(request.user).select_related('created_by').prefetch_related('members').annotate(
+    projects = visible_projects_for(request.user, request=request).select_related('created_by').prefetch_related('members').annotate(
         total_cases=Count('test_plans__test_cases', distinct=True),
         passed_cases=Count(
             'test_plans__test_cases',
@@ -139,7 +139,7 @@ def project_create_view(request):
 
         if (
             project.status == Project.Status.ACTIVE
-            and visible_projects_for(request.user).filter(status=Project.Status.ACTIVE).exists()
+            and visible_projects_for(request.user, request=request).filter(status=Project.Status.ACTIVE).exists()
         ):
             form.add_error(
                 'start_date',
@@ -175,7 +175,8 @@ def project_create_view(request):
 
 @login_required
 def project_detail_view(request, pk):
-    project = get_object_or_404(visible_projects_for(request.user).prefetch_related('members'), pk=pk)
+    project = get_object_or_404(visible_projects_for(request.user, request=None).prefetch_related('members'), pk=pk)
+    request.session['active_project_id'] = project.pk
     test_plans = TestPlan.objects.filter(project=project)
     requirements = Requirement.objects.filter(project=project)
     test_cases = TestCase.objects.filter(test_plan__project=project)
@@ -209,7 +210,7 @@ def project_delete_view(request, pk):
     if readonly_redirect:
         return readonly_redirect
 
-    project = get_object_or_404(visible_projects_for(request.user), pk=pk)
+    project = get_object_or_404(visible_projects_for(request.user, request=request), pk=pk)
     project_name = project.name
     log_action(
         request.user,

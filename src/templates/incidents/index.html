@@ -1,11 +1,11 @@
 {% extends 'layouts/dashboard_base.html' %}
 
-{% block title %}Gestion de Riesgos{% endblock %}
+{% block title %}Gestión de Riesgos{% endblock %}
 
 {% block dashboard_content %}
 <div class="page-heading incidents-heading">
     <div>
-        <h2>Gestion de Riesgos</h2>
+        <h2>Gestión de Riesgos</h2>
         <p>Riesgos del proyecto y producto para priorizar el plan de pruebas</p>
     </div>
     {% if can_manage %}
@@ -68,7 +68,8 @@
                     <p>
                         {% if item.incident.requirement %}<span>Req: {{ item.incident.requirement.code }}</span>{% endif %}
                         {% if item.incident.test_plan %}<span>Plan: {{ item.incident.test_plan.name }}</span>{% endif %}
-                        {% if not item.incident.requirement and not item.incident.test_plan %}
+                        {% if item.incident.test_case %}<span>Caso: {{ item.incident.test_case.code }}</span>{% endif %}
+                        {% if not item.incident.requirement and not item.incident.test_plan and not item.incident.test_case %}
                             <span>Sin vinculos de trazabilidad</span>
                         {% endif %}
                     </p>

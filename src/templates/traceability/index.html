@@ -13,7 +13,7 @@
 <section class="traceability-metric-grid">
     <article class="traceability-metric-card">
         <div>
-            <span>Cobertura Total</span>
+            <span>Cobertura por Casos</span>
             <strong>{{ total_coverage }}%</strong>
         </div>
         <i class="bi bi-check-circle"></i>
@@ -34,14 +34,14 @@
     </article>
     <article class="traceability-metric-card">
         <div>
-            <span>Ejecuciones Validadas</span>
+            <span>Ejecuciones validadas</span>
             <strong>{{ validated_executions }}/{{ total_executions }}</strong>
         </div>
         <i class="bi bi-patch-check"></i>
     </article>
     <article class="traceability-metric-card">
         <div>
-            <span>Pendientes de Revision</span>
+            <span>Pendientes de revisión</span>
             <strong>{{ pending_review_executions }}</strong>
         </div>
         <i class="bi bi-hourglass-split"></i>
@@ -66,10 +66,10 @@
                     <th>Regla automatizada</th>
                     <th>Ejecución</th>
                     <th>Resultado</th>
-                    <th>Revision</th>
-                    <th>Riesgo</th>
+                    <th>Revisión</th>
+                    <th>Riesgo del requisito</th>
                     <th>Defecto</th>
-                    <th>Cobertura</th>
+                    <th>Cobertura por caso</th>
                 </tr>
             </thead>
             <tbody>
@@ -129,7 +129,7 @@
                                         {{ execution.get_review_status_display }}
                                     </span>
                                 {% empty %}
-                                    <span class="text-muted">Sin revision</span>
+                                    <span class="text-muted">Sin revisión</span>
                                 {% endfor %}
                             </div>
                         </td>

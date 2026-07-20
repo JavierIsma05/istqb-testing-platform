@@ -4,7 +4,12 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.audit.services import log_action
-from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
+from apps.core.permissions import (
+    can_manage_artifacts,
+    get_active_project_for_request,
+    redirect_if_teacher_readonly,
+    visible_projects_for,
+)
 from apps.core.codes import next_code
 from apps.projects.models import Project
 
@@ -14,7 +19,7 @@ from .models import Defect
 
 
 STATUS_BADGES = {
-    Defect.Status.OPEN: 'danger',
+    Defect.Status.OPEN: 'open',
     Defect.Status.ANALYSIS: 'info',
     Defect.Status.IN_PROGRESS: 'warning',
     Defect.Status.PENDING_CONFIRMATION: 'info',
@@ -24,14 +29,37 @@ STATUS_BADGES = {
 }
 
 
+SEVERITY_BADGES = {
+    Defect.Severity.CRITICAL: 'danger',
+    Defect.Severity.HIGH: 'high',
+    Defect.Severity.MEDIUM: 'medium',
+    Defect.Severity.LOW: 'low',
+}
+
+
+PRIORITY_BADGES = {
+    Defect.Priority.CRITICAL: 'danger',
+    Defect.Priority.HIGH: 'high',
+    Defect.Priority.MEDIUM: 'medium',
+    Defect.Priority.LOW: 'low',
+}
+
+
 @login_required
 def defect_list_view(request):
     query = request.GET.get('q', '').strip()
     project_id = request.GET.get('project', '').strip()
     status = request.GET.get('status', '').strip()
-    visible_projects = visible_projects_for(request.user)
+    visible_projects = visible_projects_for(request.user, request=request)
+    active_project = get_active_project_for_request(request)
 
-    defects = Defect.objects.select_related('project', 'reported_by', 'assigned_to', 'execution').annotate(
+    defects = Defect.objects.select_related(
+        'project',
+        'reported_by',
+        'assigned_to',
+        'execution',
+        'execution__test_case',
+    ).annotate(
         history_count=Count('history', distinct=True),
     )
     defects = defects.filter(project__in=visible_projects)
@@ -43,7 +71,9 @@ def defect_list_view(request):
             | Q(description__icontains=query)
         )
 
-    if project_id:
+    if active_project:
+        defects = defects.filter(project=active_project)
+    elif project_id:
         defects = defects.filter(project_id=project_id)
 
     if status:
@@ -62,6 +92,8 @@ def defect_list_view(request):
                 {
                     'defect': defect,
                     'badge': STATUS_BADGES.get(defect.status, 'muted'),
+                    'severity_badge': SEVERITY_BADGES.get(defect.severity, 'muted'),
+                    'priority_badge': PRIORITY_BADGES.get(defect.priority, 'muted'),
                 }
                 for defect in defects
             ],
@@ -85,7 +117,7 @@ def defect_create_view(request):
     if readonly_redirect:
         return readonly_redirect
 
-    form = DefectForm(request.POST or None)
+    form = DefectForm(request.POST or None, user=request.user)
 
     if request.method == 'POST' and form.is_valid():
         defect = form.save(commit=False)
@@ -123,9 +155,9 @@ def defect_update_view(request, pk):
     defect = get_object_or_404(
         Defect,
         pk=pk,
-        project__in=visible_projects_for(request.user),
+        project__in=visible_projects_for(request.user, request=request),
     )
-    form = DefectForm(request.POST or None, instance=defect)
+    form = DefectForm(request.POST or None, instance=defect, user=request.user)
 
     if request.method == 'POST' and form.is_valid():
         defect = form.save()
@@ -160,7 +192,7 @@ def defect_delete_view(request, pk):
     defect = get_object_or_404(
         Defect,
         pk=pk,
-        project__in=visible_projects_for(request.user),
+        project__in=visible_projects_for(request.user, request=request),
     )
 
     if request.method == 'POST':

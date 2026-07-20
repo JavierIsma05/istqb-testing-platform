@@ -20,6 +20,7 @@ def test_plan_snapshot(test_plan):
         'environment': test_plan.environment,
         'responsibilities': test_plan.responsibilities,
         'estimation': test_plan.estimation,
+        'base_document': test_plan.base_document.name if test_plan.base_document else '',
         'status': test_plan.status,
     }
 

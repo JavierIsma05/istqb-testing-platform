@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 220" role="img" aria-labelledby="title desc">
+  <title id="title">TestFlow</title>
+  <desc id="desc">Logo oficial de TestFlow.</desc>
+  <defs>
+    <linearGradient id="word" x1="300" y1="100" x2="705" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#062a68"/>
+      <stop offset="0.55" stop-color="#063477"/>
+      <stop offset="0.56" stop-color="#129ce8"/>
+      <stop offset="1" stop-color="#129ce8"/>
+    </linearGradient>
+  </defs>
+  <image href="testflow-mark.svg" x="0" y="0" width="220" height="220"/>
+  <text x="292" y="145" fill="url(#word)" font-family="Arial, Helvetica, sans-serif" font-size="92" font-weight="800">TestFlow</text>
+</svg>

@@ -35,7 +35,7 @@ def login_view(request):
                     request.session.set_expiry(0)
 
                 return redirect('dashboard')
-            messages.error(request, 'Credenciales invalidas. Verifica tu correo y contrasena.')
+            messages.error(request, 'Credenciales inválidas. Verifica tu correo y contraseña.')
 
     context = {
         'form': form

@@ -71,6 +71,18 @@
 <section class="requirements-list-card">
     <div class="requirements-list-heading">
         <h3>Lista de Requisitos</h3>
+        {% if can_review and reviewable_count %}
+            <form class="requirements-review-all-form" method="POST" action="{% url 'requirements:bulk_review' %}">
+                {% csrf_token %}
+                <input type="hidden" name="q" value="{{ query }}">
+                <input type="hidden" name="project" value="{{ selected_project }}">
+                <input type="hidden" name="status" value="{{ selected_status }}">
+                <button class="btn btn-brand btn-sm" type="submit" data-confirm-message="Se marcaran como revisados todos los requisitos pendientes del listado actual. Deseas continuar?">
+                    <i class="bi bi-check2-all"></i>
+                    Marcar todos como revisados
+                </button>
+            </form>
+        {% endif %}
         {% if can_manage and requirement_items %}
             <div class="requirements-bulk-actions">
                 <label class="bulk-select-control">
@@ -115,6 +127,15 @@
                     <span class="requirement-status requirement-status-{{ item.badge }}">
                         {{ item.requirement.get_status_display }}
                     </span>
+                    {% if can_review and item.requirement.status in reviewable_statuses %}
+                        <form class="teacher-review-action" method="POST" action="{% url 'requirements:review' item.requirement.pk %}">
+                            {% csrf_token %}
+                            <button class="btn btn-outline-brand btn-sm" type="submit">
+                                <i class="bi bi-check2-circle"></i>
+                                Marcar revisado
+                            </button>
+                        </form>
+                    {% endif %}
                     {% if can_manage %}
                         <div class="manage-actions" aria-label="Gestionar requisito">
                             <a class="btn btn-outline-brand btn-sm" href="{% url 'requirements:edit' item.requirement.pk %}">

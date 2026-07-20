@@ -63,7 +63,7 @@ def notification_mark_all_read_view(request):
 @require_POST
 def send_project_message_view(request):
     if request.user.role != User.Roles.TEACHER:
-        messages.error(request, 'Solo los docentes pueden enviar mensajes desde esta accion.')
+        messages.error(request, 'Solo los docentes pueden enviar mensajes desde esta acción.')
         return redirect('dashboard')
 
     project_id = request.POST.get('project')
