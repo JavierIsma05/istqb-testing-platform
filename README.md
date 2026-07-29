@@ -81,6 +81,10 @@ D:\PYTHON\iSTQB_Testing_Platform\
 cd D:\PYTHON\iSTQB_Testing_Platform
 ```
 
+```bash
+git clone "nombre_code".git
+```
+
 ## 3. Crear entorno virtual (venv)
 
 ```bash
