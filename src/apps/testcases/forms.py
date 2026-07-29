@@ -1,9 +1,11 @@
 import json
 
 from django import forms
+from django.db.models import Q
 
 from apps.core.codes import next_code
 from apps.core.permissions import visible_projects_for
+from apps.incidents.models import Incident
 from apps.requirements.models import Requirement
 from apps.testplans.models import TestPlan
 
@@ -11,6 +13,13 @@ from .models import TestCase
 
 
 class TestCaseModalForm(forms.ModelForm):
+    risks = forms.ModelMultipleChoiceField(
+        label='Riesgos que cubre',
+        queryset=Incident.objects.none(),
+        required=False,
+        widget=forms.SelectMultiple(attrs={'class': 'form-select'}),
+    )
+
     class Meta:
         model = TestCase
         fields = (
@@ -28,6 +37,7 @@ class TestCaseModalForm(forms.ModelForm):
             'expected_result',
             'version',
             'status',
+            'risks',
         )
         labels = {
             'test_plan': 'Plan de Pruebas',
@@ -115,6 +125,7 @@ class TestCaseModalForm(forms.ModelForm):
         self.fields['test_plan'].widget.attrs.update({
             'data-code-target': self.fields['code'].widget.attrs.get('id', 'id_code'),
             'data-requirement-target': self.fields['requirement'].widget.attrs.get('id', 'id_requirement'),
+            'data-risk-target': self.fields['risks'].widget.attrs.get('id', 'id_risks'),
             'data-requirements-by-plan': json.dumps({
                 str(test_plan.pk): [
                     {
@@ -132,8 +143,30 @@ class TestCaseModalForm(forms.ModelForm):
                 )
                 for test_plan in available_plans
             }),
+            'data-risks-by-plan': json.dumps({
+                str(test_plan.pk): [
+                    {
+                        'value': risk.pk,
+                        'label': f'{risk.code} - {risk.title}',
+                        'requirement': risk.requirement_id,
+                    }
+                    for risk in Incident.objects.filter(test_plan_id=test_plan.pk).order_by('code')
+                ]
+                for test_plan in available_plans
+            }),
         })
         self.fields['requirement'].empty_label = 'Selecciona un requisito'
+        risk_queryset = Incident.objects.none()
+        if test_plan_id:
+            risk_queryset = Incident.objects.filter(test_plan_id=test_plan_id)
+            requirement_id = self.data.get('requirement') if self.is_bound else self.instance.requirement_id
+            if requirement_id:
+                risk_queryset = risk_queryset.filter(
+                    Q(requirement_id=requirement_id) | Q(requirement__isnull=True)
+                )
+        self.fields['risks'].queryset = risk_queryset.select_related('requirement', 'test_plan').order_by('code')
+        if self.instance.pk:
+            self.fields['risks'].initial = self.instance.covered_risks.all()
         help_texts = {
             'test_plan': 'Plan de pruebas donde se ejecutara o controlara este caso.',
             'requirement': 'Requisito cubierto por el caso; ayuda a medir trazabilidad.',
@@ -144,6 +177,7 @@ class TestCaseModalForm(forms.ModelForm):
             'technique': 'Tecnica ISTQB usada para disenar el caso, como particion de equivalencia o valores limite.',
             'level': 'Nivel donde aplica el caso: componente, integracion, sistema o aceptacion.',
             'status': 'Estado de preparacion o ejecucion del caso.',
+            'risks': 'Selecciona riesgos ya registrados en el plan que este caso ayuda a cubrir o mitigar.',
         }
         for name, help_text in help_texts.items():
             self.fields[name].help_text = help_text
@@ -178,6 +212,15 @@ class TestCaseModalForm(forms.ModelForm):
         requirement = cleaned_data.get('requirement')
         if test_plan and requirement and test_plan.project_id != requirement.project_id:
             self.add_error('requirement', 'El requisito debe pertenecer al proyecto del plan seleccionado.')
+        risks = cleaned_data.get('risks')
+        if test_plan and risks:
+            invalid_risks = [
+                risk for risk in risks
+                if risk.test_plan_id != test_plan.id
+                or (risk.requirement_id and requirement and risk.requirement_id != requirement.id)
+            ]
+            if invalid_risks:
+                self.add_error('risks', 'Selecciona solo riesgos del plan y requisito del caso.')
         return cleaned_data
 
     def save(self, commit=True):
@@ -186,4 +229,7 @@ class TestCaseModalForm(forms.ModelForm):
         if commit:
             instance.save()
             self.save_m2m()
+            selected_risks = self.cleaned_data.get('risks')
+            if selected_risks is not None:
+                instance.covered_risks.set(selected_risks)
         return instance

@@ -74,6 +74,7 @@
                 <div class="testcase-meta">
                     <span>Técnica: <strong class="soft-tag">{{ item.case.get_technique_display }}</strong></span>
                     <span>Prioridad: <strong>{{ item.case.get_priority_display }}</strong></span>
+                    <span>Riesgos cubiertos: <strong>{{ item.case.risk_count }}</strong></span>
                     <span>Ejecuciones: <strong>{{ item.case.execution_count }}</strong></span>
                     <span>Última actualización: <strong>{{ item.case.updated_at|date:'d M Y' }}</strong></span>
                     <span>Por: <strong>{{ item.case.created_by.get_full_name|default:item.case.created_by.email|default:'Sin asignar' }}</strong></span>
@@ -188,6 +189,11 @@
                             <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
                             {{ form.status }}
                             {% if form.status.errors %}<div class="form-error">{{ form.status.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="{{ form.risks.id_for_label }}">{{ form.risks.label }}</label>
+                            {{ form.risks }}
+                            {% if form.risks.errors %}<div class="form-error">{{ form.risks.errors|striptags }}</div>{% endif %}
                         </div>
                     </div>
                 </div>

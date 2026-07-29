@@ -44,6 +44,7 @@ def testcase_list_view(request):
         )
         test_case.created_by = request.user
         test_case.save()
+        test_case.covered_risks.set(form.cleaned_data.get('risks', []))
         log_action(
             request.user,
             'CREATE',
@@ -66,7 +67,10 @@ def testcase_list_view(request):
         'test_plan__project',
         'requirement',
         'created_by',
-    ).annotate(execution_count=Count('executions', distinct=True))
+    ).prefetch_related('covered_risks').annotate(
+        execution_count=Count('executions', distinct=True),
+        risk_count=Count('covered_risks', distinct=True),
+    )
     test_cases = test_cases.filter(test_plan__project__in=visible_projects)
 
     if query:
@@ -126,7 +130,7 @@ def testcase_detail_view(request, pk):
             'test_plan__project',
             'requirement',
             'created_by',
-        ).prefetch_related('executions__defects', 'traceability_links'),
+        ).prefetch_related('executions__defects', 'traceability_links', 'covered_risks'),
         pk=pk,
         test_plan__project__in=visible_projects_for(request.user, request=request),
     )
@@ -147,6 +151,7 @@ def testcase_detail_view(request, pk):
             'case': test_case,
             'executions': executions,
             'defects': defects,
+            'risks': test_case.covered_risks.select_related('requirement', 'test_plan').order_by('code'),
             'execution_count': executions.count(),
             'can_manage': can_manage_artifacts(request.user),
         },

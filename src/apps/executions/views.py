@@ -2,7 +2,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from datetime import timedelta
 
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -12,7 +13,9 @@ from apps.core.permissions import can_manage_artifacts, is_teacher, visible_proj
 from apps.defects.history import record_defect_history
 from apps.defects.models import Defect
 from apps.executions.models import AutomatedValidationRule, TestExecution, TestStepExecution
+from apps.projects.models import Project
 from apps.testcases.models import TestCase
+from apps.users.models import User
 
 from .forms import AutomatedValidationRuleForm, ExecutionResultForm, ExecutionReviewForm
 from .services.automated_runner import run_automated_execution
@@ -286,27 +289,41 @@ def build_execution_calendar(projects):
 
 @login_required
 def execution_workspace_view(request):
+    is_teacher_user = is_teacher(request.user)
     case_id = request.GET.get('case')
-    test_cases = TestCase.objects.select_related(
-        'requirement',
-        'test_plan',
-        'test_plan__project',
-        'created_by',
-    ).order_by('test_plan__project__name', 'code')
-    test_cases = test_cases.filter(test_plan__project__in=visible_projects_for(request.user, request=request))
 
-    if case_id:
-        selected_case = test_cases.filter(id=case_id).first()
+    if is_teacher_user:
+        projects = visible_projects_for(request.user, request=request).order_by('name')
+        test_cases = TestCase.objects.none()
+        selected_case = None
+        if case_id:
+            selected_case = TestCase.objects.select_related(
+                'requirement', 'test_plan', 'test_plan__project', 'created_by',
+            ).filter(
+                pk=case_id,
+                test_plan__project__in=visible_projects_for(request.user, request=request),
+            ).first()
     else:
-        selected_case = (
-            test_cases.filter(status=TestCase.Status.PENDING).first()
-            or test_cases.first()
-        )
+        test_cases = TestCase.objects.select_related(
+            'requirement',
+            'test_plan',
+            'test_plan__project',
+            'created_by',
+        ).order_by('test_plan__project__name', 'code')
+        test_cases = test_cases.filter(test_plan__project__in=visible_projects_for(request.user, request=request))
+
+        if case_id:
+            selected_case = test_cases.filter(id=case_id).first()
+        else:
+            selected_case = (
+                test_cases.filter(status=TestCase.Status.PENDING).first()
+                or test_cases.first()
+            )
 
     step_results = []
     step_errors = []
     form_data = request.POST or None
-    if request.method == 'POST' and selected_case and not is_teacher(request.user):
+    if request.method == 'POST' and selected_case and not is_teacher_user:
         step_results, step_errors = build_step_results(selected_case, request.POST)
         form_data = request.POST.copy()
         form_data['result'] = aggregate_step_result(step_results)
@@ -315,7 +332,7 @@ def execution_workspace_view(request):
 
     form = ExecutionResultForm(form_data, request.FILES or None, test_case=selected_case)
 
-    if request.method == 'POST' and is_teacher(request.user):
+    if request.method == 'POST' and is_teacher_user:
         execution = get_object_or_404(
             TestExecution,
             pk=request.POST.get('execution_id'),
@@ -444,7 +461,7 @@ def execution_workspace_view(request):
         {
             'form': form,
             'selected_case': selected_case,
-            'test_cases': test_cases,
+            'test_cases': test_cases if not is_teacher_user else TestCase.objects.none(),
             'last_execution': last_execution,
             'review_form': review_form,
             'last_execution_evidence_is_image': is_image_evidence(last_execution.evidence) if last_execution else False,
@@ -458,6 +475,8 @@ def execution_workspace_view(request):
             'last_automated_execution': last_automated_execution,
             'rule_form': rule_form,
             'can_manage': can_manage_artifacts(request.user),
+            'is_teacher': is_teacher_user,
+            'teacher_projects': projects if is_teacher_user else None,
         },
     )
 
@@ -650,3 +669,67 @@ def automated_execution_run_view(request, case_id):
     else:
         messages.warning(request, f'Ejecución finalizada con estado {execution.get_result_display()}.')
     return redirect(f'{reverse("executions:index")}?case={test_case.id}#automation')
+
+
+@login_required
+def teacher_api_projects(request):
+    if not is_teacher(request.user):
+        return JsonResponse({'error': 'No autorizado'}, status=403)
+    projects = visible_projects_for(request.user, request=request).order_by('name')
+    data = [{'id': p.pk, 'code': p.code, 'name': p.name} for p in projects]
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+def teacher_api_students(request, project_id):
+    if not is_teacher(request.user):
+        return JsonResponse({'error': 'No autorizado'}, status=403)
+    project = get_object_or_404(
+        Project.objects.prefetch_related('members'),
+        pk=project_id,
+    )
+    students = project.members.filter(role=User.Roles.STUDENT).order_by('email')
+    data = [
+        {
+            'id': s.pk,
+            'email': s.email,
+            'full_name': s.get_full_name() or s.email,
+        }
+        for s in students
+    ]
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+def teacher_api_cases(request, project_id, student_id):
+    if not is_teacher(request.user):
+        return JsonResponse({'error': 'No autorizado'}, status=403)
+    project = get_object_or_404(
+        Project.objects.all(),
+        pk=project_id,
+    )
+    student = get_object_or_404(User.objects.all(), pk=student_id, role=User.Roles.STUDENT)
+    if student not in project.members.all():
+        return JsonResponse({'error': 'El estudiante no pertenece al proyecto'}, status=400)
+
+    cases = TestCase.objects.filter(
+        test_plan__project=project,
+        created_by=student,
+    ).select_related('test_plan').order_by('code')
+
+    data = []
+    for c in cases:
+        last_exec = c.executions.order_by('-executed_at').first()
+        data.append({
+            'id': c.pk,
+            'code': c.code,
+            'title': c.title,
+            'status': c.status,
+            'status_label': c.get_status_display(),
+            'plan': c.test_plan.name if c.test_plan else '',
+            'total_execs': c.executions.count(),
+            'last_result': last_exec.result if last_exec else None,
+            'last_result_label': last_exec.get_result_display() if last_exec else 'Sin ejecutar',
+            'last_executed_at': last_exec.executed_at.strftime('%d/%m/%Y %H:%M') if last_exec and last_exec.executed_at else None,
+        })
+    return JsonResponse(data, safe=False)

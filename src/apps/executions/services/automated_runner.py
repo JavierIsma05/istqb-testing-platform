@@ -10,9 +10,14 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.utils import timezone
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import sync_playwright
+try:
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+    from playwright.sync_api import Error as PlaywrightError
+    from playwright.sync_api import sync_playwright
+except ImportError:
+    PlaywrightTimeoutError = Exception
+    PlaywrightError = Exception
+    sync_playwright = None
 
 from apps.audit.services import log_action
 from apps.core.codes import next_code

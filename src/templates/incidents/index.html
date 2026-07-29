@@ -68,8 +68,8 @@
                     <p>
                         {% if item.incident.requirement %}<span>Req: {{ item.incident.requirement.code }}</span>{% endif %}
                         {% if item.incident.test_plan %}<span>Plan: {{ item.incident.test_plan.name }}</span>{% endif %}
-                        {% if item.incident.test_case %}<span>Caso: {{ item.incident.test_case.code }}</span>{% endif %}
-                        {% if not item.incident.requirement and not item.incident.test_plan and not item.incident.test_case %}
+                        {% if item.incident.covering_test_cases.exists %}<span>Casos que lo cubren: {{ item.incident.covering_test_cases.count }}</span>{% endif %}
+                        {% if not item.incident.requirement and not item.incident.test_plan and not item.incident.covering_test_cases.exists %}
                             <span>Sin vinculos de trazabilidad</span>
                         {% endif %}
                     </p>

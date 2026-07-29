@@ -22,7 +22,7 @@ def test_formulario_de_riesgo_solo_muestra_proyectos_visibles(project, requireme
     assert other_project not in form.fields['project'].queryset
     assert list(form.fields['requirement'].queryset) == [requirement]
     assert list(form.fields['test_plan'].queryset) == [test_plan]
-    assert list(form.fields['test_case'].queryset) == [test_case]
+    assert 'test_case' not in form.fields
 
 
 @pytest.mark.django_db
@@ -60,13 +60,12 @@ def test_formulario_de_riesgo_exige_plan_asociado(project):
 
 
 @pytest.mark.django_db
-def test_formulario_de_riesgo_permite_vincular_requisito_plan_y_caso(project, requirement, test_plan, test_case):
+def test_formulario_de_riesgo_permite_vincular_requisito_y_plan(project, requirement, test_plan):
     form = IncidentForm(
         data={
             'project': project.id,
             'requirement': requirement.id,
             'test_plan': test_plan.id,
-            'test_case': test_case.id,
             'code': 'INC-003',
             'title': 'Riesgo sobre flujo critico',
             'description': 'El flujo de autenticacion podria fallar en navegadores antiguos.',
@@ -81,7 +80,7 @@ def test_formulario_de_riesgo_permite_vincular_requisito_plan_y_caso(project, re
 
 
 @pytest.mark.django_db
-def test_vista_guarda_riesgo_aunque_ya_exista_otro_codigo(client, project, requirement, test_plan, test_case, user):
+def test_vista_guarda_riesgo_aunque_ya_exista_otro_codigo(client, project, requirement, test_plan, user):
     Incident.objects.create(
         project=project,
         test_plan=test_plan,
@@ -98,7 +97,6 @@ def test_vista_guarda_riesgo_aunque_ya_exista_otro_codigo(client, project, requi
             'project': project.id,
             'requirement': requirement.id,
             'test_plan': test_plan.id,
-            'test_case': test_case.id,
             'title': 'Nuevo riesgo del plan',
             'description': 'Existe una amenaza de indisponibilidad del ambiente.',
             'mitigation_strategy': 'Preparar un ambiente alternativo.',
@@ -113,6 +111,5 @@ def test_vista_guarda_riesgo_aunque_ya_exista_otro_codigo(client, project, requi
     assert response.status_code == 302
     assert risk.code == 'INC-001'
     assert risk.test_plan == test_plan
-    assert risk.test_case == test_case
     assert risk.requirement == requirement
     assert risk.reported_by == user

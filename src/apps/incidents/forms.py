@@ -7,8 +7,6 @@ from apps.core.permissions import visible_projects_for
 from apps.projects.models import Project
 from apps.requirements.models import Requirement
 from apps.testplans.models import TestPlan
-from apps.testcases.models import TestCase
-
 from .models import Incident
 
 
@@ -19,7 +17,6 @@ class IncidentForm(forms.ModelForm):
             'project',
             'requirement',
             'test_plan',
-            'test_case',
             'code',
             'title',
             'description',
@@ -32,7 +29,6 @@ class IncidentForm(forms.ModelForm):
             'project': 'Proyecto',
             'requirement': 'Requisito relacionado',
             'test_plan': 'Plan relacionado',
-            'test_case': 'Caso de prueba afectado',
             'code': 'Codigo',
             'title': 'Titulo del riesgo',
             'description': 'Descripcion',
@@ -45,7 +41,6 @@ class IncidentForm(forms.ModelForm):
             'project': forms.Select(attrs={'class': 'form-select'}),
             'requirement': forms.Select(attrs={'class': 'form-select'}),
             'test_plan': forms.Select(attrs={'class': 'form-select'}),
-            'test_case': forms.Select(attrs={'class': 'form-select'}),
             'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. INC-001'}),
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. Riesgo de integracion con API externa'}),
             'description': forms.Textarea(
@@ -79,7 +74,6 @@ class IncidentForm(forms.ModelForm):
         linked_querysets = {
             'requirement': Requirement.objects.filter(project_id=project_id) if project_id else Requirement.objects.filter(project__in=visible_projects),
             'test_plan': TestPlan.objects.filter(project_id=project_id) if project_id else TestPlan.objects.filter(project__in=visible_projects),
-            'test_case': TestCase.objects.filter(test_plan__project_id=project_id) if project_id else TestCase.objects.filter(test_plan__project__in=visible_projects),
         }
         for field_name, linked_queryset in linked_querysets.items():
             self.fields[field_name].required = field_name == 'test_plan'
@@ -105,7 +99,6 @@ class IncidentForm(forms.ModelForm):
             'project': 'Proyecto donde se gestionara este riesgo.',
             'requirement': 'Requisito que podria verse afectado si el riesgo ocurre.',
             'test_plan': 'Plan de pruebas que debe considerar este riesgo para priorizar el esfuerzo.',
-            'test_case': 'Caso que puede verse afectado por el riesgo. Es opcional y se usa para priorizar su diseño o ejecución.',
             'code': 'Identificador unico del riesgo, por ejemplo INC-001.',
             'title': 'Resumen breve del riesgo o bloqueo potencial.',
             'description': 'Describe causa probable, efecto esperado y contexto para darle seguimiento.',
@@ -123,7 +116,6 @@ class IncidentForm(forms.ModelForm):
         project = cleaned_data.get('project')
         requirement = cleaned_data.get('requirement')
         test_plan = cleaned_data.get('test_plan')
-        test_case = cleaned_data.get('test_case')
 
         if project and requirement and requirement.project_id != project.id:
             self.add_error('requirement', 'El requisito debe pertenecer al proyecto seleccionado.')
@@ -133,7 +125,4 @@ class IncidentForm(forms.ModelForm):
             self.add_error('test_plan', 'Todo riesgo debe estar asociado a un plan de pruebas.')
         if requirement and test_plan and requirement.project_id != test_plan.project_id:
             self.add_error('requirement', 'El requisito debe pertenecer al mismo proyecto que el plan.')
-        if project and test_case and test_case.test_plan.project_id != project.id:
-            self.add_error('test_case', 'El caso de prueba debe pertenecer al proyecto seleccionado.')
-
         return cleaned_data

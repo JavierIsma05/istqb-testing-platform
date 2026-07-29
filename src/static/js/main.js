@@ -103,6 +103,52 @@ document.addEventListener('DOMContentLoaded', function () {
         renderRequirements();
     });
 
+    Array.prototype.slice.call(document.querySelectorAll('[data-risks-by-plan][data-risk-target]')).forEach(function (planField) {
+        var riskField = document.getElementById(planField.getAttribute('data-risk-target'));
+        var requirementField = document.getElementById(planField.getAttribute('data-requirement-target'));
+        var risksByPlan = {};
+
+        try {
+            risksByPlan = JSON.parse(planField.getAttribute('data-risks-by-plan') || '{}');
+        } catch (error) {
+            risksByPlan = {};
+        }
+
+        if (!riskField) {
+            return;
+        }
+
+        function renderRisks() {
+            var selectedValues = Array.prototype.slice.call(riskField.selectedOptions || []).map(function (option) {
+                return option.value;
+            });
+            var requirementValue = requirementField ? requirementField.value : '';
+            var risks = risksByPlan[planField.value] || [];
+
+            riskField.innerHTML = '';
+
+            risks
+                .filter(function (risk) {
+                    return !risk.requirement || !requirementValue || String(risk.requirement) === String(requirementValue);
+                })
+                .forEach(function (risk) {
+                    var option = document.createElement('option');
+                    option.value = String(risk.value);
+                    option.textContent = risk.label;
+                    option.selected = selectedValues.indexOf(String(risk.value)) !== -1;
+                    riskField.appendChild(option);
+                });
+
+            riskField.disabled = riskField.options.length === 0;
+        }
+
+        planField.addEventListener('change', renderRisks);
+        if (requirementField) {
+            requirementField.addEventListener('change', renderRisks);
+        }
+        renderRisks();
+    });
+
     var themeToggles = Array.prototype.slice.call(document.querySelectorAll('[data-theme-toggle]'));
     var themeIcons = Array.prototype.slice.call(document.querySelectorAll('[data-theme-icon]'));
     var root = document.documentElement;

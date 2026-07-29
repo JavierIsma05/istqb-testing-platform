@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from apps.audit.models import AuditLog
@@ -43,6 +44,65 @@ def test_formulario_de_defecto_rechaza_registro_sin_ejecucion_asociada(project):
 
     assert not form.is_valid()
     assert 'execution' in form.errors
+
+
+@pytest.mark.django_db
+def test_formulario_de_defecto_solo_muestra_docentes_del_proyecto(project, user):
+    User = get_user_model()
+    tutor = User.objects.create_user(
+        email='tutor.defectos@example.edu',
+        password='StrongPass123',
+        role=User.Roles.TEACHER,
+    )
+    other_teacher = User.objects.create_user(
+        email='otro.tutor@example.edu',
+        password='StrongPass123',
+        role=User.Roles.TEACHER,
+    )
+    student = User.objects.create_user(
+        email='estudiante.defectos@example.edu',
+        password='StrongPass123',
+        role=User.Roles.STUDENT,
+    )
+    project.members.add(tutor, student)
+
+    form = DefectForm(data={'project': project.id}, user=user)
+
+    assert list(form.fields['assigned_to'].queryset) == [tutor]
+    assert other_teacher not in form.fields['assigned_to'].queryset
+    assert student not in form.fields['assigned_to'].queryset
+
+
+@pytest.mark.django_db
+def test_formulario_de_defecto_rechaza_asignar_a_estudiante(project, execution, user):
+    User = get_user_model()
+    student = User.objects.create_user(
+        email='asignado.estudiante@example.edu',
+        password='StrongPass123',
+        role=User.Roles.STUDENT,
+    )
+    project.members.add(student)
+    execution.result = execution.Result.FAILED
+    execution.save(update_fields=['result'])
+
+    form = DefectForm(
+        data={
+            'project': project.id,
+            'execution': execution.id,
+            'code': 'DEF-010',
+            'title': 'Defecto asignado incorrectamente',
+            'description': 'El responsable no puede ser estudiante.',
+            'steps_to_reproduce': '1. Ejecutar\n2. Observar',
+            'severity': Defect.Severity.MEDIUM,
+            'priority': Defect.Priority.MEDIUM,
+            'status': Defect.Status.OPEN,
+            'assigned_to': student.id,
+        },
+        user=user,
+    )
+
+    assert not form.is_valid()
+    assert 'assigned_to' in form.errors
 
 
 @pytest.mark.django_db

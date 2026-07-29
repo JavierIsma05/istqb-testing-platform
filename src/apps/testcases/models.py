@@ -38,6 +38,11 @@ class TestCase(OwnedModel):
 
     test_plan = models.ForeignKey(TestPlan, on_delete=models.CASCADE, related_name='test_cases')
     requirement = models.ForeignKey(Requirement, on_delete=models.SET_NULL, null=True, blank=True, related_name='test_cases')
+    covered_risks = models.ManyToManyField(
+        'incidents.Incident',
+        blank=True,
+        related_name='covering_test_cases',
+    )
     code = models.CharField(max_length=40)
     title = models.CharField(max_length=180)
     description = models.TextField(blank=True)

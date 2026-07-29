@@ -1,0 +1,153 @@
+===============================================================================
+ CHECKLIST DE EVALUACION - ISO/IEC 25010
+ Plataforma web iSTQB para proyectos de tesis UNL
+===============================================================================
+
+Evaluador: ___________________________________  Fecha: ___/___/___
+Proyecto evaluado: _______________________________________________
+
+Instrucciones: Marcar con una X el puntaje por cada criterio.
+  - 1   = Cumple completamente
+  - 0.5 = Cumple parcialmente
+  - 0   = No cumple
+
+
+===============================================================================
+I. FUNCIONALIDAD (Adecuacion funcional)
+===============================================================================
+?La plataforma cubre las fases del proceso de pruebas ISTQB?
+
+ #  Criterio                                                        1  0.5  0
+--  --------------------------------------------------------------- --- --- ---
+ 1  El estudiante puede registrar requisitos funcionales              ___ ___ ___
+    y no funcionales de su proyecto.
+
+ 2  El sistema permite crear un plan de pruebas con                   ___ ___ ___
+    objetivos, alcance, estrategia, criterios de entrada y salida.
+
+ 3  Se pueden disenar casos de prueba con pasos                       ___ ___ ___
+    (accion -> resultado esperado), datos de prueba
+    y precondiciones.
+
+ 4  La plataforma permite ejecutar casos de prueba y                  ___ ___ ___
+    registrar el resultado (PASSED/FAILED/BLOCKED) con evidencia.
+
+ 5  El estudiante puede reportar defectos vinculados                  ___ ___ ___
+    a casos de prueba ejecutados.
+
+ 6  Existe un dashboard o reporte que muestra el avance               ___ ___ ___
+    del proyecto (casos ejecutados, % aprobacion, etc.).
+
+                                         Subtotal (F):  ___ / 6
+
+
+===============================================================================
+II. TRAZABILIDAD (Capacidad de rastreo)
+===============================================================================
+?La plataforma mantiene vinculos rastreables entre artefactos?
+
+ #  Criterio                                                        1  0.5  0
+--  --------------------------------------------------------------- --- --- ---
+ 7  Cada requisito esta vinculado al proyecto                         ___ ___ ___
+    correspondiente.
+
+ 8  Cada caso de prueba esta vinculado a un requisito                 ___ ___ ___
+    y a un plan de pruebas.
+
+ 9  Cada ejecucion esta vinculada al caso de prueba                   ___ ___ ___
+    que la origino.
+
+10  Los defectos registrados estan vinculados al caso                 ___ ___ ___
+    de prueba o ejecucion donde se detectaron.
+
+11  Desde cualquier artefacto se puede navegar al                     ___ ___ ___
+    proyecto o requisito relacionado
+    (trazabilidad bidireccional).
+
+                                         Subtotal (T):  ___ / 5
+
+
+===============================================================================
+III. CUMPLIMIENTO DEL PROCESO (Madurez / Fiabilidad)
+===============================================================================
+?La plataforma asegura que el estudiante siga el proceso STLC?
+
+ #  Criterio                                                        1  0.5  0
+--  --------------------------------------------------------------- --- --- ---
+12  El flujo de navegacion guia al estudiante en el                   ___ ___ ___
+    orden correcto (requisitos -> plan -> casos -> ejecucion).
+
+13  El plan de pruebas permite definir criterios de                   ___ ___ ___
+    entrada/salida y % minimo de aprobacion.
+
+14  El sistema no permite ejecutar un caso si no                      ___ ___ ___
+    pertenece a un plan de pruebas valido.
+
+15  Cada ejecucion registra responsable (ejecuted_by),                ___ ___ ___
+    fecha (executed_at), resultado y ambiente.
+
+                                         Subtotal (P):  ___ / 4
+
+
+===============================================================================
+IV. MANTENIBILIDAD - ANALISIS (Analyzability)
+===============================================================================
+?El docente puede revisar y entender el proceso de cada proyecto?
+
+ #  Criterio                                                        1  0.5  0
+--  --------------------------------------------------------------- --- --- ---
+16  El docente puede ver el listado de proyectos                     ___ ___ ___
+    de todos sus estudiantes.
+
+17  El docente puede revisar cada ejecucion y dejar                   ___ ___ ___
+    una validacion (review_status, review_notes).
+
+18  El historial de ejecuciones muestra todos los                     ___ ___ ___
+    resultados anteriores de un mismo caso de prueba.
+
+19  Los reportes o dashboard presentan la informacion                 ___ ___ ___
+    de forma clara y comprensible.
+
+                                         Subtotal (M):  ___ / 4
+
+
+===============================================================================
+TOTALES Y FORMULA
+===============================================================================
+
+  Subtotal Funcionalidad (F):   ___ / 6
+  Subtotal Trazabilidad  (T):   ___ / 5
+  Subtotal Proceso       (P):   ___ / 4
+  Subtotal Mantenibilidad (M):  ___ / 4
+  -------------------------------------------------
+  TOTAL (F + T + P + M):        ___ / 19
+
+  % CUMPLIMIENTO = (TOTAL / 19) x 100
+
+  % CUMPLIMIENTO FINAL:  _____________ %
+
+
+===============================================================================
+INTERPRETACION DEL RESULTADO
+===============================================================================
+
+  >= 85%  -> La plataforma cumple satisfactoriamente con el estandar
+             ISO 25010. La utilidad para mejorar trazabilidad y
+             cumplimiento del proceso de pruebas esta demostrada.
+
+  >= 70%  -> La plataforma cumple parcialmente. Se identifican
+             oportunidades de mejora, pero la utilidad es aceptable.
+
+  < 70%   -> La plataforma no cumple con los criterios minimos.
+             Se requieren mejoras significativas antes de considerar
+             su utilidad.
+
+
+===============================================================================
+FIRMAS
+===============================================================================
+
+Evaluador:                               Estudiante:
+____________________________             ____________________________
+Nombre:                                  Nombre:
+Firma:                                   Firma:

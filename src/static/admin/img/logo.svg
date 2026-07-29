@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 50" width="180" height="50">
+  <rect width="180" height="50" rx="8" fill="#0d6efd"/>
+  <text x="14" y="33" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#ffffff">ISTQB</text>
+  <text x="88" y="33" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="300" fill="#ffffff" letter-spacing="1">Platform</text>
+</svg>

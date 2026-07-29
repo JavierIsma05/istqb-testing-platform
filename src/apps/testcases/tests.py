@@ -1,6 +1,7 @@
 import pytest
 from django.urls import reverse
 
+from apps.incidents.models import Incident
 from apps.testcases.forms import TestCaseModalForm as CaseForm
 from apps.testcases.models import TestCase as CaseModel
 
@@ -73,3 +74,37 @@ def test_modal_carga_plan_y_requisitos_disponibles(client, project, requirement,
     assert list(form.fields['requirement'].queryset) == [requirement]
     assert test_plan.name in response.content.decode()
     assert requirement.code in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_formulario_de_caso_vincula_riesgos_existentes(test_plan, requirement, user):
+    risk = Incident.objects.create(
+        project=test_plan.project,
+        requirement=requirement,
+        test_plan=test_plan,
+        code='INC-010',
+        title='Riesgo de autenticacion',
+        description='El flujo de login podria fallar.',
+        reported_by=user,
+    )
+    form = CaseForm(
+        data={
+            'test_plan': test_plan.id,
+            'requirement': requirement.id,
+            'code': 'TC-010',
+            'title': 'Login con credenciales validas',
+            'description': 'Validar acceso exitoso.',
+            'priority': CaseModel.Priority.HIGH,
+            'technique': CaseModel.Technique.EQUIVALENCE,
+            'level': CaseModel.Level.SYSTEM,
+            'preconditions': 'Usuario registrado',
+            'steps': 'Abrir login => Se muestra el formulario\nEnviar credenciales => Accede al sistema',
+            'expected_result': 'El usuario entra al dashboard.',
+            'status': CaseModel.Status.PENDING,
+            'risks': [risk.id],
+        }
+    )
+
+    assert form.is_valid()
+    test_case = form.save()
+    assert list(test_case.covered_risks.all()) == [risk]

@@ -38,7 +38,8 @@ def incident_list_view(request):
     visible_projects = visible_projects_for(request.user, request=request)
     active_project = get_active_project_for_request(request)
 
-    incidents = Incident.objects.select_related('project', 'reported_by', 'requirement', 'test_plan', 'test_case')
+    incidents = Incident.objects.select_related('project', 'reported_by', 'requirement', 'test_plan')
+    incidents = incidents.prefetch_related('covering_test_cases')
     incidents = incidents.filter(project__in=visible_projects)
 
     if query:

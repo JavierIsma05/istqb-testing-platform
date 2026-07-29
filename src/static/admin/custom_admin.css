@@ -1,0 +1,149 @@
+/* ===================================================
+   ISTQB Testing Platform - Jazzmin Custom Styles
+   Ubicacion: static/admin/custom_admin.css
+   Proposito: Personalizar login, header y detalles
+   =================================================== */
+
+/* ---- LOGIN PAGE ---- */
+.login-logo img {
+    max-height: 90px;
+    margin-bottom: 10px;
+}
+
+.login-box {
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.login-card-body {
+    border-radius: 0 0 12px 12px;
+    padding: 2rem;
+}
+
+.login-card-body .btn-primary {
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 10px;
+}
+
+.login-box .card {
+    border: none;
+}
+
+/* ---- HEADER / BRAND ---- */
+.brand-link .brand-image {
+    max-height: 40px;
+    margin: auto;
+}
+
+/* ---- BUTTONS ---- */
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+/* ---- TABLES ---- */
+.table thead th {
+    border-bottom: 2px solid #0d6efd;
+    color: #495057;
+    font-weight: 600;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #f0f7ff;
+}
+
+/* ---- CARDS ---- */
+.card {
+    border-radius: 10px;
+    border: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+    font-weight: 600;
+}
+
+/* ---- CALENDAR / DATE PICKER ---- */
+.small-box {
+    border-radius: 12px;
+}
+
+/* ---- SIDEBAR ACTIVE ---- */
+.nav-sidebar .nav-item > .nav-link.active {
+    background-color: #0d6efd;
+    border-radius: 8px;
+    margin: 2px 8px;
+    width: auto;
+}
+
+/* ---- DARK MODE OVERRIDES ---- */
+.dark-mode .card {
+    background-color: #2d2d2d;
+}
+
+.dark-mode .content-header h1 {
+    color: #e0e0e0;
+}
+
+.dark-mode .table thead th {
+    color: #c0c0c0;
+}
+
+/* ===================================================
+   TEACHER EXECUTION VIEW - Hierarchical filters
+   =================================================== */
+
+.teacher-metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.teacher-metrics-grid .metric-item {
+    text-align: center;
+    padding: 0.75rem 0.5rem;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+.teacher-metrics-grid .metric-item .metric-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.teacher-metrics-grid .metric-item .metric-label {
+    display: block;
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+
+.teacher-metrics-grid .metric-passed .metric-value { color: #28a745; }
+.teacher-metrics-grid .metric-failed .metric-value { color: #dc3545; }
+.teacher-metrics-grid .metric-pending .metric-value { color: #ffc107; }
+.teacher-metrics-grid .metric-success-rate .metric-value { color: #0d6efd; }
+
+.student-info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.dark-mode .teacher-metrics-grid .metric-item {
+    background: #3a3a3a;
+}
+
+.dark-mode .teacher-metrics-grid .metric-item .metric-label {
+    color: #adb5bd;
+}

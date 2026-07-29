@@ -43,6 +43,10 @@
         <div><span>Prioridad</span><strong>{{ case.get_priority_display }}</strong></div>
         <i class="bi bi-flag"></i>
     </article>
+    <article class="metric-card">
+        <div><span>Riesgos</span><strong>{{ risks|length }}</strong></div>
+        <i class="bi bi-exclamation-triangle"></i>
+    </article>
 </section>
 
 <section class="dashboard-grid">
@@ -76,6 +80,31 @@
             <div><span>Cobertura</span><strong>{% if case.requirement %}Cubierto{% else %}Pendiente{% endif %}</strong></div>
         </div>
     </article>
+</section>
+
+<section class="content-card mt-4">
+    <div class="card-heading">
+        <div>
+            <h3>Riesgos Cubiertos</h3>
+            <p>Riesgos del plan o requisito que este caso ayuda a mitigar.</p>
+        </div>
+    </div>
+    <div class="defect-list">
+        {% for risk in risks %}
+            <article class="defect-row">
+                <div class="defect-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                <div class="defect-main">
+                    <div class="defect-title-line">
+                        <span class="defect-code">{{ risk.code }}</span>
+                        <strong>{{ risk.title }}</strong>
+                    </div>
+                    <p>Nivel: {{ risk.risk_level }} <span>Estado: {{ risk.get_status_display }}</span></p>
+                </div>
+            </article>
+        {% empty %}
+            <p class="text-muted mb-0">Este caso no tiene riesgos vinculados.</p>
+        {% endfor %}
+    </div>
 </section>
 
 <section class="content-card mt-4">

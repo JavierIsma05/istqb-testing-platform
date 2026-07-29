@@ -1,10 +1,12 @@
 import json
 
 from django import forms
+from django.db.models import Q
 
 from apps.core.codes import next_code
 from apps.core.permissions import visible_projects_for
 from apps.projects.models import Project
+from apps.users.models import User
 
 from .models import Defect
 
@@ -69,6 +71,16 @@ class DefectForm(forms.ModelForm):
         self.fields['execution'].required = True
         self.fields['assigned_to'].required = False
         project_id = self.data.get('project') if self.is_bound else self.instance.project_id
+        teacher_queryset = User.objects.filter(role=User.Roles.TEACHER)
+        if project_id:
+            teacher_queryset = teacher_queryset.filter(
+                Q(projects__id=project_id) | Q(project_created__id=project_id)
+            )
+        else:
+            teacher_queryset = teacher_queryset.filter(
+                Q(projects__in=visible_projects) | Q(project_created__in=visible_projects)
+            )
+        self.fields['assigned_to'].queryset = teacher_queryset.distinct().order_by('email')
         execution_queryset = self.fields['execution'].queryset.filter(
             result='FAILED',
             test_case__test_plan__project__in=visible_projects,
@@ -113,10 +125,18 @@ class DefectForm(forms.ModelForm):
         cleaned_data = super().clean()
         project = cleaned_data.get('project')
         execution = cleaned_data.get('execution')
+        assigned_to = cleaned_data.get('assigned_to')
         if not execution:
             self.add_error('execution', 'Todo defecto debe originarse en una ejecucion fallida.')
         elif execution.result != execution.Result.FAILED:
             self.add_error('execution', 'Solo una ejecucion fallida puede originar un defecto.')
         elif project and execution.test_case.test_plan.project_id != project.id:
             self.add_error('execution', 'La ejecucion debe pertenecer al proyecto seleccionado.')
+        if assigned_to and assigned_to.role != User.Roles.TEACHER:
+            self.add_error('assigned_to', 'El responsable asignado debe ser un docente.')
+        elif project and assigned_to and not (
+            project.members.filter(pk=assigned_to.pk).exists()
+            or project.created_by_id == assigned_to.pk
+        ):
+            self.add_error('assigned_to', 'El docente asignado debe estar vinculado al proyecto.')
         return cleaned_data
