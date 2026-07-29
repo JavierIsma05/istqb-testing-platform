@@ -375,20 +375,5 @@ docker compose exec -it web python manage.py createsuperuser
 | **Estudiante** | Ejecuta pruebas, registra evidencias, defectos e incidentes |
 
 ---
-
-## Usuarios creados (datos poblados)
-
-Para acceder rapidamente, estos usuarios ya existen en la base de datos poblada:
-
-| Email | Clave | Rol | Proyecto |
-|-------|-------|-----|----------|
-| javier.aguilar@unl.edu.ec | Istqb2026.Temp! | Estudiante | PRJ-002 |
-| cristian.capa@unl.edu.ec | Istqb2026.Temp! | Estudiante | PRJ-003 |
-| juan.castillo@unl.edu.ec | Istqb2026.Temp! | Estudiante | PRJ-004 |
-| dany.martinez@unl.edu.ec | Istqb2026.Temp! | Estudiante | PRJ-005 |
-| bryan.ordonez@unl.edu.ec | Istqb2026.Temp! | Estudiante | PRJ-006 |
-| jorge.poma@unl.edu.ec | Istqb2026.Temp! | Estudiante | PRJ-007 |
-| edinson.quizphe@unl.edu.ec | Istqb2026.Temp! | Estudiante | PRJ-008 |
-| wilman.chamba@unl.edu.ec | Istqb2026.Temp! | Docente | — |
 | pablo.ordonez@unl.edu.ec | Istqb2026.Temp! | Docente | — |
 | francisco@unl.edu.ec | Istqb2026.Temp! | Docente | — |
