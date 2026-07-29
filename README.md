@@ -78,11 +78,11 @@ D:\PYTHON\iSTQB_Testing_Platform\
 ## 2. Clonar o abrir el proyecto
 
 ```bash
-cd D:\PYTHON\iSTQB_Testing_Platform
+git clone https://github.com/JavierIsma05/istqb-testing-platform.git
 ```
 
 ```bash
-git clone "nombre_code".git
+cd D:\PYTHON\iSTQB_Testing_Platform
 ```
 
 ## 3. Crear entorno virtual (venv)
