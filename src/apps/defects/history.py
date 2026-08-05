@@ -4,6 +4,7 @@ from .models import DefectHistory
 def defect_snapshot(defect):
     return {
         'project_id': defect.project_id,
+        'test_case_id': defect.test_case_id,
         'execution_id': defect.execution_id,
         'code': defect.code,
         'title': defect.title,

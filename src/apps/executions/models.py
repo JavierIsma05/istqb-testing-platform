@@ -1,14 +1,15 @@
+import re
 from django.conf import settings
 from django.db import models
 
-from apps.core.models import TimeStampedModel
+from apps.core.models import OwnedModel, TimeStampedModel
 from apps.testcases.models import TestCase
 
 
 class TestExecution(TimeStampedModel):
     class ExecutionMode(models.TextChoices):
         MANUAL = 'MANUAL', 'Manual controlada'
-        SEMI_AUTOMATED = 'SEMI_AUTOMATED', 'Semi-automatizada'
+        AUTOMATED = 'AUTOMATED', 'Automatizada'
 
     class ExecutionType(models.TextChoices):
         NORMAL = 'NORMAL', 'Ejecución funcional'
@@ -102,48 +103,53 @@ class TestStepExecution(TimeStampedModel):
         return f'{self.test_execution_id} - Paso {self.step_number}'
 
 
-class AutomatedValidationRule(TimeStampedModel):
-    class ValidationType(models.TextChoices):
-        FIELD_REQUIRED = 'FIELD_REQUIRED', 'Campo obligatorio'
-        EMAIL_FORMAT = 'EMAIL_FORMAT', 'Formato de correo'
-        MAX_LENGTH = 'MAX_LENGTH', 'Longitud máxima'
-        MIN_LENGTH = 'MIN_LENGTH', 'Longitud mínima'
-        TEXT_VISIBLE = 'TEXT_VISIBLE', 'Texto visible'
-        ELEMENT_VISIBLE = 'ELEMENT_VISIBLE', 'Elemento visible'
-        REDIRECT_URL = 'REDIRECT_URL', 'Redireccion URL'
-        HTTP_STATUS = 'HTTP_STATUS', 'Estado HTTP'
-        BUTTON_DISABLED = 'BUTTON_DISABLED', 'Boton deshabilitado'
-        FORM_SUBMISSION_BLOCKED = 'FORM_SUBMISSION_BLOCKED', 'Envio de formulario bloqueado'
+class TestData(OwnedModel):
+    test_case = models.ForeignKey(TestCase, on_delete=models.CASCADE, related_name='test_data_vars')
+    key = models.CharField(max_length=120)
+    value = models.TextField(blank=True)
 
-    class SelectorType(models.TextChoices):
-        CSS = 'CSS', 'CSS'
-        ID = 'ID', 'ID'
-        NAME = 'NAME', 'Name'
-        XPATH = 'XPATH', 'XPath'
+    class Meta:
+        ordering = ['id']
+        unique_together = ('test_case', 'key')
+
+    def __str__(self):
+        return f'{self.test_case.code} - {self.key}'
+
+
+class AutomatedValidationRule(TimeStampedModel):
+    class ActionType(models.TextChoices):
+        OPEN_URL = 'OPEN_URL', 'Abrir URL'
+        FILL_TEXT = 'FILL_TEXT', 'Escribir'
+        CLICK = 'CLICK', 'Click'
+        VERIFY = 'VERIFY', 'Verificar'
+        WAIT = 'WAIT', 'Esperar'
+
+    class ComparisonType(models.TextChoices):
+        EXACT = 'EXACT', 'Exacto'
+        CONTAINS = 'CONTAINS', 'Contiene'
+        REGEX = 'REGEX', 'Expresión regular'
 
     test_case = models.ForeignKey(TestCase, on_delete=models.CASCADE, related_name='automated_rules')
     requirement = models.ForeignKey(
         'requirements.Requirement',
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name='automated_rules',
     )
     step_number = models.PositiveIntegerField(default=1)
     name = models.CharField(max_length=180)
-    validation_type = models.CharField(max_length=40, choices=ValidationType.choices)
-    target_url = models.URLField()
-    selector_type = models.CharField(max_length=10, choices=SelectorType.choices, blank=True)
+    action_type = models.CharField(max_length=30, choices=ActionType.choices, blank=True)
+    is_critical = models.BooleanField(default=True)
+    target_url = models.URLField(blank=True)
     selector_value = models.CharField(max_length=500, blank=True)
-    secondary_selector_value = models.CharField(max_length=500, blank=True)
     input_value = models.TextField(blank=True)
     expected_value = models.CharField(max_length=500, blank=True)
-    expected_text = models.CharField(max_length=500, blank=True)
-    min_length = models.PositiveIntegerField(null=True, blank=True)
-    max_length = models.PositiveIntegerField(null=True, blank=True)
-    expected_url = models.URLField(blank=True)
-    expected_http_status = models.PositiveSmallIntegerField(null=True, blank=True)
+    comparison_type = models.CharField(
+        max_length=20,
+        choices=ComparisonType.choices,
+        default=ComparisonType.EXACT,
+        blank=True,
+    )
     timeout_seconds = models.PositiveSmallIntegerField(default=10)
-    browser = models.CharField(max_length=30, default='chromium')
-    capture_evidence = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -161,13 +167,18 @@ class AutomatedExecutionResult(TimeStampedModel):
     )
     validation_rule = models.ForeignKey(
         AutomatedValidationRule,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name='execution_results',
     )
     status = models.CharField(max_length=20, choices=TestExecution.Result.choices)
     expected_behavior = models.TextField(blank=True)
     actual_behavior = models.TextField(blank=True)
     input_used = models.TextField(blank=True)
+    comparison_type = models.CharField(
+        max_length=20,
+        choices=AutomatedValidationRule.ComparisonType.choices,
+        blank=True,
+    )
     technical_log = models.TextField(blank=True)
     screenshot = models.ImageField(upload_to='automation_screenshots/', null=True, blank=True)
     error_message = models.TextField(blank=True)

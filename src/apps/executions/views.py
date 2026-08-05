@@ -12,12 +12,12 @@ from apps.audit.services import log_action
 from apps.core.permissions import can_manage_artifacts, is_teacher, visible_projects_for
 from apps.defects.history import record_defect_history
 from apps.defects.models import Defect
-from apps.executions.models import AutomatedValidationRule, TestExecution, TestStepExecution
+from apps.executions.models import AutomatedValidationRule, TestData, TestExecution, TestStepExecution
 from apps.projects.models import Project
 from apps.testcases.models import TestCase
 from apps.users.models import User
 
-from .forms import AutomatedValidationRuleForm, ExecutionResultForm, ExecutionReviewForm
+from .forms import AutomatedStepForm, ExecutionResultForm, ExecutionReviewForm, TestDataForm
 from .services.automated_runner import run_automated_execution
 
 
@@ -30,7 +30,8 @@ RESULT_TO_CASE_STATUS = {
 
 CONFIRMATION_CANDIDATE_STATUSES = {
     Defect.Status.IN_PROGRESS,
-    Defect.Status.PENDING_CONFIRMATION,
+    Defect.Status.RESOLVED,
+    Defect.Status.REOPENED,
 }
 
 
@@ -130,6 +131,7 @@ def create_defect_from_failed_execution(execution):
 
     defect = Defect.objects.create(
         project=project,
+        test_case=execution.test_case,
         execution=execution,
         code=next_code(Defect.objects.filter(project=project), 'DEF'),
         title=title,
@@ -166,7 +168,7 @@ def sync_defect_from_confirmation(execution):
     elif execution.result == TestExecution.Result.FAILED:
         defect.status = Defect.Status.IN_PROGRESS
     else:
-        defect.status = Defect.Status.PENDING_CONFIRMATION
+        defect.status = Defect.Status.REOPENED
 
     defect.save(update_fields=['status', 'updated_at'])
     record_defect_history(defect, execution.executed_by, 'Actualizacion desde prueba de confirmacion')
@@ -234,13 +236,13 @@ def build_execution_calendar(projects):
             'execution': None,
         })
 
-    confirmation_defects = Defect.objects.select_related('project', 'execution__test_case').filter(
+    confirmation_defects = Defect.objects.select_related('project', 'test_case').filter(
         project__in=projects,
         status__in=CONFIRMATION_CANDIDATE_STATUSES,
     ).order_by('-updated_at')[:20]
 
     for index, defect in enumerate(confirmation_defects):
-        test_case = defect.execution.test_case if defect.execution else None
+        test_case = defect.test_case
         rows.append({
             'date': today + timedelta(days=index + 1),
             'time': None,
@@ -324,13 +326,12 @@ def execution_workspace_view(request):
     step_errors = []
     form_data = request.POST or None
     if request.method == 'POST' and selected_case and not is_teacher_user:
-        step_results, step_errors = build_step_results(selected_case, request.POST)
+        if not selected_case.has_approved_requirement:
+            messages.error(request, selected_case.execution_block_reason)
+            return redirect(f'{request.path}?case={selected_case.id}#execucion-manual')
         form_data = request.POST.copy()
-        form_data['result'] = aggregate_step_result(step_results)
-        if not (form_data.get('actual_result') or '').strip():
-            form_data['actual_result'] = summarize_step_results(step_results)
 
-    form = ExecutionResultForm(form_data, request.FILES or None, test_case=selected_case)
+    form = ExecutionResultForm(form_data, request.FILES or None, test_case=selected_case, user=request.user)
 
     if request.method == 'POST' and is_teacher_user:
         execution = get_object_or_404(
@@ -358,34 +359,14 @@ def execution_workspace_view(request):
             messages.success(request, 'Revisión de ejecución registrada correctamente.')
         return redirect(f'{request.path}?case={execution.test_case.id}')
 
-    if request.method == 'POST' and selected_case and step_errors:
-        for error in step_errors:
-            form.add_error(None, error)
-
-    if request.method == 'POST' and selected_case and not step_errors and form.is_valid():
+    if request.method == 'POST' and selected_case and form.is_valid():
         execution = form.save(commit=False)
         execution.test_case = selected_case
         execution.execution_mode = TestExecution.ExecutionMode.MANUAL
         execution.executed_by = request.user
         execution.executed_at = timezone.now()
-        execution.step_results = step_results
+        execution.step_results = []
         execution.save()
-        TestStepExecution.objects.bulk_create(
-            [
-                TestStepExecution(
-                    test_execution=execution,
-                    step_number=step['number'],
-                    action=step['action'],
-                    expected_result=step['expected_result'],
-                    obtained_result=step['actual_result'],
-                    status=step['status'],
-                    comment=step['comment'],
-                    started_at=execution.executed_at,
-                    finished_at=execution.executed_at,
-                )
-                for step in step_results
-            ]
-        )
         log_action(
             request.user,
             'CREATE',
@@ -423,21 +404,44 @@ def execution_workspace_view(request):
         return redirect(f'{request.path}?case={selected_case.id}')
 
     executions = (
-        selected_case.executions.select_related('executed_by').prefetch_related('automated_results__validation_rule')
+        selected_case.executions.select_related('executed_by').prefetch_related(
+            'automated_results__validation_rule',
+            'step_executions',
+        )
         if selected_case
         else TestCase.objects.none()
     )
-    execution_history = [
+    manual_history = [
         {
             'execution': execution,
             'evidence_is_image': is_image_evidence(execution.evidence),
         }
         for execution in executions
+        if execution.execution_mode == TestExecution.ExecutionMode.MANUAL
     ]
-    last_execution = execution_history[0]['execution'] if execution_history else None
-    execution_total = len(execution_history)
-    passed_count = sum(1 for item in execution_history if item['execution'].result == 'PASSED')
-    failed_count = sum(1 for item in execution_history if item['execution'].result == 'FAILED')
+    automated_history = [
+        {
+            'execution': execution,
+            'evidence_is_image': is_image_evidence(execution.evidence),
+        }
+        for execution in executions
+        if execution.execution_mode == TestExecution.ExecutionMode.AUTOMATED
+    ]
+    last_execution = manual_history[0]['execution'] if manual_history else None
+    last_automated_execution = automated_history[0]['execution'] if automated_history else None
+    manual_count = len(manual_history)
+    automated_count = len(automated_history)
+    execution_total = manual_count + automated_count
+    passed_count = sum(
+        1
+        for item in [*manual_history, *automated_history]
+        if item['execution'].result == 'PASSED'
+    )
+    failed_count = sum(
+        1
+        for item in [*manual_history, *automated_history]
+        if item['execution'].result == 'FAILED'
+    )
     success_percent = round((passed_count / execution_total) * 100) if execution_total else 0
     test_steps = split_test_steps(selected_case) if selected_case else []
     review_form = ExecutionReviewForm(instance=last_execution) if last_execution else None
@@ -446,14 +450,9 @@ def execution_workspace_view(request):
         if selected_case
         else AutomatedValidationRule.objects.none()
     )
-    last_automated_execution = (
-        selected_case.executions.filter(
-            execution_mode=TestExecution.ExecutionMode.SEMI_AUTOMATED
-        ).prefetch_related('automated_results__validation_rule').first()
-        if selected_case
-        else None
-    )
-    rule_form = AutomatedValidationRuleForm(test_case=selected_case) if selected_case else None
+    step_form = AutomatedStepForm(test_case=selected_case) if selected_case else None
+    test_data_form = TestDataForm() if selected_case else None
+    test_data_list = selected_case.test_data_vars.all() if selected_case else TestData.objects.none()
 
     return render(
         request,
@@ -461,11 +460,17 @@ def execution_workspace_view(request):
         {
             'form': form,
             'selected_case': selected_case,
+            'case_blocked': bool(selected_case and not selected_case.has_approved_requirement),
+            'case_block_reason': selected_case.execution_block_reason if selected_case else '',
             'test_cases': test_cases if not is_teacher_user else TestCase.objects.none(),
             'last_execution': last_execution,
             'review_form': review_form,
             'last_execution_evidence_is_image': is_image_evidence(last_execution.evidence) if last_execution else False,
-            'execution_history': execution_history,
+            'execution_history': [*manual_history, *automated_history],
+            'manual_history': manual_history,
+            'automated_history': automated_history,
+            'manual_count': manual_count,
+            'automated_count': automated_count,
             'execution_total': execution_total,
             'passed_count': passed_count,
             'failed_count': failed_count,
@@ -473,7 +478,9 @@ def execution_workspace_view(request):
             'test_steps': test_steps,
             'automated_rules': automated_rules,
             'last_automated_execution': last_automated_execution,
-            'rule_form': rule_form,
+            'step_form': step_form,
+            'test_data_form': test_data_form,
+            'test_data_list': test_data_list,
             'can_manage': can_manage_artifacts(request.user),
             'is_teacher': is_teacher_user,
             'teacher_projects': projects if is_teacher_user else None,
@@ -508,7 +515,7 @@ def execution_history_view(request, case_id):
             'evidence_is_image': is_image_evidence(execution.evidence),
         }
         for execution in executions
-        if execution.execution_mode == TestExecution.ExecutionMode.SEMI_AUTOMATED
+        if execution.execution_mode == TestExecution.ExecutionMode.AUTOMATED
     ]
     total = len(manual_history) + len(automated_history)
     passed = sum(
@@ -609,7 +616,7 @@ def automated_rule_create_view(request, case_id):
         pk=case_id,
         test_plan__project__in=visible_projects_for(request.user, request=request),
     )
-    form = AutomatedValidationRuleForm(request.POST, test_case=test_case)
+    form = AutomatedStepForm(request.POST, test_case=test_case)
     if form.is_valid():
         rule = form.save(commit=False)
         rule.test_case = test_case
@@ -620,9 +627,12 @@ def automated_rule_create_view(request, case_id):
             'CREATE',
             'AutomatedValidationRule',
             rule.pk,
-            {'test_case_id': test_case.pk, 'validation_type': rule.validation_type},
+            {
+                'test_case_id': test_case.pk,
+                'action_type': rule.action_type,
+            },
         )
-        messages.success(request, 'Regla automatizada registrada correctamente.')
+        messages.success(request, 'Paso automatizado registrado correctamente.')
     else:
         for errors in form.errors.values():
             for error in errors:
@@ -643,10 +653,10 @@ def automated_rule_delete_view(request, pk):
     if rule.execution_results.exists():
         rule.is_active = False
         rule.save(update_fields=['is_active', 'updated_at'])
-        messages.info(request, 'La regla tiene historial y fue desactivada en lugar de eliminarse.')
+        messages.info(request, 'El paso automatizado tiene historial y fue desactivado en lugar de eliminarse.')
     else:
         rule.delete()
-        messages.success(request, 'Regla automatizada eliminada.')
+        messages.success(request, 'Paso automatizado eliminado.')
     return redirect(f'{reverse("executions:index")}?case={test_case_id}#automation')
 
 
@@ -659,13 +669,16 @@ def automated_execution_run_view(request, case_id):
         pk=case_id,
         test_plan__project__in=visible_projects_for(request.user, request=request),
     )
+    if not test_case.has_approved_requirement:
+        messages.error(request, test_case.execution_block_reason)
+        return redirect(f'{reverse("executions:index")}?case={test_case.id}#automation')
     execution = run_automated_execution(test_case, request.user)
     test_case.status = RESULT_TO_CASE_STATUS.get(execution.result, TestCase.Status.PENDING)
     test_case.save(update_fields=['status', 'updated_at'])
     if execution.result == TestExecution.Result.FAILED:
         messages.warning(request, 'La ejecucion fallo y se genero un defecto asociado.')
     elif execution.result == TestExecution.Result.PASSED:
-        messages.success(request, 'Todas las reglas automatizadas aprobaron.')
+        messages.success(request, 'Todos los pasos automatizados aprobaron.')
     else:
         messages.warning(request, f'Ejecución finalizada con estado {execution.get_result_display()}.')
     return redirect(f'{reverse("executions:index")}?case={test_case.id}#automation')
@@ -678,6 +691,45 @@ def teacher_api_projects(request):
     projects = visible_projects_for(request.user, request=request).order_by('name')
     data = [{'id': p.pk, 'code': p.code, 'name': p.name} for p in projects]
     return JsonResponse(data, safe=False)
+
+
+@login_required
+def test_data_create_view(request, case_id):
+    if request.method != 'POST' or is_teacher(request.user):
+        return redirect('executions:index')
+    
+    test_case = get_object_or_404(
+        TestCase.objects.select_related('requirement', 'test_plan__project'),
+        pk=case_id,
+        test_plan__project__in=visible_projects_for(request.user, request=request),
+    )
+    form = TestDataForm(request.POST)
+    if form.is_valid():
+        data = form.save(commit=False)
+        data.test_case = test_case
+        data.save()
+        messages.success(request, 'Variable de prueba registrada correctamente.')
+    else:
+        for errors in form.errors.values():
+            for error in errors:
+                messages.error(request, error)
+    return redirect(f'{reverse("executions:index")}?case={test_case.id}#automation')
+
+
+@login_required
+def test_data_delete_view(request, pk):
+    if request.method != 'POST' or is_teacher(request.user):
+        return redirect('executions:index')
+    
+    data = get_object_or_404(
+        TestData.objects.select_related('test_case__test_plan__project'),
+        pk=pk,
+        test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
+    )
+    test_case_id = data.test_case_id
+    data.delete()
+    messages.success(request, 'Variable de prueba eliminada.')
+    return redirect(f'{reverse("executions:index")}?case={test_case_id}#automation')
 
 
 @login_required

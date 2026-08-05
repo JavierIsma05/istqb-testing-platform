@@ -15,8 +15,16 @@
         <a class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}" title="Dashboard"><i class="bi bi-grid"></i><span>Dashboard</span></a>
         <a class="{% if request.resolver_match.namespace == 'projects' %}active{% endif %}" href="{% url 'projects:index' %}" title="Proyectos"><i class="bi bi-kanban"></i><span>Proyectos</span></a>
         <a class="{% if request.resolver_match.namespace == 'requirements' %}active{% endif %}" href="{% url 'requirements:index' %}" title="Requisitos"><i class="bi bi-file-earmark-text"></i><span>Requisitos</span></a>
-        <a class="{% if request.resolver_match.namespace == 'testplans' %}active{% endif %}" href="{% url 'testplans:index' %}" title="Plan de Pruebas"><i class="bi bi-clipboard-check"></i><span>Plan de Pruebas</span></a>
-        <a class="{% if request.resolver_match.namespace == 'incidents' %}active{% endif %}" href="{% url 'incidents:index' %}" title="Riesgos del Plan"><i class="bi bi-exclamation-triangle"></i><span>Riesgos del Plan</span></a>
+        <div class="sidebar-group">
+            <button class="sidebar-group-toggle {% if request.resolver_match.namespace == 'testplans' %}active{% endif %}" type="button" data-sidebar-group-toggle aria-expanded="{% if request.resolver_match.namespace == 'testplans' %}true{% else %}false{% endif %}" title="Plan de Pruebas">
+                <i class="bi bi-clipboard-check"></i>
+                <span>Plan de Pruebas</span>
+                <i class="bi bi-chevron-down sidebar-group-chevron"></i>
+            </button>
+            <div class="sidebar-group-menu {% if request.resolver_match.namespace == 'testplans' %}open{% endif %}">
+                <a class="{% if request.resolver_match.namespace == 'testplans' %}active{% endif %}" href="{% url 'testplans:index' %}" title="Información del Plan"><i class="bi bi-file-earmark-text"></i><span>Información del Plan</span></a>
+            </div>
+        </div>
         <a class="{% if request.resolver_match.namespace == 'testcases' %}active{% endif %}" href="{% url 'testcases:index' %}" title="Casos de Prueba"><i class="bi bi-file-check"></i><span>Casos de Prueba</span></a>
         <a class="{% if request.resolver_match.namespace == 'executions' %}active{% endif %}" href="{% url 'executions:index' %}" title="Ejecución"><i class="bi bi-play"></i><span>Ejecución</span></a>
         <a class="{% if request.resolver_match.namespace == 'defects' %}active{% endif %}" href="{% url 'defects:index' %}" title="Defectos"><i class="bi bi-bug"></i><span>Defectos</span></a>

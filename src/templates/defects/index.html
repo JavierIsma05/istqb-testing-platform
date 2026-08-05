@@ -16,6 +16,14 @@
     {% endif %}
 </div>
 
+{% if messages %}
+    <div class="project-messages">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+{% endif %}
+
 <section class="defect-metric-grid">
     <article class="defect-metric-card danger">
         <strong>{{ open_count }}</strong>
@@ -24,6 +32,14 @@
     <article class="defect-metric-card warning">
         <strong>{{ in_fix_count }}</strong>
         <span>En Corrección</span>
+    </article>
+    <article class="defect-metric-card info">
+        <strong>{{ resolved_count }}</strong>
+        <span>Resueltos</span>
+    </article>
+    <article class="defect-metric-card warning">
+        <strong>{{ reopened_count }}</strong>
+        <span>Reabiertos</span>
     </article>
     <article class="defect-metric-card success">
         <strong>{{ closed_count }}</strong>
@@ -78,26 +94,17 @@
                         <span class="defect-meta-pill defect-meta-{{ item.severity_badge }}">
                             Severidad: {{ item.defect.get_severity_display }}
                         </span>
-                        <span class="defect-meta-pill defect-meta-{{ item.priority_badge }}">
-                            Prioridad: {{ item.defect.get_priority_display }}
-                        </span>
-                        <span>Historial: {{ item.defect.history_count }}</span>
-                        {% if item.defect.execution %}
+                        {% if item.defect.test_case %}
                             <span>
-                                Caso: {{ item.defect.execution.test_case.code }}
+                                Caso: {{ item.defect.test_case.code }}
                             </span>
+                        {% endif %}
+                        {% if item.defect.execution %}
                             <span>
                                 Ejecución #{{ item.defect.execution.id }} - {{ item.defect.execution.get_execution_mode_display }}
                             </span>
                         {% endif %}
-                        <span>
-                            Asignado:
-                            {% if item.defect.assigned_to %}
-                                {{ item.defect.assigned_to.get_full_name|default:item.defect.assigned_to.email }}
-                            {% else %}
-                                Sin asignar
-                            {% endif %}
-                        </span>
+                        <span>Historial: {{ item.defect.history_count }}</span>
                     </p>
                 </div>
                 <div class="list-row-actions">
@@ -106,6 +113,15 @@
                     </span>
                     {% if can_manage %}
                         <div class="manage-actions" aria-label="Gestionar defecto">
+                            {% if item.next_status %}
+                                <form method="POST" action="{% url 'defects:transition' item.defect.pk %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-outline-brand btn-sm" type="submit">
+                                        <i class="bi bi-arrow-right-circle"></i>
+                                        Avanzar a {{ item.next_status|lower }}
+                                    </button>
+                                </form>
+                            {% endif %}
                             <a class="btn btn-outline-brand btn-sm" href="{% url 'defects:edit' item.defect.pk %}">
                                 <i class="bi bi-pencil"></i>
                                 Editar

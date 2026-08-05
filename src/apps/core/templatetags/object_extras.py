@@ -10,3 +10,8 @@ def attr(obj, name):
     if callable(value):
         return value()
     return value
+
+
+@register.filter
+def get_item(dictionary, key):
+    return dictionary.get(key, '')

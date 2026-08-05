@@ -22,20 +22,28 @@
     {% endif %}
 </div>
 
+{% if messages %}
+    <div class="project-messages">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+{% endif %}
+
 <section class="requirements-metric-grid">
     <article class="requirement-metric-card">
         <strong>{{ total }}</strong>
         <span>Total Requisitos</span>
     </article>
     <article class="requirement-metric-card success">
-        <strong>{{ covered }}</strong>
-        <span>Cubiertos</span>
-    </article>
-    <article class="requirement-metric-card">
-        <strong>{{ coverage_percent }}%</strong>
-        <span>Cobertura</span>
+        <strong>{{ approved }}</strong>
+        <span>Aprobado</span>
     </article>
     <article class="requirement-metric-card warning">
+        <strong>{{ in_review }}</strong>
+        <span>En revisión</span>
+    </article>
+    <article class="requirement-metric-card">
         <strong>{{ pending }}</strong>
         <span>Pendientes</span>
     </article>

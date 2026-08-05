@@ -1,11 +1,17 @@
+import json
+
 from django import forms
 
+from apps.core.forms import CurrentAcademicYearValidationMixin, current_year_date_attrs
 from apps.core.permissions import visible_projects_for
 
 from .models import TestPlan
 
 
-class TestPlanWizardForm(forms.ModelForm):
+DATE_RANGE_ERROR = 'Las fechas del Plan de Pruebas deben estar dentro del período definido para el proyecto.'
+
+
+class TestPlanWizardForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
     test_types = forms.MultipleChoiceField(
         label='Tipos de prueba',
         choices=TestPlan.TestType.choices,
@@ -33,7 +39,6 @@ class TestPlanWizardForm(forms.ModelForm):
             'environment',
             'responsibilities',
             'estimation',
-            'base_document',
             'start_date',
             'end_date',
             'status',
@@ -56,7 +61,6 @@ class TestPlanWizardForm(forms.ModelForm):
             'environment': 'Ambiente de prueba',
             'responsibilities': 'Responsables y roles',
             'estimation': 'Estimacion de esfuerzo',
-            'base_document': 'Documento base (opcional)',
             'start_date': 'Fecha de Inicio',
             'end_date': 'Fecha de Finalizacion',
             'status': 'Estado',
@@ -102,11 +106,14 @@ class TestPlanWizardForm(forms.ModelForm):
             'estimation': forms.Textarea(
                 attrs={'class': 'form-control', 'placeholder': 'Horas, cantidad de casos, ventanas de ejecucion o esfuerzo esperado...', 'rows': 3}
             ),
-            'base_document': forms.ClearableFileInput(
-                attrs={'class': 'form-control', 'accept': '.pdf,.docx,.xlsx,.odt,.txt'}
+            'start_date': forms.DateInput(
+                attrs=current_year_date_attrs({'class': 'form-control', 'type': 'date'}),
+                format='%Y-%m-%d',
             ),
-            'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
-            'end_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
+            'end_date': forms.DateInput(
+                attrs=current_year_date_attrs({'class': 'form-control', 'type': 'date'}),
+                format='%Y-%m-%d',
+            ),
             'status': forms.Select(attrs={'class': 'form-select'}),
         }
 
@@ -115,6 +122,16 @@ class TestPlanWizardForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if user:
             self.fields['project'].queryset = visible_projects_for(user).order_by('name')
+        projects = self.fields['project'].queryset.only('pk', 'start_date', 'end_date')
+        self.fields['project'].widget.attrs.update({
+            'data-date-ranges': json.dumps({
+                str(project.pk): {
+                    'start': project.start_date.isoformat() if project.start_date else '',
+                    'end': project.end_date.isoformat() if project.end_date else '',
+                }
+                for project in projects
+            }),
+        })
         self.fields['start_date'].input_formats = ['%Y-%m-%d']
         self.fields['end_date'].input_formats = ['%Y-%m-%d']
         self.fields['test_types'].initial = self.instance.test_types or [TestPlan.TestType.FUNCTIONAL]
@@ -143,9 +160,8 @@ class TestPlanWizardForm(forms.ModelForm):
             'environment': 'Identifica ambiente, navegador, sistema, versión y configuración de prueba.',
             'responsibilities': 'Asigna responsabilidades de diseño, ejecución, revisión y seguimiento.',
             'estimation': 'Registra esfuerzo, tiempo o volumen esperado de trabajo de pruebas.',
-            'base_document': 'Adjunta un documento de requisitos, alcance o referencia. Formatos: PDF, DOCX, XLSX, ODT o TXT; máximo 10 MB.',
-            'start_date': 'Fecha planificada para iniciar las actividades del plan.',
-            'end_date': 'Fecha planificada para terminar o cerrar el ciclo de pruebas.',
+            'start_date': 'Fecha planificada para iniciar las actividades del plan. Debe estar dentro del período del proyecto.',
+            'end_date': 'Fecha planificada para terminar o cerrar el ciclo de pruebas. Debe estar dentro del período del proyecto.',
             'status': 'Marca el estado actual del plan dentro del flujo de trabajo.',
         }
         for name, help_text in help_texts.items():
@@ -167,15 +183,24 @@ class TestPlanWizardForm(forms.ModelForm):
         value = self.cleaned_data.get('minimum_coverage_percentage')
         return 90 if value is None else value
 
-    def clean_base_document(self):
-        document = self.cleaned_data.get('base_document')
-        if document and document.size > 10 * 1024 * 1024:
-            raise forms.ValidationError('El documento base no debe superar 10 MB.')
-        return document
-
     def clean(self):
         cleaned_data = super().clean()
         project = cleaned_data.get('project')
+        start_date = cleaned_data.get('start_date')
+        end_date = cleaned_data.get('end_date')
+        if project:
+            if start_date and end_date and start_date > end_date:
+                self.add_error('end_date', 'La fecha de finalización no puede ser anterior a la fecha de inicio.')
+            if start_date and project.start_date and start_date < project.start_date:
+                self.add_error('start_date', DATE_RANGE_ERROR)
+            if end_date and project.end_date and end_date > project.end_date:
+                self.add_error('end_date', DATE_RANGE_ERROR)
+            if (
+                project.start_date
+                and project.end_date
+                and project.start_date > project.end_date
+            ):
+                self.add_error('project', 'El proyecto no tiene un período de fechas válido.')
         if project and not project.requirements.exists():
             self.add_error(
                 'project',

@@ -245,7 +245,7 @@ def test_confirmacion_de_importacion_numera_solo_requisitos_enviados(client, pro
     imported = list(Requirement.objects.filter(title__endswith='detectado').order_by('code'))
 
     assert response.status_code == 302
-    assert [item.code for item in imported] == ['REQ-000', 'REQ-001']
+    assert [item.code for item in imported] == ['REQ-001', 'REQ-002']
     assert [item.title for item in imported] == ['Segundo detectado', 'Tercero detectado']
 
 
@@ -297,7 +297,7 @@ def test_actualizacion_de_requisito_agrega_nueva_version(client, requirement, us
             'description': 'El sistema debe guardar cada cambio.',
             'requirement_type': Requirement.RequirementType.FUNCTIONAL,
             'priority': Requirement.Priority.CRITICAL,
-            'status': Requirement.Status.CHANGED,
+            'status': Requirement.Status.APPROVED,
         },
     )
 
@@ -366,14 +366,6 @@ def test_docente_marca_todos_los_requisitos_visibles_como_revisados(client, proj
         status=Requirement.Status.APPROVED,
         created_by=user,
     )
-    retired = Requirement.objects.create(
-        project=project,
-        code='REQ-023',
-        title='Requisito retirado',
-        description='El sistema debe conservar los requisitos retirados.',
-        status=Requirement.Status.RETIRED,
-        created_by=user,
-    )
     client.force_login(teacher)
 
     response = client.post(reverse('requirements:bulk_review'), {'project': project.pk})
@@ -381,15 +373,12 @@ def test_docente_marca_todos_los_requisitos_visibles_como_revisados(client, proj
     first.refresh_from_db()
     second.refresh_from_db()
     already_reviewed.refresh_from_db()
-    retired.refresh_from_db()
 
     assert response.status_code == 302
     assert first.status == Requirement.Status.APPROVED
     assert second.status == Requirement.Status.APPROVED
     assert already_reviewed.status == Requirement.Status.APPROVED
-    assert retired.status == Requirement.Status.RETIRED
     assert first.versions.filter(changed_by=teacher, change_reason='Revision docente masiva').exists()
     assert second.versions.filter(changed_by=teacher, change_reason='Revision docente masiva').exists()
     assert not already_reviewed.versions.filter(change_reason='Revision docente masiva').exists()
-    assert not retired.versions.filter(change_reason='Revision docente masiva').exists()
     assert AuditLog.objects.filter(action='BULK_TEACHER_REVIEW', entity='Requirement').exists()

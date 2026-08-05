@@ -1,0 +1,150 @@
+{% extends 'layouts/dashboard_base.html' %}
+{% load static %}
+
+{% block title %}Informe de Ejecuciones - {{ plan.name }}{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading reports-heading">
+    <div>
+        <nav class="module-breadcrumb" aria-label="Navegación del módulo Informes">
+            <a href="{% url 'reports:index' %}">Informes</a>
+            <i class="bi bi-chevron-right"></i>
+            <a href="{% url 'reports:plan-dashboard' plan.pk %}">{{ plan.name }}</a>
+            <i class="bi bi-chevron-right"></i>
+            <strong>Ejecuciones</strong>
+        </nav>
+        <h2>Informe de Ejecuciones</h2>
+        <p>{{ plan.project.name }} · {{ plan.name }}</p>
+    </div>
+    <div class="d-flex gap-2 no-print">
+        <a class="btn btn-outline-brand" href="{% url 'reports:plan-report' %}?type=ejecuciones">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+        <button class="btn btn-brand" type="button" onclick="window.print()">
+            <i class="bi bi-printer"></i> Imprimir
+        </button>
+        <a class="btn btn-outline-brand" href="{% url 'reports:plan-pdf' plan.pk 'ejecuciones' %}">
+            <i class="bi bi-file-earmark-pdf"></i> Generar PDF
+        </a>
+    </div>
+</div>
+
+<section class="report-preview plan-report-preview">
+    <header class="unl-report-header">
+        <img
+            class="report-brand-logo report-brand-logo-career"
+            src="{% static 'images/reports/career-logo.png' %}"
+            alt="Carrera de Ingenieria en Sistemas y Computacion"
+        >
+        <div class="report-institution-title">
+            <h3>UNIVERSIDAD NACIONAL DE LOJA</h3>
+            <p>Facultad de la Energía, las Industrias y los Recursos Naturales no Renovables</p>
+            <p>Carrera de Computación</p>
+            <p>Plataforma ISTQB - Gestión del Ciclo de Vida de Pruebas</p>
+        </div>
+        <img
+            class="report-brand-logo report-brand-logo-unl"
+            src="{% static 'images/reports/unl-logo.png' %}"
+            alt="Universidad Nacional de Loja"
+        >
+    </header>
+
+    <div class="report-preview-title">
+        <h4>Informe de Ejecuciones</h4>
+        <span>{{ plan.project.name }} · {{ plan.name }}</span>
+    </div>
+
+    <div class="final-kpi-grid">
+        <article class="final-kpi-card">
+            <i class="bi bi-play-circle"></i>
+            <span>Total ejecuciones</span>
+            <strong>{{ executions }}</strong>
+        </article>
+        <article class="final-kpi-card">
+            <i class="bi bi-check-circle"></i>
+            <span>Aprobadas</span>
+            <strong>{{ passed_executions }}</strong>
+        </article>
+        <article class="final-kpi-card">
+            <i class="bi bi-x-circle"></i>
+            <span>Fallidas</span>
+            <strong>{{ failed_executions }}</strong>
+        </article>
+        <article class="final-kpi-card">
+            <i class="bi bi-pause-circle"></i>
+            <span>Bloqueadas</span>
+            <strong>{{ blocked_executions }}</strong>
+        </article>
+        <article class="final-kpi-card">
+            <i class="bi bi-dash-circle"></i>
+            <span>Error técnico</span>
+            <strong>{{ error_executions }}</strong>
+        </article>
+        <article class="final-kpi-card">
+            <i class="bi bi-hourglass-split"></i>
+            <span>No ejecutadas</span>
+            <strong>{{ not_run_executions }}</strong>
+        </article>
+    </div>
+
+    <h5>Resultados de ejecución</h5>
+    <div class="bar-chart" role="img" aria-label="Resultados de ejecución">
+        {% for item in execution_chart.items %}
+            <div class="bar-chart-row">
+                <span>{{ item.label }}</span>
+                <div class="bar-chart-track"><span class="tone-{{ item.tone }}" style="width: {{ item.percent }}%"></span></div>
+                <strong>{{ item.value }}</strong>
+            </div>
+        {% endfor %}
+    </div>
+    <div class="chart-legend">
+        {% for item in execution_chart.items %}
+            <span><i class="legend-dot tone-{{ item.tone }}"></i>{{ item.label }}: {{ item.value }}</span>
+        {% endfor %}
+    </div>
+
+    <h5>Distribución por estado</h5>
+    <table class="report-preview-table metrics">
+        <thead><tr><th>Estado</th><th>Cantidad</th><th>Porcentaje</th></tr></thead>
+        <tbody>
+            {% for row in execution_status_distribution %}
+                <tr><td>{{ row.status }}</td><td>{{ row.count }}</td><td>{{ row.percent }}%</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h5>Detalle de ejecuciones</h5>
+    <table class="report-preview-table metrics">
+        <thead>
+            <tr>
+                <th>Caso</th>
+                <th>Fecha</th>
+                <th>Ejecutor</th>
+                <th>Modo</th>
+                <th>Tipo</th>
+                <th>Resultado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in execution_rows %}
+                <tr>
+                    <td>{{ item.execution.test_case.code }} - {{ item.execution.test_case.title }}</td>
+                    <td>{{ item.execution.executed_at|date:'d/m/Y H:i'|default:'—' }}</td>
+                    <td>{{ item.executor }}</td>
+                    <td>{{ item.execution.get_execution_mode_display }}</td>
+                    <td>{{ item.execution.get_execution_type_display }}</td>
+                    <td><span class="testcase-status testcase-status-{{ item.result_tone }}">{{ item.execution.get_result_display }}</span></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="report-empty-cell">El plan de pruebas no tiene ejecuciones registradas.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h5>Observación institucional</h5>
+    <p class="report-observation">
+        Este documento fue generado por la Plataforma ISTQB como evidencia del ciclo de vida de pruebas.
+        La información debe ser revisada por el docente tutor antes de su presentación formal.
+    </p>
+</section>
+{% endblock %}

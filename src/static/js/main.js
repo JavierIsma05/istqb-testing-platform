@@ -149,6 +149,58 @@ document.addEventListener('DOMContentLoaded', function () {
         renderRisks();
     });
 
+    Array.prototype.slice.call(document.querySelectorAll('[data-plans-by-project]')).forEach(function (projectField) {
+        var projectSelect = document.getElementById('planReportProject');
+        var planField = document.getElementById('planReportPlan');
+        var goButton = document.getElementById('planReportGo');
+        var plansByProject = {};
+
+        try {
+            plansByProject = JSON.parse(projectField.getAttribute('data-plans-by-project') || '{}');
+        } catch (error) {
+            plansByProject = {};
+        }
+
+        if (!projectSelect || !planField) {
+            return;
+        }
+
+        function renderPlans() {
+            var projectId = projectSelect.value;
+            var plans = plansByProject[projectId] || [];
+
+            planField.innerHTML = '';
+
+            var placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = plans.length
+                ? 'Selecciona un plan de pruebas'
+                : 'El proyecto seleccionado no tiene planes de pruebas';
+            planField.appendChild(placeholder);
+
+            plans.forEach(function (plan) {
+                var option = document.createElement('option');
+                option.value = String(plan.value);
+                option.textContent = plan.label;
+                planField.appendChild(option);
+            });
+
+            planField.disabled = plans.length === 0;
+            planField.value = '';
+            if (goButton) {
+                goButton.disabled = true;
+            }
+        }
+
+        projectSelect.addEventListener('change', renderPlans);
+        planField.addEventListener('change', function () {
+            if (goButton) {
+                goButton.disabled = !planField.value;
+            }
+        });
+        renderPlans();
+    });
+
     var themeToggles = Array.prototype.slice.call(document.querySelectorAll('[data-theme-toggle]'));
     var themeIcons = Array.prototype.slice.call(document.querySelectorAll('[data-theme-icon]'));
     var root = document.documentElement;
@@ -249,6 +301,44 @@ document.addEventListener('DOMContentLoaded', function () {
 
         renderSidebarState();
     }
+
+    var sidebarGroups = Array.prototype.slice.call(document.querySelectorAll('[data-sidebar-group-toggle]'));
+
+    function syncSidebarGroups() {
+        sidebarGroups.forEach(function (toggle) {
+            var menu = toggle.parentElement.querySelector('.sidebar-group-menu');
+
+            if (!menu) {
+                return;
+            }
+
+            var hasActiveChild = !!menu.querySelector('a.active');
+
+            menu.classList.toggle('open', hasActiveChild);
+            toggle.setAttribute('aria-expanded', hasActiveChild ? 'true' : 'false');
+        });
+    }
+
+    sidebarGroups.forEach(function (toggle) {
+        toggle.addEventListener('click', function () {
+            if (root.classList.contains('sidebar-collapsed') && !isMobileSidebar()) {
+                root.classList.remove('sidebar-collapsed');
+                renderSidebarState();
+                return;
+            }
+
+            var menu = toggle.parentElement.querySelector('.sidebar-group-menu');
+
+            if (!menu) {
+                return;
+            }
+
+            var isOpen = menu.classList.toggle('open');
+            toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+    });
+
+    syncSidebarGroups();
 
     var wizard = document.querySelector('.wizard-page');
 
@@ -547,56 +637,462 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
 
-        setExecutionMode(window.location.hash === '#automation' ? 'automated' : 'manual', false);
+        setExecutionMode(
+            executionModeShell.getAttribute('data-default-mode') === 'automated' || window.location.hash === '#automation' ? 'automated' : 'manual',
+            false
+        );
     }
 
-    var validationTypeField = document.getElementById('id_validation_type');
+    var actionTypeField = document.getElementById('id_action_type');
 
-    if (validationTypeField) {
-        var ruleHelp = document.querySelector('[data-rule-type-help]');
-        var ruleFieldMap = {
-            FIELD_REQUIRED: ['name', 'step_number', 'validation_type', 'target_url', 'selector_type', 'selector_value', 'secondary_selector_value', 'timeout_seconds', 'browser', 'capture_evidence', 'is_active'],
-            EMAIL_FORMAT: ['name', 'step_number', 'validation_type', 'target_url', 'selector_type', 'selector_value', 'secondary_selector_value', 'input_value', 'timeout_seconds', 'browser', 'capture_evidence', 'is_active'],
-            MAX_LENGTH: ['name', 'step_number', 'validation_type', 'target_url', 'selector_type', 'selector_value', 'secondary_selector_value', 'input_value', 'max_length', 'timeout_seconds', 'browser', 'capture_evidence', 'is_active'],
-            MIN_LENGTH: ['name', 'step_number', 'validation_type', 'target_url', 'selector_type', 'selector_value', 'secondary_selector_value', 'input_value', 'min_length', 'timeout_seconds', 'browser', 'capture_evidence', 'is_active'],
-            TEXT_VISIBLE: ['name', 'step_number', 'validation_type', 'target_url', 'expected_text', 'timeout_seconds', 'browser', 'capture_evidence', 'is_active'],
-            ELEMENT_VISIBLE: ['name', 'step_number', 'validation_type', 'target_url', 'selector_type', 'selector_value', 'timeout_seconds', 'browser', 'capture_evidence', 'is_active'],
-            REDIRECT_URL: ['name', 'step_number', 'validation_type', 'target_url', 'selector_type', 'selector_value', 'expected_url', 'timeout_seconds', 'browser', 'capture_evidence', 'is_active'],
-            HTTP_STATUS: ['name', 'step_number', 'validation_type', 'target_url', 'expected_http_status', 'timeout_seconds', 'is_active'],
-            BUTTON_DISABLED: ['name', 'step_number', 'validation_type', 'target_url', 'selector_type', 'selector_value', 'timeout_seconds', 'browser', 'capture_evidence', 'is_active'],
-            FORM_SUBMISSION_BLOCKED: ['name', 'step_number', 'validation_type', 'target_url', 'selector_type', 'selector_value', 'secondary_selector_value', 'input_value', 'timeout_seconds', 'browser', 'capture_evidence', 'is_active']
+    if (actionTypeField) {
+        var stepHelp = document.querySelector('[data-step-action-help]');
+        var stepFieldMap = {
+            OPEN_URL: ['name', 'step_number', 'action_type', 'target_url', 'timeout_seconds', 'is_critical'],
+            CLICK: ['name', 'step_number', 'action_type', 'selector_value', 'timeout_seconds', 'is_critical'],
+            FILL_TEXT: ['name', 'step_number', 'action_type', 'selector_value', 'input_value', 'timeout_seconds', 'is_critical'],
+            VERIFY: ['name', 'step_number', 'action_type', 'selector_value', 'expected_value', 'comparison_type', 'timeout_seconds', 'is_critical'],
+            WAIT: ['name', 'step_number', 'action_type', 'selector_value', 'input_value', 'timeout_seconds', 'is_critical']
         };
-        var ruleHelpText = {
-            FIELD_REQUIRED: 'Valida que un campo obligatorio no permita enviar el formulario vacio. Usa selector principal para el campo y selector secundario para el boton de envio.',
-            EMAIL_FORMAT: 'Escribe un correo invalido en el campo principal y comprueba que el formulario lo rechace.',
-            MAX_LENGTH: 'Escribe un texto mayor al permitido y comprueba que el campo o el formulario respeten la longitud máxima.',
-            MIN_LENGTH: 'Escribe un texto menor al mínimo y comprueba que el formulario bloquee el envío.',
-            TEXT_VISIBLE: 'Comprueba que la página muestre un texto. No necesitas selector principal para este tipo.',
-            ELEMENT_VISIBLE: 'Comprueba que un elemento específico exista y sea visible.',
-            REDIRECT_URL: 'Hace clic en el elemento principal y valida que la página termine en la URL esperada.',
-            HTTP_STATUS: 'Comprueba que la URL objetivo responda con el código HTTP esperado. No usa navegador ni selectores.',
-            BUTTON_DISABLED: 'Comprueba que un boton o control este deshabilitado.',
-            FORM_SUBMISSION_BLOCKED: 'Intenta enviar un formulario y valida que no navegue ni acepte datos invalidos.'
+        var stepHelpText = {
+            OPEN_URL: 'Abre la URL especificada en el navegador. Solo se requiere el campo "URL a abrir".',
+            CLICK: 'Hace clic en el elemento especificado. Solo se requiere el campo "Elemento" (selector CSS).',
+            FILL_TEXT: 'Escribe el dato especificado en el campo de texto. Requiere "Elemento" (selector CSS) y "Dato" (acepta variables como {{usuario}}).',
+            VERIFY: 'Verifica que un elemento, texto o URL cumpla una condición. Requiere "Elemento" (o "URL actual"), "Resultado esperado" y "Tipo de comparación".',
+            WAIT: 'Espera un tiempo en segundos o a que un elemento sea visible. Usa "Dato" para segundos o "Elemento" para esperar un selector.'
         };
 
-        function renderRuleFields() {
-            var visibleFields = ruleFieldMap[validationTypeField.value] || ['name', 'step_number', 'validation_type', 'target_url', 'timeout_seconds', 'is_active'];
+        function renderStepFields() {
+            var visibleFields = stepFieldMap[actionTypeField.value] || ['name', 'step_number', 'action_type', 'is_critical'];
 
-            Array.prototype.slice.call(document.querySelectorAll('[data-rule-field]')).forEach(function (fieldWrapper) {
-                var fieldName = fieldWrapper.getAttribute('data-rule-field');
+            Array.prototype.slice.call(document.querySelectorAll('[data-step-field]')).forEach(function (fieldWrapper) {
+                var fieldName = fieldWrapper.getAttribute('data-step-field');
                 fieldWrapper.hidden = visibleFields.indexOf(fieldName) === -1;
             });
 
-            if (ruleHelp) {
-                var title = validationTypeField.options[validationTypeField.selectedIndex]
-                    ? validationTypeField.options[validationTypeField.selectedIndex].text
-                    : 'Selecciona un tipo de validación';
-                ruleHelp.querySelector('strong').textContent = title;
-                ruleHelp.querySelector('span').textContent = ruleHelpText[validationTypeField.value] || 'El formulario mostrara solo los campos necesarios para esa regla.';
+            if (stepHelp) {
+                var title = actionTypeField.options[actionTypeField.selectedIndex]
+                    ? actionTypeField.options[actionTypeField.selectedIndex].text
+                    : 'Selecciona una acción';
+                stepHelp.querySelector('strong').textContent = title;
+                stepHelp.querySelector('span').textContent = stepHelpText[actionTypeField.value] || 'El formulario mostrara solo los campos necesarios para ese paso.';
             }
         }
 
-        validationTypeField.addEventListener('change', renderRuleFields);
-        renderRuleFields();
+        actionTypeField.addEventListener('change', renderStepFields);
+        renderStepFields();
     }
+
+    // Template selector for automated steps
+    var templateSelect = document.querySelector('[data-template-select]');
+    
+    if (templateSelect) {
+        var templates = {
+            'login': {
+                'action_type': 'OPEN_URL',
+                'target_url': 'http://localhost:8000/login/',
+                'selector_value': '',
+                'input_value': '',
+                'expected_value': '',
+                'comparison_type': 'EXACT',
+                'timeout_seconds': 10
+            },
+            'search': {
+                'action_type': 'FILL_TEXT',
+                'target_url': '',
+                'selector_value': 'input[name="q"]',
+                'input_value': '{{termino_busqueda}}',
+                'expected_value': '',
+                'comparison_type': 'EXACT',
+                'timeout_seconds': 10
+            },
+            'form_submit': {
+                'action_type': 'CLICK',
+                'target_url': '',
+                'selector_value': 'button[type="submit"]',
+                'input_value': '',
+                'expected_value': '',
+                'comparison_type': 'EXACT',
+                'timeout_seconds': 10
+            }
+        };
+
+        templateSelect.addEventListener('change', function() {
+            var template = templates[templateSelect.value];
+            if (!template) return;
+
+            var actionField = document.getElementById('id_action_type');
+            var targetUrlField = document.getElementById('id_target_url');
+            var selectorField = document.getElementById('id_selector_value');
+            var inputField = document.getElementById('id_input_value');
+            var expectedField = document.getElementById('id_expected_value');
+            var comparisonField = document.getElementById('id_comparison_type');
+            var timeoutField = document.getElementById('id_timeout_seconds');
+
+            if (actionField) actionField.value = template.action_type;
+            if (targetUrlField) targetUrlField.value = template.target_url;
+            if (selectorField) selectorField.value = template.selector_value;
+            if (inputField) inputField.value = template.input_value;
+            if (expectedField) expectedField.value = template.expected_value;
+            if (comparisonField) comparisonField.value = template.comparison_type;
+            if (timeoutField) timeoutField.value = template.timeout_seconds;
+
+            // Trigger the action type change to update field visibility
+            if (actionField) {
+                var event = new Event('change', { bubbles: true });
+                actionField.dispatchEvent(event);
+            }
+        });
+    }
+
+    function bindCurrentYearDateValidation() {
+        Array.prototype.slice.call(document.querySelectorAll('form')).forEach(function (form) {
+            var dateInputs = Array.prototype.slice.call(form.querySelectorAll('input[type="date"][min][max]'));
+            if (!dateInputs.length) {
+                return;
+            }
+
+            form.addEventListener('submit', function (event) {
+                var firstInvalid = null;
+
+                dateInputs.forEach(function (input) {
+                    if (!input.value) {
+                        return;
+                    }
+
+                    var min = input.getAttribute('min');
+                    var max = input.getAttribute('max');
+                    if (!min || !max) {
+                        return;
+                    }
+
+                    if (input.value < min || input.value > max) {
+                        var errorBox = input.closest('.date-field');
+                        var help = errorBox
+                            ? errorBox.querySelector('.current-year-error')
+                            : input.parentElement.querySelector('.current-year-error');
+
+                        if (!help) {
+                            help = document.createElement('div');
+                            help.className = 'form-error current-year-error';
+                            help.textContent = 'La fecha debe estar dentro del año académico vigente (' + max.slice(0, 4) + ').';
+                            var anchor = errorBox || input.parentElement;
+                            anchor.appendChild(help);
+                        }
+
+                        if (!firstInvalid) {
+                            firstInvalid = input;
+                        }
+                    }
+                });
+
+                if (firstInvalid) {
+                    event.preventDefault();
+                    firstInvalid.focus();
+                }
+            });
+        });
+    }
+
+    bindCurrentYearDateValidation();
+
+    function initFormDrafts() {
+        var forms = Array.prototype.slice.call(document.querySelectorAll('form[data-draft-module]'));
+
+        forms.forEach(function (form) {
+            var module = form.getAttribute('data-draft-module');
+            var saveUrl = form.getAttribute('data-draft-save-url');
+            var getUrl = form.getAttribute('data-draft-get-url');
+            var clearUrl = form.getAttribute('data-draft-clear-url');
+            var objectId = form.getAttribute('data-draft-object-id') || '0';
+            var projectSelector = form.getAttribute('data-draft-project-select');
+            var staticProject = form.getAttribute('data-draft-project') || '0';
+
+            if (!module || !saveUrl || !getUrl || !clearUrl) {
+                return;
+            }
+
+            var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+            var csrfToken = csrfInput ? csrfInput.value : '';
+
+            function currentProject() {
+                if (projectSelector) {
+                    var field = form.querySelector(projectSelector);
+                    return field && field.value ? field.value : '0';
+                }
+                return staticProject;
+            }
+
+            function currentKey() {
+                return module + ':' + currentProject() + ':' + objectId;
+            }
+
+            function getLocalStorageKey() {
+                return 'istqb-draft:' + currentKey();
+            }
+
+            function serialize() {
+                var data = {};
+                var elements = form.elements;
+
+                for (var i = 0; i < elements.length; i++) {
+                    var field = elements[i];
+                    if (field.disabled || !field.name || field.type === 'submit' || field.type === 'button' || field.type === 'file') {
+                        continue;
+                    }
+                    if (field.type === 'checkbox' || field.type === 'radio') {
+                        if (field.checked) {
+                            var existing = data[field.name];
+                            if (existing === undefined) {
+                                data[field.name] = [field.value];
+                            } else if (Array.isArray(existing)) {
+                                existing.push(field.value);
+                            }
+                        } else if (data[field.name] === undefined) {
+                            data[field.name] = [];
+                        }
+                        continue;
+                    }
+                    if (field.tagName === 'SELECT' && field.multiple) {
+                        var values = Array.prototype.slice.call(field.selectedOptions || []).map(function (option) {
+                            return option.value;
+                        });
+                        data[field.name] = values;
+                        continue;
+                    }
+                    data[field.name] = field.value;
+                }
+
+                return data;
+            }
+
+            function saveToLocal(data) {
+                try {
+                    localStorage.setItem(getLocalStorageKey(), JSON.stringify(data));
+                } catch (error) {}
+            }
+
+            function readLocal() {
+                try {
+                    var raw = localStorage.getItem(getLocalStorageKey());
+                    return raw ? JSON.parse(raw) : null;
+                } catch (error) {
+                    return null;
+                }
+            }
+
+            function clearLocal() {
+                try {
+                    localStorage.removeItem(getLocalStorageKey());
+                } catch (error) {}
+            }
+
+            function hasContent(data) {
+                if (!data) {
+                    return false;
+                }
+                return Object.keys(data).some(function (name) {
+                    var value = data[name];
+                    if (Array.isArray(value)) {
+                        return value.length > 0;
+                    }
+                    return value !== '' && value !== null && value !== undefined;
+                });
+            }
+
+            function applyData(data) {
+                if (!data) {
+                    return;
+                }
+                var elements = form.elements;
+
+                for (var i = 0; i < elements.length; i++) {
+                    var field = elements[i];
+                    if (!field.name || !(field.name in data)) {
+                        continue;
+                    }
+                    var value = data[field.name];
+                    if (field.type === 'checkbox') {
+                        field.checked = Array.isArray(value) ? value.indexOf(field.value) !== -1 : String(value) === String(field.value);
+                    } else if (field.tagName === 'SELECT' && field.multiple) {
+                        var selected = Array.isArray(value) ? value.map(String) : [];
+                        Array.prototype.slice.call(field.options).forEach(function (option) {
+                            option.selected = selected.indexOf(String(option.value)) !== -1;
+                        });
+                    } else {
+                        field.value = value;
+                    }
+                }
+
+                var dependentSource = form.querySelector('[data-requirements-by-plan]') || form.querySelector('[data-risks-by-plan]');
+                if (dependentSource) {
+                    dependentSource.dispatchEvent(new Event('change'));
+                }
+            }
+
+            var status = document.createElement('div');
+            status.className = 'draft-status';
+            status.setAttribute('role', 'status');
+            form.appendChild(status);
+
+            var statusTimer = null;
+            function setStatus(message, state) {
+                status.textContent = message;
+                status.setAttribute('data-state', state || '');
+                if (statusTimer) {
+                    clearTimeout(statusTimer);
+                }
+                statusTimer = setTimeout(function () {
+                    status.textContent = '';
+                    status.setAttribute('data-state', '');
+                }, 5000);
+            }
+
+            var pendingSave = false;
+
+            function doSave() {
+                var data = serialize();
+                saveToLocal(data);
+                if (pendingSave) {
+                    return;
+                }
+                pendingSave = true;
+                setStatus('Guardando...', 'saving');
+
+                fetch(saveUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        module: module,
+                        project_id: currentProject(),
+                        object_id: objectId,
+                        data: data
+                    })
+                }).then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Draft no guardado');
+                    }
+                    return response.json();
+                }).then(function () {
+                    setStatus('Guardado automáticamente', 'saved');
+                }).catch(function () {
+                    setStatus('Sin conexión — guardado localmente', 'offline');
+                }).then(function () {
+                    pendingSave = false;
+                });
+            }
+
+            var debounceTimer = null;
+            function scheduleSave() {
+                if (debounceTimer) {
+                    clearTimeout(debounceTimer);
+                }
+                debounceTimer = setTimeout(doSave, 5000);
+            }
+
+            form.addEventListener('input', scheduleSave);
+            form.addEventListener('change', scheduleSave);
+            form.addEventListener('blur', function () {
+                if (debounceTimer) {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = null;
+                }
+                doSave();
+            }, true);
+
+            form.addEventListener('submit', function () {
+                if (debounceTimer) {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = null;
+                }
+                clearLocal();
+            });
+
+            window.addEventListener('beforeunload', function () {
+                if (debounceTimer) {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = null;
+                }
+                saveToLocal(serialize());
+            });
+
+            function showDraftBanner(data, localOnly) {
+                var banner = document.createElement('div');
+                banner.className = 'draft-banner';
+                banner.setAttribute('data-draft-banner', '');
+                banner.innerHTML =
+                    '<div class="draft-banner-text">' +
+                    '<strong>Borrador encontrado</strong>' +
+                    '<span>' + (localOnly ? 'Guardado en este navegador.' : 'Guardado automáticamente.') + '</span>' +
+                    '</div>' +
+                    '<div class="draft-banner-actions">' +
+                    '<button type="button" class="btn btn-sm btn-brand" data-draft-continue>Continuar</button>' +
+                    '<button type="button" class="btn btn-sm btn-outline-brand" data-draft-discard>Descartar</button>' +
+                    '</div>';
+                form.insertBefore(banner, form.firstChild);
+
+                banner.querySelector('[data-draft-continue]').addEventListener('click', function () {
+                    applyData(data);
+                    banner.remove();
+                    setStatus('Borrador restaurado', 'saved');
+                });
+
+                banner.querySelector('[data-draft-discard]').addEventListener('click', function () {
+                    fetch(clearUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            module: module,
+                            project_id: currentProject(),
+                            object_id: objectId
+                        })
+                    }).catch(function () {});
+                    clearLocal();
+                    banner.remove();
+                    setStatus('Borrador descartado', 'saved');
+                });
+            }
+
+            function loadDraft() {
+                var separator = getUrl.indexOf('?') === -1 ? '?' : '&';
+                var url = getUrl + separator +
+                    'module=' + encodeURIComponent(module) +
+                    '&project_id=' + encodeURIComponent(currentProject()) +
+                    '&object_id=' + encodeURIComponent(objectId);
+
+                fetch(url, { credentials: 'same-origin' })
+                    .then(function (response) {
+                        return response.json();
+                    })
+                    .then(function (payload) {
+                        if (payload.found && hasContent(payload.data)) {
+                            showDraftBanner(payload.data, false);
+                        } else if (!payload.found) {
+                            var local = readLocal();
+                            if (local && hasContent(local)) {
+                                showDraftBanner(local, true);
+                            }
+                        }
+                    })
+                    .catch(function () {
+                        var local = readLocal();
+                        if (local && hasContent(local)) {
+                            showDraftBanner(local, true);
+                        }
+                    });
+            }
+
+            loadDraft();
+        });
+    }
+
+    initFormDrafts();
 });

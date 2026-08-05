@@ -1,40 +1,54 @@
 from django.contrib.auth.decorators import login_required
-from django.db.models import Prefetch
+from django.db.models import OuterRef, Prefetch, Subquery
 from django.shortcuts import render
 
 from apps.core.permissions import visible_projects_for
 from apps.executions.models import TestExecution
-from apps.incidents.models import Incident
 from apps.requirements.models import Requirement
 from apps.testcases.models import TestCase
+
+
+# Solo estas ejecuciones cuentan como completadas dentro de la matriz.
+# RUNNING y NOT_RUN no reemplazan la ultima ejecucion completada de un caso.
+COMPLETED_RESULTS = [
+    TestExecution.Result.PASSED,
+    TestExecution.Result.FAILED,
+    TestExecution.Result.BLOCKED,
+    TestExecution.Result.ERROR,
+]
+
+COMMON_RESULTS = [
+    TestExecution.Result.PASSED,
+    TestExecution.Result.FAILED,
+    TestExecution.Result.BLOCKED,
+    TestExecution.Result.ERROR,
+    TestExecution.Result.RUNNING,
+    TestExecution.Result.NOT_RUN,
+]
 
 
 @login_required
 def traceability_matrix_view(request):
     visible_projects = visible_projects_for(request.user, request=request)
-    executions_with_defects = TestExecution.objects.prefetch_related('defects')
-    test_cases_with_risks = TestCase.objects.select_related('test_plan').prefetch_related(
-        'test_plan__risks',
-        'automated_rules',
+
+    latest_completed_pk = TestExecution.objects.filter(
+        test_case=OuterRef('pk'),
+        result__in=COMPLETED_RESULTS,
+    ).order_by('-executed_at', '-created_at').values('pk')[:1]
+
+    test_cases_with_risk = TestCase.objects.select_related('test_plan').annotate(
+        latest_completed_pk=Subquery(latest_completed_pk),
     )
-    requirements = Requirement.objects.select_related('project').prefetch_related(
-        'risks',
-        Prefetch('test_cases', queryset=test_cases_with_risks),
-        Prefetch('test_cases__executions', queryset=executions_with_defects),
-        Prefetch('traceability_links__test_case', queryset=test_cases_with_risks),
-        Prefetch('traceability_links__test_case__executions', queryset=executions_with_defects),
-    ).filter(project__in=visible_projects)
-    total_requirements = requirements.count()
-    total_test_cases = TestCase.objects.filter(test_plan__project__in=visible_projects).count()
-    project_executions = TestExecution.objects.filter(test_case__test_plan__project__in=visible_projects)
-    project_risks = Incident.objects.filter(project__in=visible_projects)
-    total_executions = project_executions.count()
-    total_risks = project_risks.count()
-    high_risks = sum(1 for risk in project_risks if risk.risk_level == 'Alto')
-    validated_executions = project_executions.filter(review_status=TestExecution.ReviewStatus.VALIDATED).count()
-    pending_review_executions = project_executions.filter(review_status=TestExecution.ReviewStatus.PENDING).count()
-    covered_requirements = 0
-    rows = []
+
+    requirements = list(
+        Requirement.objects.select_related('project').prefetch_related(
+            Prefetch('test_cases', queryset=test_cases_with_risk),
+            Prefetch('traceability_links__test_case', queryset=test_cases_with_risk),
+        ).filter(project__in=visible_projects)
+    )
+
+    requirement_cases = []
+    latest_execution_ids = set()
 
     for requirement in requirements:
         direct_cases = list(requirement.test_cases.all())
@@ -42,68 +56,66 @@ def traceability_matrix_view(request):
         test_cases_by_id = {test_case.id: test_case for test_case in direct_cases + linked_cases}
         test_cases = list(test_cases_by_id.values())
 
-        if test_cases:
-            covered_requirements += 1
-
-        executions_by_id = {}
-        automated_rules_by_id = {}
-        defects_by_id = {}
-        risks_by_id = {risk.id: risk for risk in requirement.risks.all()}
+        requirement_cases.append((requirement, test_cases))
         for test_case in test_cases:
-            for rule in test_case.automated_rules.all():
-                automated_rules_by_id[rule.id] = rule
-            for execution in test_case.executions.all():
-                executions_by_id[execution.id] = execution
-                for defect in execution.defects.all():
-                    defects_by_id[defect.id] = defect
+            if test_case.latest_completed_pk:
+                latest_execution_ids.add(test_case.latest_completed_pk)
 
-        executions = list(executions_by_id.values())
-        automated_rules = list(automated_rules_by_id.values())
-        defects = list(defects_by_id.values())
-        risks = list(risks_by_id.values())
-        validated_count = sum(
-            1 for execution in executions
-            if execution.review_status == TestExecution.ReviewStatus.VALIDATED
-        )
-        pending_review_count = sum(
-            1 for execution in executions
-            if execution.review_status == TestExecution.ReviewStatus.PENDING
-        )
+    latest_executions = {
+        execution.id: execution
+        for execution in TestExecution.objects.filter(pk__in=latest_execution_ids).prefetch_related('defects')
+    }
 
-        # Coverage measures whether a requirement has at least one linked test case.
-        # Execution quality and defects are reported separately and must not alter it.
-        coverage = 100 if test_cases else 0
+    rows = []
+    plans = set()
+    cases = set()
+    defects = set()
+    result_count = 0
 
-        rows.append(
-            {
-                'requirement': requirement,
-                'test_cases': test_cases,
-                'executions': executions,
-                'automated_rules': automated_rules,
-                'defects': defects,
-                'risks': risks,
-                'validated_count': validated_count,
-                'pending_review_count': pending_review_count,
-                'coverage': coverage,
-                'coverage_tone': 'success' if coverage >= 80 else 'warning',
-            }
-        )
+    for requirement, test_cases in requirement_cases:
+        if not test_cases:
+            rows.append(
+                {
+                    'requirement': requirement,
+                    'plan': None,
+                    'case': None,
+                    'execution': None,
+                    'defects': [],
+                }
+            )
+            continue
 
-    total_coverage = round((covered_requirements / total_requirements) * 100) if total_requirements else 0
+        for test_case in test_cases:
+            execution = latest_executions.get(test_case.latest_completed_pk)
+            plan = test_case.test_plan
+            plans.add(plan)
+            cases.add(test_case)
+            if execution:
+                result_count += 1
+            row_defects = list(test_case.defects.all())
+            if execution:
+                row_defects += list(execution.defects.all())
+            defects.update(row_defects)
+            rows.append(
+                {
+                    'requirement': requirement,
+                    'plan': plan,
+                    'case': test_case,
+                    'execution': execution,
+                    'defects': row_defects,
+                }
+            )
 
     return render(
         request,
         'traceability/index.html',
         {
             'rows': rows,
-            'total_coverage': total_coverage,
-            'covered_requirements': covered_requirements,
-            'total_requirements': total_requirements,
-            'total_test_cases': total_test_cases,
-            'total_executions': total_executions,
-            'total_risks': total_risks,
-            'high_risks': high_risks,
-            'validated_executions': validated_executions,
-            'pending_review_executions': pending_review_executions,
+            'total_requirements': len(requirements),
+            'total_plans': len(plans),
+            'total_test_cases': len(cases),
+            'total_executions': len(latest_executions),
+            'total_results': result_count,
+            'total_defects': len(defects),
         },
     )

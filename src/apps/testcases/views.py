@@ -5,22 +5,25 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.audit.services import log_action
+from apps.core.codes import next_code
 from apps.core.permissions import (
     can_manage_artifacts,
     get_active_project_for_request,
     is_teacher,
     visible_projects_for,
 )
-from apps.core.codes import next_code
+from apps.drafts.services import clear_draft
 
 from .forms import TestCaseModalForm
 from .models import TestCase
 
 
 STATUS_BADGES = {
+    TestCase.Status.PENDING: 'warning',
+    TestCase.Status.READY: 'primary',
+    TestCase.Status.RUNNING: 'info',
     TestCase.Status.PASSED: 'success',
     TestCase.Status.FAILED: 'danger',
-    TestCase.Status.PENDING: 'warning',
     TestCase.Status.BLOCKED: 'muted',
 }
 
@@ -44,7 +47,9 @@ def testcase_list_view(request):
         )
         test_case.created_by = request.user
         test_case.save()
-        test_case.covered_risks.set(form.cleaned_data.get('risks', []))
+        clear_draft(request.user, 'testcase', test_case.test_plan.project_id, 0)
+        clear_draft(request.user, 'testcase', 0, 0)
+        messages.success(request, 'Caso de prueba creado correctamente.')
         log_action(
             request.user,
             'CREATE',
@@ -93,7 +98,7 @@ def testcase_list_view(request):
     total = test_cases.count()
     passed = test_cases.filter(status=TestCase.Status.PASSED).count()
     failed = test_cases.filter(status=TestCase.Status.FAILED).count()
-    pending = test_cases.filter(status=TestCase.Status.PENDING).count()
+    pending = test_cases.filter(status__in=[TestCase.Status.PENDING, TestCase.Status.READY, TestCase.Status.RUNNING]).count()
 
     return render(
         request,
@@ -104,6 +109,8 @@ def testcase_list_view(request):
                 {
                     'case': test_case,
                     'badge': STATUS_BADGES.get(test_case.status, 'muted'),
+                    'blocked': not test_case.has_approved_requirement,
+                    'block_reason': test_case.execution_block_reason,
                 }
                 for test_case in test_cases
             ],
@@ -130,13 +137,13 @@ def testcase_detail_view(request, pk):
             'test_plan__project',
             'requirement',
             'created_by',
-        ).prefetch_related('executions__defects', 'traceability_links', 'covered_risks'),
+        ).prefetch_related('defects', 'executions__defects', 'traceability_links', 'covered_risks'),
         pk=pk,
         test_plan__project__in=visible_projects_for(request.user, request=request),
     )
     executions = test_case.executions.select_related('executed_by').prefetch_related('defects')
-    defects = []
-    seen_defects = set()
+    defects = list(test_case.defects.all())
+    seen_defects = {defect.pk for defect in defects}
 
     for execution in executions:
         for defect in execution.defects.all():
@@ -154,6 +161,8 @@ def testcase_detail_view(request, pk):
             'risks': test_case.covered_risks.select_related('requirement', 'test_plan').order_by('code'),
             'execution_count': executions.count(),
             'can_manage': can_manage_artifacts(request.user),
+            'case_blocked': not test_case.has_approved_requirement,
+            'case_block_reason': test_case.execution_block_reason,
         },
     )
 
@@ -172,6 +181,7 @@ def testcase_update_view(request, pk):
 
     if request.method == 'POST' and form.is_valid():
         test_case = form.save()
+        clear_draft(request.user, 'testcase', test_case.test_plan.project_id, test_case.pk)
         log_action(
             request.user,
             'UPDATE',

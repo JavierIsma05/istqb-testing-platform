@@ -33,6 +33,17 @@
             <span>Fin</span>
             <strong>{{ project.end_date|date:'d M Y'|default:'Sin fecha' }}</strong>
         </div>
+        <div>
+            <i class="bi bi-person-badge"></i>
+            <span>Docente tutor</span>
+            <strong>
+                {% if project.tutor %}
+                    {{ project.tutor.get_full_name|default:project.tutor.email }}
+                {% else %}
+                    Sin asignar
+                {% endif %}
+            </strong>
+        </div>
     </div>
 </section>
 

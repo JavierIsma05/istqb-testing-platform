@@ -1,3 +1,5 @@
+import json
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -5,14 +7,16 @@ from django.http import HttpResponse
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.html import escape
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 from reportlab.graphics.charts.piecharts import Pie
 from reportlab.graphics.shapes import Drawing, String
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
+from reportlab.pdfgen import canvas as pdfcanvas
 from reportlab.platypus import Image as ReportLabImage
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
@@ -31,41 +35,69 @@ from .forms import ReportForm
 from .models import Report, ReportDownload
 
 
+PLAN_REPORT_TYPES = {
+    'plan': {
+        'title': 'Informe del Plan de Pruebas',
+        'url_name': 'reports:plan-report-detail',
+    },
+    'casos': {
+        'title': 'Informe de Casos de Prueba',
+        'url_name': 'reports:plan-casos',
+    },
+    'ejecuciones': {
+        'title': 'Informe de Ejecuciones',
+        'url_name': 'reports:plan-ejecuciones',
+    },
+    'defectos': {
+        'title': 'Informe de Defectos',
+        'url_name': 'reports:plan-defectos',
+    },
+    'final': {
+        'title': 'Informe Final de Pruebas',
+        'url_name': 'reports:plan-final',
+    },
+}
+
 REPORT_CARDS = [
     {
-        'title': 'Resumen Ejecutivo',
-        'description': 'Vista general del avance del proyecto',
-        'icon': 'bi-file-earmark-bar-graph',
+        'number': 1,
+        'title': 'Informe del Plan de Pruebas',
+        'description': 'Objetivo, alcance, estrategia, criterios, recursos y riesgos asociados del plan. 1-2 páginas.',
+        'icon': 'bi-clipboard-check',
         'tone': 'brand',
-        'type': Report.ReportType.SUMMARY,
+        'type': 'plan',
     },
     {
-        'title': 'Informe de Cobertura',
-        'description': 'Reporte completo de cobertura de pruebas',
-        'icon': 'bi-file-earmark-text',
+        'number': 2,
+        'title': 'Informe de Casos de Prueba',
+        'description': 'Catálogo de casos con requisitos vinculados, prioridad, técnica y pasos de ejecución.',
+        'icon': 'bi-list-check',
         'tone': 'brand',
-        'type': Report.ReportType.COVERAGE,
+        'type': 'casos',
     },
     {
-        'title': 'Reporte de Ejecución',
-        'description': 'Resultados de ejecución de casos de prueba',
-        'icon': 'bi-file-earmark-check',
+        'number': 3,
+        'title': 'Informe de Ejecuciones',
+        'description': 'Resultados de ejecución, avance del ciclo, tasa de aprobación y distribución por estado.',
+        'icon': 'bi-collection-play',
         'tone': 'success',
-        'type': Report.ReportType.EXECUTION,
+        'type': 'ejecuciones',
     },
     {
-        'title': 'Análisis de Defectos',
-        'description': 'Estadísticas y métricas de defectos',
-        'icon': 'bi-file-earmark-medical',
+        'number': 4,
+        'title': 'Informe de Defectos',
+        'description': 'Defectos por severidad y estado, con detalle de cada hallazgo y su responsable.',
+        'icon': 'bi-bug',
         'tone': 'danger',
-        'type': Report.ReportType.DEFECTS,
+        'type': 'defectos',
     },
     {
-        'title': 'Informe General Final',
-        'description': 'Cobertura, ejecución, defectos, riesgos y trazabilidad con gráficos',
-        'icon': 'bi-graph-up-arrow',
+        'number': 5,
+        'title': 'Informe Final de Pruebas',
+        'description': 'Resumen ejecutivo con métricas consolidadas, trazabilidad, conclusiones y recomendaciones.',
+        'icon': 'bi-file-earmark-bar-graph',
         'tone': 'success',
-        'type': Report.ReportType.FINAL,
+        'type': 'final',
     },
 ]
 
@@ -88,7 +120,7 @@ CONTENT_LABELS = {
     'blocked_executions': 'Ejecuciones bloqueadas',
     'error_executions': 'Ejecuciones con error técnico',
     'manual_executions': 'Ejecuciones manuales',
-    'semi_automated_executions': 'Ejecuciones semi-automatizadas',
+    'automated_executions': 'Ejecuciones automatizadas',
     'automated_requirements': 'Requisitos con reglas automatizadas',
     'manual_only_requirements': 'Requisitos cubiertos solo manualmente',
     'automatic_defects': 'Defectos generados por automatizacion',
@@ -104,10 +136,9 @@ CONTENT_LABELS = {
     'defects': 'Defectos',
     'open_defects': 'Defectos abiertos',
     'in_progress_defects': 'Defectos en progreso',
-    'analysis_defects': 'Defectos en análisis',
-    'pending_confirmation_defects': 'Defectos pendientes de confirmación',
+    'resolved_defects': 'Defectos resueltos',
+    'reopened_defects': 'Defectos reabiertos',
     'closed_defects': 'Defectos cerrados',
-    'critical_defects': 'Defectos críticos',
     'high_defects': 'Defectos altos',
     'medium_defects': 'Defectos medios',
     'low_defects': 'Defectos bajos',
@@ -270,10 +301,10 @@ def _build_defects_content(project):
         'defects': defects.count(),
         'open_defects': defects.filter(status=Defect.Status.OPEN).count(),
         'in_progress_defects': defects.filter(status=Defect.Status.IN_PROGRESS).count(),
-        'analysis_defects': defects.filter(status=Defect.Status.ANALYSIS).count(),
-        'pending_confirmation_defects': defects.filter(status=Defect.Status.PENDING_CONFIRMATION).count(),
+        'resolved_defects': defects.filter(status=Defect.Status.RESOLVED).count(),
+        'reopened_defects': defects.filter(status=Defect.Status.REOPENED).count(),
         'closed_defects': defects.filter(status=Defect.Status.CLOSED).count(),
-        'critical_defects': defects.filter(severity=Defect.Severity.CRITICAL).count(),
+        'critical_defects': defects.filter(severity=Defect.Severity.HIGH).count(),
         'high_defects': defects.filter(severity=Defect.Severity.HIGH).count(),
         'medium_defects': defects.filter(severity=Defect.Severity.MEDIUM).count(),
         'low_defects': defects.filter(severity=Defect.Severity.LOW).count(),
@@ -302,8 +333,8 @@ def _build_execution_content(project):
         'blocked_executions': blocked,
         'error_executions': errors,
         'manual_executions': executions.filter(execution_mode=TestExecution.ExecutionMode.MANUAL).count(),
-        'semi_automated_executions': executions.filter(
-            execution_mode=TestExecution.ExecutionMode.SEMI_AUTOMATED
+        'automated_executions': executions.filter(
+            execution_mode=TestExecution.ExecutionMode.AUTOMATED
         ).count(),
         'not_run_executions': not_run,
         'execution_progress': _percentage(executed_cases, test_cases.count()),
@@ -320,7 +351,7 @@ def _build_execution_content(project):
         'regression_executions': executions.filter(execution_type=TestExecution.ExecutionType.REGRESSION).count(),
         'defects_with_execution': defects.filter(execution__isnull=False).count(),
         'automatic_defects': defects.filter(
-            execution__execution_mode=TestExecution.ExecutionMode.SEMI_AUTOMATED
+            execution__execution_mode=TestExecution.ExecutionMode.AUTOMATED
         ).count(),
         'defect_density': _ratio(defects.count(), executed_cases),
         'risks': risks.count(),
@@ -597,7 +628,6 @@ def _execution_status_distribution(executions):
 
 def _defect_severity_rows(defects):
     return [
-        {'severity': 'Critico', 'count': defects.filter(severity=Defect.Severity.CRITICAL).count()},
         {'severity': 'Alto', 'count': defects.filter(severity=Defect.Severity.HIGH).count()},
         {'severity': 'Medio', 'count': defects.filter(severity=Defect.Severity.MEDIUM).count()},
         {'severity': 'Bajo', 'count': defects.filter(severity=Defect.Severity.LOW).count()},
@@ -762,7 +792,7 @@ def _build_final_content(project):
         'error_executions': execution['error_executions'],
         'not_run_executions': execution['not_run_executions'],
         'manual_executions': execution['manual_executions'],
-        'semi_automated_executions': execution['semi_automated_executions'],
+        'automated_executions': execution['automated_executions'],
         'execution_progress': execution['execution_progress'],
         'success_rate': execution['success_rate'],
         'executions_with_evidence': execution['executions_with_evidence'],
@@ -875,16 +905,15 @@ def build_final_chart_groups(report):
             'Modo de ejecución',
             [
                 ('Manual', _content_value(report, 'manual_executions'), 'brand'),
-                ('Semi-automatizada', _content_value(report, 'semi_automated_executions'), 'success'),
+                ('Automatizada', _content_value(report, 'automated_executions'), 'success'),
             ],
         ),
         _chart_group(
             'Defectos por severidad',
             [
-                ('Criticos', _content_value(report, 'critical_defects'), 'danger'),
-                ('Altos', _content_value(report, 'high_defects'), 'warning'),
-                ('Medios', _content_value(report, 'medium_defects'), 'brand'),
-                ('Bajos', _content_value(report, 'low_defects'), 'muted'),
+                ('Altos', _content_value(report, 'high_defects'), 'danger'),
+                ('Medios', _content_value(report, 'medium_defects'), 'warning'),
+                ('Bajos', _content_value(report, 'low_defects'), 'success'),
             ],
         ),
     ]
@@ -925,7 +954,7 @@ def build_final_pie_groups(report):
             'title': 'Modalidad de ejecución',
             'items': [
                 {'label': 'Manual', 'value': _content_value(report, 'manual_executions'), 'color': '#2474b5'},
-                {'label': 'Semi-automatizada', 'value': _content_value(report, 'semi_automated_executions'), 'color': '#24936e'},
+                {'label': 'Automatizada', 'value': _content_value(report, 'automated_executions'), 'color': '#24936e'},
             ],
         },
     ]
@@ -968,9 +997,9 @@ def build_pdf_chart_data(report):
     if report.report_type == Report.ReportType.DEFECTS:
         return [
             ('Abiertos', _content_value(report, 'open_defects')),
-            ('Analisis', _content_value(report, 'analysis_defects')),
-            ('Correccion', _content_value(report, 'in_progress_defects')),
-            ('Pend. conf.', _content_value(report, 'pending_confirmation_defects')),
+            ('En progreso', _content_value(report, 'in_progress_defects')),
+            ('Resueltos', _content_value(report, 'resolved_defects')),
+            ('Reabiertos', _content_value(report, 'reopened_defects')),
             ('Cerrados', _content_value(report, 'closed_defects')),
         ]
     return [
@@ -1012,7 +1041,7 @@ def build_report_summary_text(report):
     if report_type == Report.ReportType.DEFECTS:
         return (
             f"Se registran {_content_value(report, 'defects')} defectos, de los cuales "
-            f"{_content_value(report, 'critical_defects')} son críticos y "
+            f"{_content_value(report, 'high_defects')} son de severidad alta y "
             f"{_content_value(report, 'closed_defects')} se encuentran cerrados."
         )
     return (
@@ -1300,6 +1329,936 @@ def build_pie_chart(chart_data):
     return drawing
 
 
+RISK_LEVEL_TONES = {
+    'Alto': 'danger',
+    'Medio': 'warning',
+    'Bajo': 'success',
+    'Alta': 'danger',
+    'Media': 'warning',
+    'Baja': 'success',
+}
+
+
+def _plan_report_context(plan):
+    risks = list(plan.risks.all())
+    probability_labels = dict(Incident.Probability.choices)
+    impact_labels = dict(Incident.Impact.choices)
+
+    level_counts = {'Alto': 0, 'Medio': 0, 'Bajo': 0}
+    probability_counts = {value: 0 for value, _label in Incident.Probability.choices}
+    impact_counts = {value: 0 for value, _label in Incident.Impact.choices}
+    matrix = {
+        probability: {impact: 0 for impact, _impact_label in Incident.Impact.choices}
+        for probability, _probability_label in Incident.Probability.choices
+    }
+
+    for risk in risks:
+        level_counts[risk.risk_level] += 1
+        probability_counts[risk.probability] += 1
+        impact_counts[risk.impact] += 1
+        matrix[risk.probability][risk.impact] += 1
+
+    probability_order = [
+        (Incident.Probability.HIGH, 'Alta'),
+        (Incident.Probability.MEDIUM, 'Media'),
+        (Incident.Probability.LOW, 'Baja'),
+    ]
+    impact_order = [
+        (Incident.Impact.LOW, 'Bajo'),
+        (Incident.Impact.MEDIUM, 'Medio'),
+        (Incident.Impact.HIGH, 'Alto'),
+    ]
+    matrix_rows = [
+        {
+            'probability': probability_label,
+            'low': matrix[probability_value][Incident.Impact.LOW],
+            'medium': matrix[probability_value][Incident.Impact.MEDIUM],
+            'high': matrix[probability_value][Incident.Impact.HIGH],
+        }
+        for probability_value, probability_label in probability_order
+    ]
+    matrix_impacts = [impact_label for _impact_value, impact_label in impact_order]
+
+    def distribution(items):
+        max_value = max([value for _label, value, _tone in items] + [1])
+        return [
+            {
+                'label': label,
+                'value': value,
+                'tone': tone,
+                'percent': _percentage(value, max_value),
+            }
+            for label, value, tone in items
+        ]
+
+    level_items = [
+        ('Alto', level_counts['Alto'], RISK_LEVEL_TONES['Alto']),
+        ('Medio', level_counts['Medio'], RISK_LEVEL_TONES['Medio']),
+        ('Bajo', level_counts['Bajo'], RISK_LEVEL_TONES['Bajo']),
+    ]
+    probability_items = [
+        (
+            probability_label,
+            probability_counts[probability_value],
+            RISK_LEVEL_TONES[probability_label],
+        )
+        for probability_value, probability_label in probability_order
+    ]
+    impact_items = [
+        (
+            impact_label,
+            impact_counts[impact_value],
+            RISK_LEVEL_TONES[impact_label],
+        )
+        for impact_value, impact_label in impact_order
+    ]
+
+    test_type_labels = dict(TestPlan.TestType.choices)
+
+    return {
+        'risks': [
+            {
+                'risk': risk,
+                'probability_label': probability_labels.get(risk.probability, risk.probability),
+                'impact_label': impact_labels.get(risk.impact, risk.impact),
+            }
+            for risk in risks
+        ],
+        'risk_matrix': matrix_rows,
+        'risk_matrix_impacts': matrix_impacts,
+        'risk_summary': {
+            'total': len(risks),
+            'alto': level_counts['Alto'],
+            'medio': level_counts['Medio'],
+            'bajo': level_counts['Bajo'],
+        },
+        'distribution_groups': [
+            {
+                'title': 'Distribución de riesgos por nivel',
+                'items': distribution(level_items),
+            },
+            {
+                'title': 'Distribución por probabilidad',
+                'items': distribution(probability_items),
+            },
+            {
+                'title': 'Distribución por impacto',
+                'items': distribution(impact_items),
+            },
+        ],
+        'test_types_display': ', '.join(
+            test_type_labels.get(test_type, test_type)
+            for test_type in (plan.test_types or [])
+        ),
+    }
+
+
+@login_required
+def plan_report_selector_view(request):
+    visible_projects = visible_projects_for(request.user).order_by('name')
+    plans = TestPlan.objects.filter(project__in=visible_projects).order_by('project', 'name')
+    plans_by_project = {}
+    for plan in plans:
+        plans_by_project.setdefault(str(plan.project_id), []).append(
+            {'value': plan.pk, 'label': plan.name}
+        )
+
+    report_type = request.GET.get('type', '').strip() or 'plan'
+    report_type_info = PLAN_REPORT_TYPES.get(report_type)
+    if report_type_info is None:
+        report_type_info = PLAN_REPORT_TYPES['plan']
+        report_type = 'plan'
+
+    plan_id = request.GET.get('plan', '').strip()
+    if plan_id:
+        plan = get_object_or_404(TestPlan, pk=plan_id, project__in=visible_projects)
+        if report_type == 'plan':
+            return redirect('reports:plan-report-detail', pk=plan.pk)
+        return redirect(report_type_info['url_name'], pk=plan.pk)
+
+    return render(
+        request,
+        'reports/plan_report_selector.html',
+        {
+            'projects': visible_projects,
+            'plans_by_project_json': json.dumps(plans_by_project),
+            'report_type': report_type,
+            'report_type_label': report_type_info['title'],
+            'can_manage': can_manage_artifacts(request.user),
+        },
+    )
+
+
+@login_required
+def plan_report_view(request, pk):
+    plan = get_object_or_404(
+        TestPlan.objects.select_related('project', 'created_by').prefetch_related('risks'),
+        pk=pk,
+        project__in=visible_projects_for(request.user),
+    )
+    context = _plan_report_context(plan)
+
+    return render(
+        request,
+        'reports/plan_report.html',
+        {
+            'plan': plan,
+            'generated_at': timezone.now(),
+            **context,
+        },
+    )
+
+
+def _plan_report_data(plan):
+    test_cases = plan.test_cases.all()
+    requirements = Requirement.objects.filter(
+        Q(test_cases__test_plan=plan) | Q(traceability_links__test_case__test_plan=plan)
+    ).distinct()
+    total_requirements = requirements.count()
+    covered_requirement_ids = _covered_requirement_ids(requirements)
+    covered_requirements = len(covered_requirement_ids)
+    executions = TestExecution.objects.filter(test_case__test_plan=plan)
+    defects = Defect.objects.filter(test_case__test_plan=plan)
+    risks = list(plan.risks.all())
+
+    passed = executions.filter(result=TestExecution.Result.PASSED).count()
+    failed = executions.filter(result=TestExecution.Result.FAILED).count()
+    blocked = executions.filter(result=TestExecution.Result.BLOCKED).count()
+    errors = executions.filter(result=TestExecution.Result.ERROR).count()
+    not_run = executions.filter(result=TestExecution.Result.NOT_RUN).count()
+    total_executions = executions.count()
+    executed = total_executions - not_run
+    executed_cases = executions.exclude(result=TestExecution.Result.NOT_RUN).values('test_case').distinct().count()
+
+    passed_requirements = failed_requirements = blocked_requirements = executed_requirements = 0
+    for requirement in requirements:
+        plan_case_ids = set(
+            requirement.test_cases.filter(test_plan=plan).values_list('id', flat=True)
+        ) | set(
+            requirement.traceability_links.filter(test_case__test_plan=plan).values_list('test_case_id', flat=True)
+        )
+        if not plan_case_ids:
+            continue
+        latest_results = []
+        has_execution = False
+        for test_case_id in plan_case_ids:
+            latest_execution = executions.filter(test_case_id=test_case_id).first()
+            if latest_execution:
+                has_execution = True
+                latest_results.append(latest_execution.result)
+            else:
+                latest_results.append(TestExecution.Result.NOT_RUN)
+        if has_execution:
+            executed_requirements += 1
+        if TestExecution.Result.FAILED in latest_results:
+            failed_requirements += 1
+        elif any(result in {TestExecution.Result.BLOCKED, TestExecution.Result.ERROR} for result in latest_results):
+            blocked_requirements += 1
+        elif latest_results and all(result == TestExecution.Result.PASSED for result in latest_results):
+            passed_requirements += 1
+
+    requirement_execution_rate = _percentage(executed_requirements, total_requirements)
+    defects_with_execution = defects.filter(execution__isnull=False).count()
+    defect_traceability_rate = _percentage(defects_with_execution, defects.count()) if defects.count() else 100
+    traceability_index = round(
+        (
+            _percentage(covered_requirements, total_requirements)
+            + requirement_execution_rate
+            + defect_traceability_rate
+        ) / 3
+    )
+
+    return {
+        'requirements': total_requirements,
+        'covered_requirements': covered_requirements,
+        'uncovered_requirements': total_requirements - covered_requirements,
+        'coverage': _percentage(covered_requirements, total_requirements),
+        'passed_requirements': passed_requirements,
+        'failed_requirements': failed_requirements,
+        'blocked_requirements': blocked_requirements,
+        'pending_requirements': total_requirements - passed_requirements - failed_requirements - blocked_requirements,
+        'test_cases': test_cases.count(),
+        'executed_cases': executed_cases,
+        'executions': total_executions,
+        'passed_executions': passed,
+        'failed_executions': failed,
+        'blocked_executions': blocked,
+        'error_executions': errors,
+        'not_run_executions': not_run,
+        'execution_progress': _percentage(executed_cases, test_cases.count()),
+        'success_rate': _percentage(passed, executed),
+        'defects': defects.count(),
+        'critical_defects': defects.filter(severity=Defect.Severity.HIGH).count(),
+        'high_defects': defects.filter(severity=Defect.Severity.HIGH).count(),
+        'medium_defects': defects.filter(severity=Defect.Severity.MEDIUM).count(),
+        'low_defects': defects.filter(severity=Defect.Severity.LOW).count(),
+        'open_defects': defects.filter(status=Defect.Status.OPEN).count(),
+        'closed_defects': defects.filter(status=Defect.Status.CLOSED).count(),
+        'risks': len(risks),
+        'high_risks': _high_risk_count(risks),
+        'traceability_index': traceability_index,
+        'execution_status_distribution': _execution_status_distribution(executions),
+        'defect_severity_rows': _defect_severity_rows(defects),
+        'defect_status_rows': _defect_status_rows(defects),
+    }
+
+
+def _plan_queryset(pk, user):
+    return get_object_or_404(
+        TestPlan.objects.select_related('project', 'created_by').prefetch_related('risks', 'test_cases'),
+        pk=pk,
+        project__in=visible_projects_for(user),
+    )
+
+
+@login_required
+def plan_report_dashboard_view(request, pk):
+    plan = _plan_queryset(pk, request.user)
+    data = _plan_report_data(plan)
+    chart = _chart_group(
+        'Estado de ejecuciones',
+        [
+            ('Aprobadas', data['passed_executions'], 'success'),
+            ('Fallidas', data['failed_executions'], 'danger'),
+            ('Bloqueadas', data['blocked_executions'], 'warning'),
+            ('Error', data['error_executions'], 'danger'),
+            ('No ejecutadas', data['not_run_executions'], 'muted'),
+        ],
+    )
+    severity_chart = _chart_group(
+        'Defectos por severidad',
+        [
+            ('Altos', data['high_defects'], 'danger'),
+            ('Medios', data['medium_defects'], 'warning'),
+            ('Bajos', data['low_defects'], 'success'),
+        ],
+    )
+    return render(
+        request,
+        'reports/plan_report_dashboard.html',
+        {
+            'plan': plan,
+            'generated_at': timezone.now(),
+            **data,
+            'execution_chart': chart,
+            'severity_chart': severity_chart,
+        },
+    )
+
+
+@login_required
+def plan_testcases_report_view(request, pk):
+    plan = _plan_queryset(pk, request.user)
+    test_cases = (
+        plan.test_cases.select_related('requirement')
+        .prefetch_related('executions')
+        .order_by('code')
+    )
+    rows = []
+    for test_case in test_cases:
+        latest_execution = test_case.executions.exclude(result=TestExecution.Result.NOT_RUN).first()
+        rows.append(
+            {
+                'test_case': test_case,
+                'latest_result': latest_execution.get_result_display() if latest_execution else 'No ejecutado',
+                'latest_actual_result': latest_execution.actual_result if latest_execution else '',
+                'result_tone': {
+                    TestExecution.Result.PASSED: 'success',
+                    TestExecution.Result.FAILED: 'danger',
+                    TestExecution.Result.BLOCKED: 'warning',
+                    TestExecution.Result.ERROR: 'danger',
+                    TestExecution.Result.RUNNING: 'info',
+                }.get(latest_execution.result, 'muted') if latest_execution else 'muted',
+            }
+        )
+    data = _plan_report_data(plan)
+    return render(
+        request,
+        'reports/plan_testcases_report.html',
+        {
+            'plan': plan,
+            'generated_at': timezone.now(),
+            'test_case_rows': rows,
+            'total_cases': data['test_cases'],
+            'executed_cases': data['executed_cases'],
+        },
+    )
+
+
+@login_required
+def plan_executions_report_view(request, pk):
+    plan = _plan_queryset(pk, request.user)
+    data = _plan_report_data(plan)
+    executions = (
+        TestExecution.objects.filter(test_case__test_plan=plan)
+        .select_related('test_case', 'executed_by')
+        .order_by('-executed_at', '-created_at')
+    )
+    result_tones = {
+        TestExecution.Result.PASSED: 'success',
+        TestExecution.Result.FAILED: 'danger',
+        TestExecution.Result.BLOCKED: 'warning',
+        TestExecution.Result.ERROR: 'danger',
+        TestExecution.Result.RUNNING: 'success',
+        TestExecution.Result.NOT_RUN: 'muted',
+    }
+    execution_rows = [
+        {
+            'execution': execution,
+            'executor': execution.executed_by.get_full_name() or execution.executed_by.username
+            if execution.executed_by else '—',
+            'result_tone': result_tones.get(execution.result, 'muted'),
+        }
+        for execution in executions
+    ]
+    chart = _chart_group(
+        'Resultados de ejecución',
+        [
+            ('Aprobadas', data['passed_executions'], 'success'),
+            ('Fallidas', data['failed_executions'], 'danger'),
+            ('Bloqueadas', data['blocked_executions'], 'warning'),
+            ('Error', data['error_executions'], 'danger'),
+            ('No ejecutadas', data['not_run_executions'], 'muted'),
+        ],
+    )
+    return render(
+        request,
+        'reports/plan_executions_report.html',
+        {
+            'plan': plan,
+            'generated_at': timezone.now(),
+            **data,
+            'execution_chart': chart,
+            'execution_rows': execution_rows,
+        },
+    )
+
+
+@login_required
+def plan_defects_report_view(request, pk):
+    plan = _plan_queryset(pk, request.user)
+    defects = (
+        Defect.objects.filter(test_case__test_plan=plan)
+        .select_related('execution__test_case', 'reported_by', 'assigned_to')
+        .order_by('-created_at')
+    )
+    data = _plan_report_data(plan)
+    severity_chart = _chart_group(
+        'Defectos por severidad',
+        [
+            ('Altos', data['high_defects'], 'danger'),
+            ('Medios', data['medium_defects'], 'warning'),
+            ('Bajos', data['low_defects'], 'success'),
+        ],
+    )
+    status_chart = _chart_group(
+        'Defectos por estado',
+        [(row['status'], row['count'], 'brand') for row in data['defect_status_rows']],
+    )
+    return render(
+        request,
+        'reports/plan_defects_report.html',
+        {
+            'plan': plan,
+            'generated_at': timezone.now(),
+            **data,
+            'defects': defects,
+            'severity_chart': severity_chart,
+            'status_chart': status_chart,
+        },
+    )
+
+
+def _executive_summary_blocks(plan, data):
+    return [
+        {
+            'title': 'Alcance de la evaluación',
+            'text': (
+                f'El plan de pruebas "{plan.name}" (versión {plan.version}) del proyecto '
+                f'"{plan.project.name}" fue evaluado considerando {data["requirements"]} requisitos, '
+                f'{data["test_cases"]} casos de prueba, {data["executions"]} ejecuciones y '
+                f'{data["defects"]} defectos registrados.'
+            ),
+        },
+        {
+            'title': 'Cobertura y ejecución',
+            'text': (
+                f'De los {data["requirements"]} requisitos, {data["covered_requirements"]} cuentan con '
+                f'cobertura ({data["coverage"]}%), con {data["passed_requirements"]} aprobados, '
+                f'{data["failed_requirements"]} fallidos, {data["blocked_requirements"]} bloqueados y '
+                f'{data["pending_requirements"]} pendientes. Se ejecutaron {data["executed_cases"]} de '
+                f'{data["test_cases"]} casos ({data["execution_progress"]}% de avance), con una tasa de '
+                f'aprobación del {data["success_rate"]}%.'
+            ),
+        },
+        {
+            'title': 'Resultados de ejecución',
+            'text': (
+                f'De {data["executions"]} ejecuciones, {data["passed_executions"]} resultaron aprobadas, '
+                f'{data["failed_executions"]} fallidas, {data["blocked_executions"]} bloqueadas, '
+                f'{data["error_executions"]} con error técnico y {data["not_run_executions"]} aún no ejecutadas.'
+            ),
+        },
+        {
+            'title': 'Defectos y riesgos',
+            'text': (
+                f'Se registraron {data["defects"]} defectos, de los cuales {data["high_defects"]} son de '
+                f'severidad alta, {data["open_defects"]} permanecen abiertos y '
+                f'{data["closed_defects"]} fueron cerrados. El plan reporta {data["risks"]} riesgos, '
+                f'{data["high_risks"]} de nivel alto.'
+            ),
+        },
+        {
+            'title': 'Trazabilidad',
+            'text': (
+                f'El índice global de trazabilidad alcanzado es del {data["traceability_index"]}%, '
+                f'integrando cobertura de requisitos, ejecución y defectos vinculados.'
+            ),
+        },
+    ]
+
+
+def _final_recommendations(plan, data):
+    recommendations = []
+    if data['coverage'] < plan.minimum_coverage_percentage:
+        recommendations.append(
+            f'Aumentar la cobertura de requisitos: actualmente en {data["coverage"]}%, por debajo del mínimo '
+            f'de {plan.minimum_coverage_percentage}% definido en el plan.'
+        )
+    if data['success_rate'] < plan.minimum_pass_percentage:
+        recommendations.append(
+            f'Mejorar la tasa de aprobación: actualmente en {data["success_rate"]}%, por debajo del mínimo '
+            f'de {plan.minimum_pass_percentage}% establecido.'
+        )
+    if data['critical_defects'] > plan.maximum_critical_defects:
+        recommendations.append(
+            f'Resolver los defectos de severidad alta: se superaron los {plan.maximum_critical_defects} permitidos, '
+            f'con {data["critical_defects"]} registrados.'
+        )
+    if data['open_defects'] > 0:
+        recommendations.append(
+            f'Dar seguimiento a los {data["open_defects"]} defectos abiertos antes de cerrar el ciclo de pruebas.'
+        )
+    if data['not_run_executions'] > 0:
+        recommendations.append(
+            f'Completar las {data["not_run_executions"]} ejecuciones pendientes para finalizar el ciclo.'
+        )
+    if data['traceability_index'] < 80:
+        recommendations.append(
+            f'Fortalecer la trazabilidad: el índice global es del {data["traceability_index"]}%.'
+        )
+    if len(recommendations) < 3:
+        recommendations.append(
+            'Revisar y validar las evidencias de las ejecuciones junto al docente tutor antes de la entrega formal.'
+        )
+    if len(recommendations) < 3:
+        recommendations.append(
+            'Mantener actualizado el registro de defectos con severidad, estado y responsable asignado.'
+        )
+    return recommendations
+
+
+@login_required
+def plan_final_report_view(request, pk):
+    plan = _plan_queryset(pk, request.user)
+    data = _plan_report_data(plan)
+    execution_chart = _chart_group(
+        'Resultados de ejecución',
+        [
+            ('Aprobadas', data['passed_executions'], 'success'),
+            ('Fallidas', data['failed_executions'], 'danger'),
+            ('Bloqueadas', data['blocked_executions'], 'warning'),
+            ('Error', data['error_executions'], 'danger'),
+            ('No ejecutadas', data['not_run_executions'], 'muted'),
+        ],
+    )
+    severity_chart = _chart_group(
+        'Defectos por severidad',
+        [
+            ('Altos', data['high_defects'], 'danger'),
+            ('Medios', data['medium_defects'], 'warning'),
+            ('Bajos', data['low_defects'], 'success'),
+        ],
+    )
+    plan_context = _plan_report_context(plan)
+    if data['success_rate'] >= plan.minimum_pass_percentage and data['coverage'] >= plan.minimum_coverage_percentage and data['critical_defects'] <= plan.maximum_critical_defects:
+        verdict = 'APROBADO'
+    else:
+        verdict = 'PENDIENTE DE AJUSTES'
+    return render(
+        request,
+        'reports/plan_final_report.html',
+        {
+            'plan': plan,
+            'generated_at': timezone.now(),
+            **data,
+            'verdict': verdict,
+            'executive_summary': _executive_summary_blocks(plan, data),
+            'recommendations': _final_recommendations(plan, data),
+            'execution_chart': execution_chart,
+            'severity_chart': severity_chart,
+            **plan_context,
+        },
+    )
+
+
+def _plan_pdf_sections(plan, section, data, plan_context):
+    report_title = f'Informe del Plan de Pruebas - {plan.name}'
+    identification = {
+        'title': 'Identificación del informe',
+        'items': [
+            ('Informe', report_title),
+            ('Proyecto', plan.project.name),
+            ('Plan de Pruebas', plan.name),
+            ('Versión', plan.version),
+            ('Estado', plan.get_status_display()),
+            ('Fecha', timezone.now().strftime('%d/%m/%Y')),
+        ],
+    }
+    observations = {
+        'title': 'Observaciones y cierre',
+        'paragraph': (
+            'Este documento fue generado por la Plataforma ISTQB como evidencia de seguimiento académico '
+            'del ciclo de vida de pruebas de software. La información debe ser revisada por el docente tutor '
+            'o responsable del proyecto antes de su presentación formal.'
+        ),
+    }
+    test_type_labels = dict(TestPlan.TestType.choices)
+
+    if section == 'casos':
+        def _pdf_breaklines(value):
+            if not value:
+                return '—'
+            return escape(value).replace('\n', '<br/>').replace('\r', '')
+
+        rows = []
+        for test_case in plan.test_cases.select_related('requirement').order_by('code'):
+            latest_execution = test_case.executions.exclude(result=TestExecution.Result.NOT_RUN).first()
+            requirement = test_case.requirement.code if test_case.requirement else '—'
+            if test_case.requirement and test_case.requirement.title:
+                requirement = f"{requirement} - {test_case.requirement.title}"
+            rows.append(
+                [
+                    f"{test_case.code} - {test_case.title}",
+                    latest_execution.get_result_display() if latest_execution else 'No ejecutado',
+                    requirement,
+                    test_case.get_priority_display(),
+                    test_case.display_technique,
+                    test_case.get_level_display(),
+                    test_case.version,
+                    _pdf_breaklines(test_case.description),
+                    _pdf_breaklines(test_case.preconditions),
+                    _pdf_breaklines(test_case.test_data),
+                    _pdf_breaklines(test_case.steps),
+                    _pdf_breaklines(test_case.expected_result),
+                    _pdf_breaklines(latest_execution.actual_result) if latest_execution else '—',
+                ]
+            )
+        return [
+            identification,
+            {
+                'title': 'Resumen de casos de prueba',
+                'items': [
+                    ('Total de casos de prueba', data['test_cases']),
+                    ('Casos ejecutados', data['executed_cases']),
+                    ('Progreso de ejecución', f"{data['execution_progress']}%"),
+                ],
+            },
+            {
+                'title': 'Casos de prueba del plan',
+                'table': {
+                    'headers': [
+                        'ID y Nombre del Caso de Prueba',
+                        'Estado',
+                        'Requisito',
+                        'Prioridad',
+                        'Técnica',
+                        'Nivel',
+                        'Versión',
+                        'Descripción',
+                        'Precondiciones',
+                        'Datos de prueba',
+                        'Pasos de ejecución',
+                        'Resultado esperado',
+                        'Resultado obtenido',
+                    ],
+                    'rows': rows,
+                    'font_size': 7,
+                },
+            },
+            observations,
+        ]
+
+    if section == 'ejecuciones':
+        distribution_rows = data['execution_status_distribution']
+        return [
+            identification,
+            {
+                'title': 'Resumen de resultados',
+                'items': [
+                    ('Total de ejecuciones', data['executions']),
+                    ('Aprobadas', data['passed_executions']),
+                    ('Fallidas', data['failed_executions']),
+                    ('Bloqueadas', data['blocked_executions']),
+                    ('Error técnico', data['error_executions']),
+                    ('No ejecutadas', data['not_run_executions']),
+                    ('Tasa de aprobación', f"{data['success_rate']}%"),
+                ],
+            },
+            {
+                'title': 'Distribución por estado',
+                'table': {
+                    'headers': ['Estado', 'Cantidad', 'Porcentaje'],
+                    'rows': [[row['status'], row['count'], f"{row['percent']}%"] for row in distribution_rows],
+                },
+                'chart_data': [(row['status'][:18], row['count']) for row in distribution_rows],
+            },
+            observations,
+        ]
+
+    if section == 'defectos':
+        defect_rows = [
+            [
+                defect.code,
+                defect.test_case.code if defect.test_case else '—',
+                defect.title,
+                defect.get_severity_display(),
+                defect.get_status_display(),
+            ]
+            for defect in Defect.objects.filter(test_case__test_plan=plan).order_by('-created_at')
+        ]
+        return [
+            identification,
+            {
+                'title': 'Resumen por severidad',
+                'items': [
+                    ('Altos', data['high_defects']),
+                    ('Medios', data['medium_defects']),
+                    ('Bajos', data['low_defects']),
+                ],
+            },
+            {
+                'title': 'Defectos por estado',
+                'table': {
+                    'headers': ['Estado', 'Cantidad'],
+                    'rows': [[row['status'], row['count']] for row in data['defect_status_rows']],
+                },
+            },
+            {
+                'title': 'Detalle de defectos',
+                'table': {
+                    'headers': ['ID', 'Caso de prueba', 'Descripción', 'Severidad', 'Estado'],
+                    'rows': defect_rows,
+                },
+            },
+            observations,
+        ]
+
+    if section == 'final':
+        risks_rows = [
+            [
+                item['risk'].code,
+                item['risk'].title,
+                item['probability_label'],
+                item['impact_label'],
+                item['risk'].risk_level,
+            ]
+            for item in plan_context['risks']
+        ]
+        return [
+            identification,
+            {
+                'title': 'Objetivo',
+                'paragraph': plan.objective,
+            },
+            {
+                'title': 'Alcance',
+                'paragraph': plan.scope or 'No definido',
+            },
+            {
+                'title': 'Resumen del plan de pruebas',
+                'items': [
+                    ('Requisitos evaluados', data['requirements']),
+                    ('Casos de prueba', data['test_cases']),
+                    ('Ejecuciones', data['executions']),
+                    ('Defectos', data['defects']),
+                    ('Riesgos', data['risks']),
+                ],
+            },
+            {
+                'title': 'Requisitos evaluados',
+                'items': [
+                    ('Requisitos', data['requirements']),
+                    ('Cobertura', f"{data['coverage']}%"),
+                    ('Aprobados', data['passed_requirements']),
+                    ('Fallidos', data['failed_requirements']),
+                    ('Bloqueados', data['blocked_requirements']),
+                    ('Pendientes', data['pending_requirements']),
+                ],
+            },
+            {
+                'title': 'Resultados de ejecución',
+                'table': {
+                    'headers': ['Estado', 'Cantidad', 'Porcentaje'],
+                    'rows': [
+                        [row['status'], row['count'], f"{row['percent']}%"]
+                        for row in data['execution_status_distribution']
+                    ],
+                },
+                'chart_data': [(row['status'][:18], row['count']) for row in data['execution_status_distribution']],
+            },
+            {
+                'title': 'Cobertura y trazabilidad',
+                'items': [
+                    ('Cobertura de requisitos', f"{data['coverage']}%"),
+                    ('Requisitos cubiertos', data['covered_requirements']),
+                    ('Requisitos sin cobertura', data['uncovered_requirements']),
+                    ('Índice de trazabilidad', f"{data['traceability_index']}%"),
+                    ('Tasa de aprobación', f"{data['success_rate']}%"),
+                ],
+            },
+            {
+                'title': 'Defectos',
+                'table': {
+                    'headers': ['Severidad', 'Cantidad'],
+                    'rows': [
+                        ['Altos', data['high_defects']],
+                        ['Medios', data['medium_defects']],
+                        ['Bajos', data['low_defects']],
+                    ],
+                },
+            },
+            {
+                'title': 'Riesgos asociados',
+                'table': {
+                    'headers': ['Código', 'Riesgo', 'Probabilidad', 'Impacto', 'Nivel'],
+                    'rows': risks_rows,
+                },
+            },
+            {
+                'title': 'Conclusión',
+                'paragraph': (
+                    f"El plan {plan.name} (v{plan.version}) alcanzó una cobertura de requisitos del {data['coverage']}%, "
+                    f"una tasa de aprobación del {data['success_rate']}% y un índice de trazabilidad del "
+                    f"{data['traceability_index']}%. Tipo de pruebas aplicados: "
+                    f"{', '.join(test_type_labels.get(t, t) for t in (plan.test_types or [])) or 'No definido'}."
+                ),
+            },
+            observations,
+        ]
+
+    risks_rows = [
+        [
+            item['risk'].code,
+            item['risk'].title,
+            item['probability_label'],
+            item['impact_label'],
+            item['risk'].risk_level,
+        ]
+        for item in plan_context['risks']
+    ]
+    return [
+        identification,
+        {
+            'title': '1. Información general',
+            'items': [
+                ('Proyecto', plan.project.name),
+                ('Nombre del plan', plan.name),
+                ('Versión', plan.version),
+                ('Descripción', plan.description or '—'),
+                ('Estado', plan.get_status_display()),
+            ],
+        },
+        {
+            'title': '2. Objetivos y alcance',
+            'items': [
+                ('Objetivo', plan.objective),
+                ('Alcance', plan.scope or '—'),
+            ],
+        },
+        {
+            'title': '3. Estrategia y tipos de prueba',
+            'items': [
+                ('Estrategia', plan.strategy or '—'),
+                (
+                    'Tipos de prueba',
+                    ', '.join(test_type_labels.get(test_type, test_type) for test_type in (plan.test_types or [])) or '—',
+                ),
+            ],
+        },
+        {
+            'title': '4. Criterios de entrada y salida',
+            'items': [
+                ('Criterios de entrada', plan.entry_criteria or '—'),
+                ('Criterios de salida', plan.exit_criteria or '—'),
+                ('Porcentaje mínimo de aprobación', f"{plan.minimum_pass_percentage}%"),
+                ('Defectos críticos máximos', plan.maximum_critical_defects),
+                ('Porcentaje mínimo de cobertura', f"{plan.minimum_coverage_percentage}%"),
+            ],
+        },
+        {
+            'title': '5. Recursos y cronograma',
+            'items': [
+                ('Recursos', plan.resources or '—'),
+                ('Entorno de pruebas', plan.environment or '—'),
+                ('Responsabilidades', plan.responsibilities or '—'),
+                ('Estimación', plan.estimation or '—'),
+                ('Fecha de inicio', plan.start_date.strftime('%d/%m/%Y') if plan.start_date else '—'),
+                ('Fecha de fin', plan.end_date.strftime('%d/%m/%Y') if plan.end_date else '—'),
+            ],
+        },
+        {
+            'title': 'Riesgos asociados al plan',
+            'table': {
+                'headers': ['Código', 'Riesgo', 'Probabilidad', 'Impacto', 'Nivel'],
+                'rows': risks_rows,
+            },
+        },
+        {
+            'title': 'Matriz de probabilidad-impacto',
+            'table': {
+                'headers': ['Probabilidad', 'Impacto bajo', 'Impacto medio', 'Impacto alto'],
+                'rows': [
+                    [row['probability'], row['low'], row['medium'], row['high']]
+                    for row in plan_context['risk_matrix']
+                ],
+            },
+        },
+        *[
+            {
+                'title': group['title'],
+                'chart_data': [(item['label'], item['value']) for item in group['items']],
+            }
+            for group in plan_context['distribution_groups']
+        ],
+        observations,
+    ]
+
+
+@login_required
+def plan_report_pdf_view(request, pk, section):
+    plan = _plan_queryset(pk, request.user)
+    sections = _plan_pdf_sections(
+        plan,
+        section,
+        _plan_report_data(plan),
+        _plan_report_context(plan),
+    )
+    filename = f'plan-pruebas-{section}-{plan.pk}.pdf'
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    build_unl_pdf(
+        response,
+        plan,
+        sections=sections,
+        title=f'Informe del Plan de Pruebas - {plan.name}',
+        use_landscape=(section == 'casos'),
+    )
+    return response
+
+
+
+
 @login_required
 def report_list_view(request):
     visible_projects = visible_projects_for(request.user, request=request)
@@ -1381,7 +2340,27 @@ def report_detail_view(request, pk):
     )
 
 
-def build_unl_pdf(buffer, report):
+class NumberedCanvas(pdfcanvas.Canvas):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.setFont('Helvetica', 8)
+            self.setFillColor(colors.HexColor('#52667a'))
+            self.drawCentredString(self._pagesize[0] / 2, 0.8 * cm, f'Página {self._pageNumber} de {num_pages}')
+            super().showPage()
+        super().save()
+
+
+def build_unl_pdf(buffer, report, sections=None, title=None, use_landscape=False):
     styles = getSampleStyleSheet()
     styles.add(
         ParagraphStyle(
@@ -1428,12 +2407,13 @@ def build_unl_pdf(buffer, report):
 
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=A4,
+        pagesize=landscape(A4) if use_landscape else A4,
         rightMargin=2 * cm,
         leftMargin=2 * cm,
         topMargin=1.6 * cm,
         bottomMargin=1.8 * cm,
-        title=report.title,
+        title=title or report.title,
+        canvasmaker=NumberedCanvas,
     )
 
     def report_logo(filename, max_width, max_height):
@@ -1473,7 +2453,10 @@ def build_unl_pdf(buffer, report):
 
     story = [institutional_header, Spacer(1, 0.35 * cm)]
 
-    for index, section in enumerate(build_pdf_sections(report), start=1):
+    if sections is None:
+        sections = build_pdf_sections(report)
+
+    for index, section in enumerate(sections, start=1):
         story.append(Paragraph(f'{index}. {section["title"]}', styles['SectionTitle']))
 
         if 'items' in section:
@@ -1507,15 +2490,22 @@ def build_unl_pdf(buffer, report):
             table_data = section['table']
             rows = [table_data['headers']]
             rows.extend(table_data.get('rows', []))
+            font_size = table_data.get('font_size', 9)
+            cell_style = ParagraphStyle(
+                'TableCell',
+                parent=styles['BodySmall'],
+                fontSize=font_size,
+                leading=font_size + 3,
+            )
             section_table = Table(
                 [
                     [
-                        Paragraph(str(cell), styles['BodySmall'])
+                        Paragraph(str(cell), cell_style)
                         for cell in row
                     ]
                     for row in rows
                 ],
-                colWidths=[16 * cm / max(len(table_data['headers']), 1)] * len(table_data['headers']),
+                colWidths=[doc.width / max(len(table_data['headers']), 1)] * len(table_data['headers']),
                 repeatRows=1,
             )
             section_table.setStyle(

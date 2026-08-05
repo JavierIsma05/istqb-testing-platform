@@ -1,3 +1,5 @@
+import json
+
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Count
@@ -5,10 +7,24 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.audit.services import log_action
 from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
+from apps.drafts.services import clear_draft
+from apps.incidents.views import MATRIX_ROWS
 
 from .forms import TestPlanWizardForm
 from .history import record_test_plan_version
 from .models import TestPlan
+from .risks import create_risks_from_payload
+
+
+def parse_risks_payload(request):
+    raw = request.POST.get('risks_json', '')
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, list) else []
+    except (ValueError, TypeError):
+        return []
 
 
 STATUS_BADGES = {
@@ -54,6 +70,8 @@ def testplan_create_view(request):
         plan = form.save(commit=False)
         plan.created_by = request.user
         plan.save()
+        create_risks_from_payload(plan, request.user, parse_risks_payload(request))
+        clear_draft(request.user, 'testplan', plan.project_id, 0)
         record_test_plan_version(plan, request.user, 'Creación del plan de pruebas')
         log_action(
             request.user,
@@ -65,7 +83,7 @@ def testplan_create_view(request):
         messages.success(request, 'Plan de pruebas creado correctamente.')
         return redirect('testplans:index')
 
-    return render(request, 'testplans/form.html', {'form': form, 'form_title': 'Crear Plan de Pruebas', 'submit_label': 'Crear Plan'})
+    return render(request, 'testplans/form.html', {'form': form, 'matrix_rows': MATRIX_ROWS, 'form_title': 'Crear Plan de Pruebas', 'submit_label': 'Crear Plan'})
 
 
 @login_required
@@ -83,6 +101,9 @@ def testplan_update_view(request, pk):
 
     if request.method == 'POST' and form.is_valid():
         plan = form.save()
+        plan.risks.all().delete()
+        create_risks_from_payload(plan, request.user, parse_risks_payload(request))
+        clear_draft(request.user, 'testplan', plan.project_id, plan.pk)
         record_test_plan_version(plan, request.user, 'Actualización del plan de pruebas')
         log_action(
             request.user,
@@ -94,7 +115,7 @@ def testplan_update_view(request, pk):
         messages.success(request, 'Plan de pruebas actualizado correctamente.')
         return redirect('testplans:index')
 
-    return render(request, 'testplans/form.html', {'form': form, 'form_title': 'Editar Plan de Pruebas', 'submit_label': 'Guardar Cambios'})
+    return render(request, 'testplans/form.html', {'form': form, 'matrix_rows': MATRIX_ROWS, 'form_title': 'Editar Plan de Pruebas', 'submit_label': 'Guardar Cambios'})
 
 
 @login_required

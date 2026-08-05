@@ -19,21 +19,16 @@
         {% csrf_token %}
         <div class="row g-4">
             <div class="col-md-6">
-                <label class="form-label" for="{{ form.project.id_for_label }}">{{ form.project.label }}</label>
-                {{ form.project }}
-                {% if form.project.errors %}<div class="form-error">{{ form.project.errors|striptags }}</div>{% endif %}
+                <label class="form-label" for="{{ form.test_case.id_for_label }}">{{ form.test_case.label }}</label>
+                {{ form.test_case }}
+                {% if form.test_case.errors %}<div class="form-error">{{ form.test_case.errors|striptags }}</div>{% endif %}
             </div>
             <div class="col-md-6">
                 <label class="form-label" for="{{ form.execution.id_for_label }}">{{ form.execution.label }}</label>
                 {{ form.execution }}
                 {% if form.execution.errors %}<div class="form-error">{{ form.execution.errors|striptags }}</div>{% endif %}
             </div>
-            <div class="col-md-4">
-                <label class="form-label" for="{{ form.code.id_for_label }}">{{ form.code.label }}</label>
-                {{ form.code }}
-                {% if form.code.errors %}<div class="form-error">{{ form.code.errors|striptags }}</div>{% endif %}
-            </div>
-            <div class="col-md-8">
+            <div class="col-12">
                 <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
                 {{ form.title }}
                 {% if form.title.errors %}<div class="form-error">{{ form.title.errors|striptags }}</div>{% endif %}
@@ -43,30 +38,10 @@
                 {{ form.description }}
                 {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
             </div>
-            <div class="col-12">
-                <label class="form-label" for="{{ form.steps_to_reproduce.id_for_label }}">{{ form.steps_to_reproduce.label }}</label>
-                {{ form.steps_to_reproduce }}
-                {% if form.steps_to_reproduce.errors %}<div class="form-error">{{ form.steps_to_reproduce.errors|striptags }}</div>{% endif %}
-            </div>
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <label class="form-label" for="{{ form.severity.id_for_label }}">{{ form.severity.label }}</label>
                 {{ form.severity }}
                 {% if form.severity.errors %}<div class="form-error">{{ form.severity.errors|striptags }}</div>{% endif %}
-            </div>
-            <div class="col-md-3">
-                <label class="form-label" for="{{ form.priority.id_for_label }}">{{ form.priority.label }}</label>
-                {{ form.priority }}
-                {% if form.priority.errors %}<div class="form-error">{{ form.priority.errors|striptags }}</div>{% endif %}
-            </div>
-            <div class="col-md-3">
-                <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
-                {{ form.status }}
-                {% if form.status.errors %}<div class="form-error">{{ form.status.errors|striptags }}</div>{% endif %}
-            </div>
-            <div class="col-md-3">
-                <label class="form-label" for="{{ form.assigned_to.id_for_label }}">{{ form.assigned_to.label }}</label>
-                {{ form.assigned_to }}
-                {% if form.assigned_to.errors %}<div class="form-error">{{ form.assigned_to.errors|striptags }}</div>{% endif %}
             </div>
         </div>
 

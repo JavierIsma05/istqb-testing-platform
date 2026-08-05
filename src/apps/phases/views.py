@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Case, IntegerField, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -10,6 +11,7 @@ from apps.defects.models import Defect
 from apps.executions.models import TestExecution
 from apps.incidents.models import Incident
 from apps.requirements.models import Requirement
+from apps.reports.models import Report
 from apps.testcases.models import TestCase
 from apps.testplans.models import TestPlan
 
@@ -75,63 +77,104 @@ DEFAULT_PHASES = [
 
 
 def ensure_default_phases(project):
+    existing = {
+        phase.order: phase
+        for phase in TestingPhase.objects.filter(project=project)
+    }
+    to_create = []
+    synced_fields = ['name', 'description', 'entry_criteria', 'exit_criteria']
     for phase_data in DEFAULT_PHASES:
-        phase, created = TestingPhase.objects.get_or_create(
-            project=project,
-            order=phase_data['order'],
-            defaults=phase_data,
+        phase = existing.get(phase_data['order'])
+        if phase is None:
+            to_create.append(TestingPhase(project=project, **phase_data))
+            continue
+        changed_fields = [field for field in synced_fields if getattr(phase, field) != phase_data[field]]
+        if changed_fields:
+            for field in changed_fields:
+                setattr(phase, field, phase_data[field])
+            phase.save(update_fields=[*changed_fields, 'updated_at'])
+    if to_create:
+        TestingPhase.objects.bulk_create(to_create)
+
+    phases = list(existing.values()) + to_create
+    return sorted(phases, key=lambda phase: phase.order)
+
+
+def project_criteria_snapshot(project):
+    requirements = list(Requirement.objects.filter(project=project).values_list('status', flat=True))
+    plans = list(
+        TestPlan.objects.filter(project=project).values_list(
+            'entry_criteria', 'exit_criteria', 'environment', 'responsibilities'
         )
-        if not created:
-            phase.name = phase_data['name']
-            phase.description = phase_data['description']
-            phase.entry_criteria = phase_data['entry_criteria']
-            phase.exit_criteria = phase_data['exit_criteria']
-            phase.save(
-                update_fields=['name', 'description', 'entry_criteria', 'exit_criteria', 'updated_at']
-            )
+    )
+    risks = list(Incident.objects.filter(project=project).values_list('test_plan_id', flat=True))
+    test_cases = list(TestCase.objects.filter(test_plan__project=project).values_list('requirement_id', flat=True))
+    executions = list(
+        TestExecution.objects.filter(test_case__test_plan__project=project).values_list(
+            'actual_result', 'step_results'
+        )
+    )
+    defects = list(Defect.objects.filter(project=project).values_list('execution_id', 'severity', 'status'))
+    reports_generated = Report.objects.filter(project=project).exists()
+
+    return {
+        'requirements_registered': bool(requirements),
+        'requirements_reviewed': any(status != Requirement.Status.PENDING for status in requirements),
+        'plans_registered': bool(plans),
+        'plans_criteria': any(bool(entry) and bool(exit) for entry, exit, _env, _resp in plans),
+        'plans_environment': any(bool(env) for _entry, _exit, env, _resp in plans),
+        'plans_responsibilities': any(bool(resp) for _entry, _exit, _env, resp in plans),
+        'risks_linked': any(risk_id is not None for risk_id in risks),
+        'test_cases_created': bool(test_cases),
+        'cases_linked': any(requirement_id is not None for requirement_id in test_cases),
+        'executions_registered': bool(executions),
+        'executions_results': any(bool(actual_result) and step_results != [] for actual_result, step_results in executions),
+        'defects_registered': bool(defects),
+        'defects_orphan': any(execution_id is None for execution_id, _severity, _status in defects),
+        'defects_critical_open': any(
+            severity == Defect.Severity.HIGH and status != Defect.Status.CLOSED
+            for _execution_id, severity, status in defects
+        ),
+        'reports_generated': reports_generated,
+    }
 
 
-def phase_criteria_status(phase):
-    project = phase.project
-    plans = TestPlan.objects.filter(project=project)
-    requirements = Requirement.objects.filter(project=project)
-    risks = Incident.objects.filter(project=project)
-    test_cases = TestCase.objects.filter(test_plan__project=project)
-    executions = TestExecution.objects.filter(test_case__test_plan__project=project)
-    defects = Defect.objects.filter(project=project)
+def phase_criteria_status(phase, snapshot=None):
+    if snapshot is None:
+        snapshot = project_criteria_snapshot(phase.project)
 
     checks_by_order = {
         1: [
             ('Proyecto creado', True),
-            ('Requisitos registrados', requirements.exists()),
-            ('Requisitos aprobados o en revisión', requirements.exclude(status=Requirement.Status.PENDING).exists()),
+            ('Requisitos registrados', snapshot['requirements_registered']),
+            ('Requisitos aprobados o en revisión', snapshot['requirements_reviewed']),
         ],
         2: [
-            ('Requisitos registrados', requirements.exists()),
-            ('Plan de pruebas registrado', plans.exists()),
-            ('Criterios de entrada y salida definidos', plans.exclude(entry_criteria='').exclude(exit_criteria='').exists()),
-            ('Riesgos asociados al plan', risks.filter(test_plan__isnull=False).exists()),
+            ('Requisitos registrados', snapshot['requirements_registered']),
+            ('Plan de pruebas registrado', snapshot['plans_registered']),
+            ('Criterios de entrada y salida definidos', snapshot['plans_criteria']),
+            ('Riesgos asociados al plan', snapshot['risks_linked']),
         ],
         3: [
-            ('Requisitos disponibles', requirements.exists()),
-            ('Casos de prueba creados', test_cases.exists()),
-            ('Casos vinculados a requisitos', test_cases.filter(requirement__isnull=False).exists()),
+            ('Requisitos disponibles', snapshot['requirements_registered']),
+            ('Casos de prueba creados', snapshot['test_cases_created']),
+            ('Casos vinculados a requisitos', snapshot['cases_linked']),
         ],
         4: [
-            ('Casos de prueba disponibles', test_cases.exists()),
-            ('Ambiente de prueba definido', plans.exclude(environment='').exists()),
-            ('Responsabilidades definidas', plans.exclude(responsibilities='').exists()),
+            ('Casos de prueba disponibles', snapshot['test_cases_created']),
+            ('Ambiente de prueba definido', snapshot['plans_environment']),
+            ('Responsabilidades definidas', snapshot['plans_responsibilities']),
         ],
         5: [
-            ('Casos de prueba disponibles', test_cases.exists()),
-            ('Ejecuciones registradas', executions.exists()),
-            ('Resultados obtenidos registrados', executions.exclude(actual_result='').exclude(step_results=[]).exists()),
-            ('Defectos vinculados a ejecuciones fallidas', not defects.filter(execution__isnull=True).exists()),
+            ('Casos de prueba disponibles', snapshot['test_cases_created']),
+            ('Ejecuciones registradas', snapshot['executions_registered']),
+            ('Resultados obtenidos registrados', snapshot['executions_results']),
+            ('Defectos vinculados a ejecuciones fallidas', not snapshot['defects_orphan']),
         ],
         6: [
-            ('Ejecuciones registradas', executions.exists()),
-            ('Reportes generados', project.reports.exists()),
-            ('Defectos críticos cerrados o sin pendientes', not defects.filter(severity=Defect.Severity.CRITICAL).exclude(status=Defect.Status.CLOSED).exists()),
+            ('Ejecuciones registradas', snapshot['executions_registered']),
+            ('Reportes generados', snapshot['reports_generated']),
+            ('Defectos críticos cerrados o sin pendientes', not snapshot['defects_critical_open']),
         ],
     }
     checks = checks_by_order.get(phase.order, [])
@@ -228,10 +271,10 @@ def phase_list_view(request):
     completed_count = 0
 
     if selected_project:
-        ensure_default_phases(selected_project)
-        phases = TestingPhase.objects.filter(project=selected_project).order_by('order')
+        phases = ensure_default_phases(selected_project)
+        criteria_snapshot = project_criteria_snapshot(selected_project)
         for phase in phases:
-            criteria = phase_criteria_status(phase)
+            criteria = phase_criteria_status(phase, snapshot=criteria_snapshot)
             sync_phase_progress(phase, criteria)
             phase_items.append({
                 'phase': phase,
@@ -239,8 +282,8 @@ def phase_list_view(request):
                 'can_start': can_start_phase(phase),
             })
 
-        phase_count = phases.count()
-        completed_count = phases.filter(status=TestingPhase.Status.DONE).count()
+        phase_count = len(phases)
+        completed_count = sum(1 for phase in phases if phase.status == TestingPhase.Status.DONE)
         general_progress = round(sum(phase.progress for phase in phases) / phase_count) if phase_count else 0
 
     return render(
@@ -253,7 +296,7 @@ def phase_list_view(request):
             'phase_items': phase_items,
             'general_progress': general_progress,
             'completed_count': completed_count,
-            'total_phases': phases.count(),
+            'total_phases': len(phases),
         },
     )
 
@@ -266,7 +309,7 @@ def phase_advance_view(request, pk):
         return readonly_redirect
 
     phase = get_object_or_404(TestingPhase, pk=pk, project__in=visible_projects_for(request.user, request=request))
-    criteria = phase_criteria_status(phase)
+    criteria = phase_criteria_status(phase, snapshot=project_criteria_snapshot(phase.project))
 
     if not can_start_phase(phase):
         messages.error(request, 'Completa la fase anterior antes de iniciar esta fase.')

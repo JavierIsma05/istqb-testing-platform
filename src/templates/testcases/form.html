@@ -15,17 +15,114 @@
 </div>
 
 <section class="content-card form-card testcase-edit-card">
-    <form method="POST" novalidate>
+    <form method="POST" novalidate
+        data-draft-module="testcase"
+        data-draft-object-id="{{ form.instance.pk|default:0 }}"
+        data-draft-project="{{ form.instance.test_plan.project_id|default:0 }}"
+        data-draft-save-url="{% url 'drafts:save' %}"
+        data-draft-get-url="{% url 'drafts:get' %}"
+        data-draft-clear-url="{% url 'drafts:clear' %}">
         {% csrf_token %}
         <div class="row g-3">
-            {% for field in form %}
-                <div class="{% if field.field.widget.input_type == 'textarea' or field.name == 'description' or field.name == 'preconditions' or field.name == 'steps' or field.name == 'expected_result' %}col-12{% else %}col-md-6{% endif %}">
-                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}<div class="form-text visually-hidden">{{ field.help_text }}</div>{% endif %}
-                    {% if field.errors %}<div class="form-error">{{ field.errors|striptags }}</div>{% endif %}
+            <div class="col-12">
+                <div class="testcase-form-section">
+                    <div class="testcase-form-section-header">
+                        <span class="testcase-form-badge">1</span>
+                        <h3>Identificación del caso</h3>
+                    </div>
+                    <div class="row g-3">
+                        {% for field in form %}
+                            {% if field.name in 'code requirement title description' %}
+                                <div class="{% if field.name == 'title' or field.name == 'description' %}col-lg-6{% else %}col-lg-3 col-md-6{% endif %}">
+                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% if field.help_text %}<div class="form-text visually-hidden">{{ field.help_text }}</div>{% endif %}
+                                    {% if field.errors %}<div class="form-error">{{ field.errors|striptags }}</div>{% endif %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                        {{ form.test_plan }}
+                    </div>
                 </div>
-            {% endfor %}
+            </div>
+
+            <div class="col-12">
+                <div class="testcase-form-section">
+                    <div class="testcase-form-section-header">
+                        <span class="testcase-form-badge">2</span>
+                        <h3>Clasificación y trazabilidad</h3>
+                    </div>
+                    <div class="row g-3">
+                        {% for field in form %}
+                            {% if field.name in 'priority technique' %}
+                                <div class="col-md-4">
+                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% if field.help_text %}<div class="form-text visually-hidden">{{ field.help_text }}</div>{% endif %}
+                                    {% if field.errors %}<div class="form-error">{{ field.errors|striptags }}</div>{% endif %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                        <div class="col-md-4 custom-technique-field" data-custom-technique-wrap>
+                            <label class="form-label" for="{{ form.custom_technique.id_for_label }}">{{ form.custom_technique.label }}</label>
+                            {{ form.custom_technique }}
+                            {% if form.custom_technique.errors %}<div class="form-error">{{ form.custom_technique.errors|striptags }}</div>{% endif %}
+                        </div>
+                        {% for field in form %}
+                            {% if field.name in 'status' %}
+                                <div class="col-md-4">
+                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% if field.help_text %}<div class="form-text visually-hidden">{{ field.help_text }}</div>{% endif %}
+                                    {% if field.errors %}<div class="form-error">{{ field.errors|striptags }}</div>{% endif %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="testcase-form-section">
+                    <div class="testcase-form-section-header">
+                        <span class="testcase-form-badge">3</span>
+                        <h3>Datos del caso</h3>
+                    </div>
+                    <div class="row g-3">
+                        {% for field in form %}
+                            {% if field.name in 'preconditions test_data' %}
+                                <div class="col-lg-6">
+                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% if field.help_text %}<div class="form-text visually-hidden">{{ field.help_text }}</div>{% endif %}
+                                    {% if field.errors %}<div class="form-error">{{ field.errors|striptags }}</div>{% endif %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="testcase-form-section">
+                    <div class="testcase-form-section-header">
+                        <span class="testcase-form-badge">4</span>
+                        <h3>Pasos y resultado esperado</h3>
+                    </div>
+                    <div class="row g-3">
+                        {% for field in form %}
+                            {% if field.name in 'steps expected_result' %}
+                                <div class="col-12">
+                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% if field.help_text %}<div class="form-text visually-hidden">{{ field.help_text }}</div>{% endif %}
+                                    {% if field.errors %}<div class="form-error">{{ field.errors|striptags }}</div>{% endif %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="d-flex justify-content-end gap-2 mt-4">
@@ -37,4 +134,17 @@
         </div>
     </form>
 </section>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-custom-technique-target]').forEach(function (select) {
+            var wrap = document.querySelector('[data-custom-technique-wrap]');
+            if (!wrap) return;
+            function toggle() {
+                wrap.style.display = select.value === 'OTHER' ? '' : 'none';
+            }
+            select.addEventListener('change', toggle);
+            toggle();
+        });
+    });
+</script>
 {% endblock %}

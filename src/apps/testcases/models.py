@@ -4,8 +4,6 @@ from django.db import models
 from apps.core.models import OwnedModel
 from apps.requirements.models import Requirement
 from apps.testplans.models import TestPlan
-
-
 class TestCase(OwnedModel):
     class Priority(models.TextChoices):
         LOW = 'LOW', 'Baja'
@@ -14,10 +12,16 @@ class TestCase(OwnedModel):
         CRITICAL = 'CRITICAL', 'Crítica'
 
     class Status(models.TextChoices):
-        PENDING = 'PENDING', 'Pendiente'
-        PASSED = 'PASSED', 'Pasado'
+        PENDING = 'PENDING', 'En Redacción'
+        READY = 'READY', 'Listo para Ejecutar'
+        RUNNING = 'RUNNING', 'Ejecutando'
+        PASSED = 'PASSED', 'Completado'
         FAILED = 'FAILED', 'Fallido'
         BLOCKED = 'BLOCKED', 'Bloqueado'
+
+    class ExecutionType(models.TextChoices):
+        MANUAL = 'MANUAL', 'Manual'
+        AUTOMATED = 'AUTOMATED', 'Automatizada'
 
     class Technique(models.TextChoices):
         EQUIVALENCE = 'EQUIVALENCE', 'Partición de Equivalencia'
@@ -29,6 +33,7 @@ class TestCase(OwnedModel):
         BLACK_BOX = 'BLACK_BOX', 'Caja Negra'
         WHITE_BOX = 'WHITE_BOX', 'Caja Blanca'
         EXPLORATORY = 'EXPLORATORY', 'Exploratoria'
+        OTHER = 'OTHER', 'Otra'
 
     class Level(models.TextChoices):
         UNIT = 'UNIT', 'Unitaria'
@@ -47,6 +52,7 @@ class TestCase(OwnedModel):
     title = models.CharField(max_length=180)
     description = models.TextField(blank=True)
     technique = models.CharField(max_length=30, choices=Technique.choices, default=Technique.BLACK_BOX)
+    custom_technique = models.CharField(max_length=180, blank=True)
     level = models.CharField(max_length=30, choices=Level.choices, default=Level.SYSTEM)
     preconditions = models.TextField(blank=True)
     test_data = models.TextField(blank=True)
@@ -56,6 +62,11 @@ class TestCase(OwnedModel):
     version = models.CharField(max_length=20, default='1.0')
     priority = models.CharField(max_length=20, choices=Priority.choices, default=Priority.MEDIUM)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    execution_type = models.CharField(
+        max_length=20,
+        choices=ExecutionType.choices,
+        default=ExecutionType.MANUAL,
+    )
 
     class Meta:
         ordering = ['test_plan', 'code']
@@ -63,6 +74,30 @@ class TestCase(OwnedModel):
 
     def __str__(self):
         return f'{self.code} - {self.title}'
+
+    @property
+    def display_technique(self):
+        if self.technique == self.Technique.OTHER and self.custom_technique.strip():
+            return self.custom_technique.strip()
+        return self.get_technique_display()
+
+    @property
+    def associated_requirements(self):
+        from apps.traceability.models import TraceabilityLink
+        return Requirement.objects.filter(
+            models.Q(pk=self.requirement_id)
+            | models.Q(traceability_links__test_case=self)
+        ).distinct()
+
+    @property
+    def has_approved_requirement(self):
+        if not self.pk:
+            return False
+        return self.associated_requirements.filter(status=Requirement.Status.APPROVED).exists()
+
+    @property
+    def execution_block_reason(self):
+        return 'Este caso de prueba no puede ejecutarse porque no tiene ningún requisito aprobado.'
 
     def clean(self):
         super().clean()

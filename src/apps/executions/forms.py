@@ -1,21 +1,23 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .models import AutomatedValidationRule, TestExecution
+from apps.core.forms import CurrentAcademicYearValidationMixin, current_year_date_attrs
 
+from .models import AutomatedValidationRule, TestData, TestExecution
 
 EVIDENCE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf', '.txt', '.log', '.csv')
 MAX_EVIDENCE_SIZE = 10 * 1024 * 1024
 
 
-class ExecutionResultForm(forms.ModelForm):
+class ExecutionResultForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
     result = forms.ChoiceField(
-        label='Resultado',
+        label='Estado',
         choices=(
             (TestExecution.Result.PASSED, 'Aprobado'),
             (TestExecution.Result.FAILED, 'Fallido'),
             (TestExecution.Result.BLOCKED, 'Bloqueado'),
         ),
+        required=False,
         widget=forms.HiddenInput(),
     )
 
@@ -37,7 +39,7 @@ class ExecutionResultForm(forms.ModelForm):
             'execution_mode': 'Modo de ejecucion',
             'execution_type': 'Tipo de ejecucion',
             'related_defect': 'Defecto relacionado',
-            'planned_date': 'Fecha planificada',
+            'planned_date': 'Fecha de ejecución',
             'actual_result': 'Resultado obtenido',
             'test_data': 'Datos de prueba usados',
             'environment': 'Ambiente de prueba',
@@ -46,15 +48,11 @@ class ExecutionResultForm(forms.ModelForm):
         }
         widgets = {
             'execution_mode': forms.HiddenInput(),
-            'execution_type': forms.Select(attrs={'class': 'form-select'}),
+            'execution_type': forms.HiddenInput(),
             'related_defect': forms.Select(attrs={'class': 'form-select'}),
-            'planned_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
-            'actual_result': forms.Textarea(
-                attrs={
-                    'class': 'form-control',
-                    'placeholder': 'Describe lo que realmente ocurrio al ejecutar el caso...',
-                    'rows': 3,
-                }
+            'planned_date': forms.DateInput(
+                attrs=current_year_date_attrs({'class': 'form-control', 'type': 'date'}),
+                format='%Y-%m-%d',
             ),
             'test_data': forms.Textarea(
                 attrs={
@@ -87,12 +85,24 @@ class ExecutionResultForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         test_case = kwargs.pop('test_case', None)
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        self.user = user
         self.fields['planned_date'].required = False
         self.fields['execution_mode'].required = False
         self.fields['execution_mode'].initial = TestExecution.ExecutionMode.MANUAL
+        self.fields['execution_type'].required = False
+        self.fields['execution_type'].initial = TestExecution.ExecutionType.NORMAL
         self.fields['related_defect'].required = False
         self.fields['planned_date'].input_formats = ['%Y-%m-%d']
+        self.fields['notes'].required = False
+        self.fields['actual_result'].required = True
+        self.fields['actual_result'].error_messages['required'] = 'Selecciona el resultado obtenido: Cumple o No cumple.'
+        self.fields['evidence'].required = True
+        self.fields['evidence'].error_messages['required'] = 'Adjunta una captura de pantalla como evidencia de la ejecucion.'
+        if user and getattr(user, 'role', None) == 'STUDENT':
+            self.fields['notes'].widget.attrs['disabled'] = True
+            self.fields['notes'].help_text = 'El comentario queda bloqueado para estudiantes; lo podrá escribir el docente en revisión.'
         if test_case:
             self.fields['related_defect'].queryset = test_case.test_plan.project.defects.order_by('-created_at')
         else:
@@ -101,11 +111,11 @@ class ExecutionResultForm(forms.ModelForm):
             'execution_type': 'Usa confirmacion para verificar un defecto corregido y regresion para comprobar que no se afectaron funciones existentes.',
             'related_defect': 'Selecciona el defecto que estas confirmando o que motiva esta regresion.',
             'planned_date': 'Fecha sugerida o planificada para dar seguimiento a esta ejecucion.',
-            'result': 'Selecciona el resultado observado durante la ejecucion del caso.',
-            'actual_result': 'Compara este resultado con el resultado esperado del caso de prueba.',
+            'result': 'El estado se calcula automaticamente segun el resultado obtenido.',
+            'actual_result': 'Indica si el caso de prueba cumple o no con el resultado esperado.',
             'test_data': 'Registra los datos concretos usados para que el docente pueda reproducir la ejecución.',
             'environment': 'Identifica navegador, sistema, versión o ambiente donde se ejecutó la prueba.',
-            'notes': 'Registra bloqueos o diferencias encontradas durante la ejecución.',
+            'notes': 'Registra observaciones, bloqueos o aclaraciones adicionales. Si eres estudiante, este campo queda bloqueado.',
             'evidence': 'Adjunta una captura, PDF, archivo de texto, CSV o log que respalde el resultado. Máximo 10 MB.',
         }
         for name, help_text in help_texts.items():
@@ -123,6 +133,14 @@ class ExecutionResultForm(forms.ModelForm):
             self.add_error(
                 'related_defect',
                 'Selecciona el defecto que se confirma con esta ejecucion.',
+            )
+
+        # Deriva el estado a partir del resultado obtenido (solo para los valores del formulario).
+        if actual_result in {'Cumple', 'No cumple'}:
+            cleaned_data['result'] = (
+                TestExecution.Result.PASSED
+                if actual_result == 'Cumple'
+                else TestExecution.Result.FAILED
             )
 
         if result in {
@@ -150,174 +168,6 @@ class ExecutionResultForm(forms.ModelForm):
         return evidence
 
 
-class AutomatedValidationRuleForm(forms.ModelForm):
-    BROWSER_CHOICES = (('chromium', 'Chromium'),)
-    browser = forms.ChoiceField(
-        label='Navegador',
-        choices=BROWSER_CHOICES,
-        initial='chromium',
-        widget=forms.Select(attrs={'class': 'form-select'}),
-    )
-
-    class Meta:
-        model = AutomatedValidationRule
-        fields = (
-            'name',
-            'step_number',
-            'validation_type',
-            'target_url',
-            'selector_type',
-            'selector_value',
-            'secondary_selector_value',
-            'input_value',
-            'expected_value',
-            'expected_text',
-            'min_length',
-            'max_length',
-            'expected_url',
-            'expected_http_status',
-            'timeout_seconds',
-            'browser',
-            'capture_evidence',
-            'is_active',
-        )
-        labels = {
-            'name': 'Nombre de la regla',
-            'step_number': 'Número de paso',
-            'validation_type': 'Tipo de validación',
-            'target_url': 'URL objetivo',
-            'selector_type': 'Tipo de selector',
-            'selector_value': 'Selector principal',
-            'secondary_selector_value': 'Selector secundario',
-            'input_value': 'Dato de prueba',
-            'expected_value': 'Valor esperado',
-            'expected_text': 'Texto esperado',
-            'min_length': 'Longitud mínima',
-            'max_length': 'Longitud máxima',
-            'expected_url': 'URL esperada',
-            'expected_http_status': 'Estado HTTP esperado',
-            'timeout_seconds': 'Timeout en segundos',
-            'browser': 'Navegador',
-            'capture_evidence': 'Generar evidencia automatica',
-            'is_active': 'Regla activa',
-        }
-        widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'step_number': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
-            'validation_type': forms.Select(attrs={'class': 'form-select'}),
-            'target_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'http://localhost:8000/'}),
-            'selector_type': forms.Select(attrs={'class': 'form-select'}),
-            'selector_value': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '#password'}),
-            'secondary_selector_value': forms.TextInput(attrs={'class': 'form-control'}),
-            'input_value': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
-            'expected_value': forms.TextInput(attrs={'class': 'form-control'}),
-            'expected_text': forms.TextInput(attrs={'class': 'form-control'}),
-            'min_length': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
-            'max_length': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
-            'expected_url': forms.URLInput(attrs={'class': 'form-control'}),
-            'expected_http_status': forms.NumberInput(attrs={'class': 'form-control', 'min': 100, 'max': 599}),
-            'timeout_seconds': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 60}),
-            'capture_evidence': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        self.test_case = kwargs.pop('test_case', None)
-        super().__init__(*args, **kwargs)
-        help_texts = {
-            'name': 'Nombre corto para reconocer la regla en el historial. Ejemplo: Titulo de login visible.',
-            'step_number': 'Numero del paso manual que esta regla valida. Debe existir en el caso de prueba.',
-            'validation_type': 'Define que comprobara la regla: texto visible, estado HTTP, campo obligatorio, redireccion, etc.',
-            'target_url': 'Página que abrirá la automatización. Solo se permiten URLs autorizadas como localhost o 127.0.0.1.',
-            'selector_type': 'Forma de ubicar un elemento en la página. Para la mayoría de casos usa CSS.',
-            'selector_value': 'Elemento principal que se validará o rellenará. Ejemplos CSS: #email, input[name="password"], .btn-login.',
-            'secondary_selector_value': 'Botón o elemento que dispara el envío del formulario. Ejemplo: button[type="submit"].',
-            'input_value': 'Dato que la prueba escribirá en el campo principal. Se usa en email, longitud mínima/máxima o envío bloqueado.',
-            'expected_value': 'Valor esperado genérico. Úsalo solo si el tipo de validación lo necesita.',
-            'expected_text': 'Texto que debe aparecer visible en la página. Ejemplo: Iniciar Sesión.',
-            'min_length': 'Cantidad mínima esperada cuando se valida longitud mínima.',
-            'max_length': 'Cantidad máxima permitida cuando se valida longitud máxima.',
-            'expected_url': 'URL final esperada después de hacer clic en el selector principal.',
-            'expected_http_status': 'Código HTTP esperado para la URL objetivo. Ejemplo: 200, 302 o 404.',
-            'timeout_seconds': 'Tiempo máximo de espera antes de marcar error técnico. Usa 10 segundos salvo que la página sea lenta.',
-            'browser': 'Navegador usado para reglas visuales. Actualmente la plataforma ejecuta Chromium.',
-            'capture_evidence': 'Guarda captura automática cuando la regla se ejecuta en navegador.',
-            'is_active': 'Si está marcado, la regla se incluye al ejecutar validaciones automatizadas.',
-        }
-        placeholders = {
-            'name': 'Ej. Titulo de login visible',
-            'secondary_selector_value': 'Ej. button[type="submit"]',
-            'input_value': 'Ej. correo-invalido, texto demasiado largo o valor de prueba',
-            'expected_value': 'Ej. valor exacto esperado',
-            'expected_text': 'Ej. Iniciar Sesión',
-            'expected_url': 'Ej. http://localhost:8000/dashboard/',
-            'expected_http_status': 'Ej. 200',
-        }
-        for name, help_text in help_texts.items():
-            self.fields[name].help_text = help_text
-            self.fields[name].widget.attrs['data-help'] = help_text
-            if name in placeholders:
-                self.fields[name].widget.attrs.setdefault('placeholder', placeholders[name])
-
-    def clean(self):
-        cleaned_data = super().clean()
-        validation_type = cleaned_data.get('validation_type')
-        step_number = cleaned_data.get('step_number')
-        selector_value = (cleaned_data.get('selector_value') or '').strip()
-        secondary_selector = (cleaned_data.get('secondary_selector_value') or '').strip()
-
-        if self.test_case and step_number and step_number > len(self.test_case.steps_data or []):
-            fallback_steps = [line for line in (self.test_case.steps or '').splitlines() if line.strip()]
-            if step_number > len(fallback_steps):
-                self.add_error('step_number', 'El paso seleccionado no existe en el caso de prueba.')
-
-        if validation_type == AutomatedValidationRule.ValidationType.HTTP_STATUS:
-            if not cleaned_data.get('expected_http_status'):
-                self.add_error('expected_http_status', 'Indica el codigo HTTP esperado.')
-        elif validation_type != AutomatedValidationRule.ValidationType.TEXT_VISIBLE and not selector_value:
-            self.add_error('selector_value', 'Esta validación requiere un selector principal.')
-
-        submit_validations = {
-            AutomatedValidationRule.ValidationType.FIELD_REQUIRED,
-            AutomatedValidationRule.ValidationType.EMAIL_FORMAT,
-            AutomatedValidationRule.ValidationType.MAX_LENGTH,
-            AutomatedValidationRule.ValidationType.MIN_LENGTH,
-            AutomatedValidationRule.ValidationType.FORM_SUBMISSION_BLOCKED,
-        }
-        if validation_type in submit_validations and not secondary_selector:
-            self.add_error('secondary_selector_value', 'Indica el selector CSS del boton de envio.')
-        if validation_type == AutomatedValidationRule.ValidationType.EMAIL_FORMAT and not cleaned_data.get('input_value'):
-            self.add_error('input_value', 'Indica el correo invalido que se probara.')
-        if validation_type == AutomatedValidationRule.ValidationType.MAX_LENGTH:
-            if cleaned_data.get('max_length') is None:
-                self.add_error('max_length', 'Indica la longitud máxima permitida.')
-            if not cleaned_data.get('input_value'):
-                self.add_error('input_value', 'Indica un valor que supere la longitud máxima.')
-        if validation_type == AutomatedValidationRule.ValidationType.MIN_LENGTH:
-            if cleaned_data.get('min_length') is None:
-                self.add_error('min_length', 'Indica la longitud mínima permitida.')
-            if not cleaned_data.get('input_value'):
-                self.add_error('input_value', 'Indica un valor menor que la longitud mínima.')
-        if validation_type == AutomatedValidationRule.ValidationType.TEXT_VISIBLE and not cleaned_data.get('expected_text'):
-            self.add_error('expected_text', 'Indica el texto que debe aparecer.')
-        if validation_type == AutomatedValidationRule.ValidationType.REDIRECT_URL and not cleaned_data.get('expected_url'):
-            self.add_error('expected_url', 'Indica la URL de destino esperada.')
-
-        timeout = cleaned_data.get('timeout_seconds')
-        if timeout and timeout > 60:
-            self.add_error('timeout_seconds', 'El timeout máximo permitido es 60 segundos.')
-
-        target_url = cleaned_data.get('target_url')
-        if target_url:
-            from .services.automated_runner import validate_automation_url
-
-            try:
-                validate_automation_url(target_url)
-            except ValidationError as exc:
-                self.add_error('target_url', exc)
-        return cleaned_data
-
-
 class ExecutionReviewForm(forms.ModelForm):
     class Meta:
         model = TestExecution
@@ -336,3 +186,173 @@ class ExecutionReviewForm(forms.ModelForm):
                 }
             ),
         }
+
+
+class TestDataForm(forms.ModelForm):
+    class Meta:
+        model = TestData
+        fields = ('key', 'value')
+        labels = {
+            'key': 'Nombre de variable',
+            'value': 'Valor',
+        }
+        widgets = {
+            'key': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ej. usuario, clave, url_base'}),
+            'value': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ej. javier.aguilar@unl.edu.ec, Test1234, http://localhost:8000'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['key'].help_text = 'Nombre de la variable para usar en pasos como {{nombre}}'
+        self.fields['value'].help_text = 'Valor que se reemplazará al ejecutar'
+
+
+class AutomatedStepForm(forms.ModelForm):
+    name = forms.CharField(
+        label='Nombre del paso',
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional: se genera solo'}),
+    )
+    template = forms.ChoiceField(
+        label='Usar plantilla',
+        required=False,
+        choices=[
+            ('', '-- Seleccionar plantilla --'),
+            ('login', 'Login estándar'),
+            ('search', 'Búsqueda simple'),
+            ('form_submit', 'Envío de formulario'),
+        ],
+        widget=forms.Select(attrs={'class': 'form-select', 'data-template-select': ''}),
+    )
+
+    class Meta:
+        model = AutomatedValidationRule
+        fields = (
+            'name',
+            'step_number',
+            'action_type',
+            'target_url',
+            'selector_value',
+            'input_value',
+            'expected_value',
+            'comparison_type',
+            'timeout_seconds',
+            'is_critical',
+        )
+        labels = {
+            'step_number': 'Paso',
+            'action_type': 'Acción',
+            'target_url': 'URL a abrir',
+            'selector_value': 'Elemento',
+            'input_value': 'Dato',
+            'expected_value': 'Resultado esperado',
+            'comparison_type': 'Tipo de comparación',
+            'timeout_seconds': 'Duración en segundos',
+            'is_critical': 'Paso crítico',
+        }
+        widgets = {
+            'step_number': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'value': 1}),
+            'action_type': forms.Select(attrs={'class': 'form-select'}),
+            'target_url': forms.URLInput(
+                attrs={'class': 'form-control', 'placeholder': 'http://localhost:8000/'}
+            ),
+            'selector_value': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': '#usuario, input[name="password"], .btn-login'}
+            ),
+            'input_value': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'Valor a escribir o seleccionar (acepta {{variable}})' }
+            ),
+            'expected_value': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'Valor, texto o URL esperada'}
+            ),
+            'comparison_type': forms.Select(attrs={'class': 'form-select'}),
+            'timeout_seconds': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 60, 'value': 10}),
+            'is_critical': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.test_case = kwargs.pop('test_case', None)
+        super().__init__(*args, **kwargs)
+        help_texts = {
+            'name': 'Opcional. Si lo dejas vacio se genera automaticamente desde la accion.',
+            'step_number': 'Orden del paso dentro del caso de prueba.',
+            'action_type': 'Accion segura que ejecutara el navegador. No se permite codigo libre.',
+            'target_url': 'Direccion que abrira la automatizacion. Solo URLs autorizadas como localhost.',
+            'selector_value': 'Elemento de la pagina usando CSS. Ejemplos: #usuario, .btn-login.',
+            'input_value': 'Dato que se escribira o seleccionara en el elemento. Acepta variables como {{usuario}}.',
+            'expected_value': 'Resultado esperado para la verificacion.',
+            'comparison_type': 'Como comparar el resultado: Exacto (igualdad estricta), Contiene (substring), Expresion regular (regex).',
+            'timeout_seconds': 'Para la accion Esperar es la duracion; para el resto es el tiempo maximo de espera.',
+            'is_critical': 'Si el paso falla, la ejecucion se detiene y los siguientes quedan NO EJECUTADOS.',
+        }
+        for name, help_text in help_texts.items():
+            self.fields[name].help_text = help_text
+            self.fields[name].widget.attrs['data-help'] = help_text
+        self.fields['timeout_seconds'].required = False
+        self.fields['target_url'].required = False
+        self.fields['target_url'].initial = ''
+        self.fields['comparison_type'].required = False
+        self.fields['comparison_type'].initial = AutomatedValidationRule.ComparisonType.EXACT
+        
+        # Add data attributes for dynamic field visibility
+        self.fields['target_url'].widget.attrs['data-action'] = 'OPEN_URL'
+        self.fields['selector_value'].widget.attrs['data-action'] = 'CLICK FILL_TEXT VERIFY'
+        self.fields['input_value'].widget.attrs['data-action'] = 'FILL_TEXT WAIT'
+        self.fields['expected_value'].widget.attrs['data-action'] = 'VERIFY'
+        self.fields['comparison_type'].widget.attrs['data-action'] = 'VERIFY'
+        self.fields['timeout_seconds'].widget.attrs['data-action'] = 'WAIT'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        action = cleaned_data.get('action_type')
+        if not action:
+            self.add_error('action_type', 'Selecciona una accion para el paso.')
+            return cleaned_data
+
+        step_number = cleaned_data.get('step_number')
+        if step_number and not cleaned_data.get('name'):
+            label = dict(AutomatedValidationRule.ActionType.choices).get(action, '')
+            cleaned_data['name'] = f'Paso {step_number}: {label}'
+
+        # OPEN_URL: only target_url required
+        if action == AutomatedValidationRule.ActionType.OPEN_URL:
+            url = cleaned_data.get('target_url')
+            if not url:
+                self.add_error('target_url', 'Indica la URL que debe abrirse.')
+            else:
+                from .services.automated_runner import validate_automation_url
+                try:
+                    validate_automation_url(url)
+                except ValidationError as exc:
+                    self.add_error('target_url', exc)
+
+        # CLICK: only selector_value required
+        elif action == AutomatedValidationRule.ActionType.CLICK:
+            if not (cleaned_data.get('selector_value') or '').strip():
+                self.add_error('selector_value', 'Esta accion requiere un elemento (selector CSS).')
+
+        # FILL_TEXT: selector_value and input_value required
+        elif action == AutomatedValidationRule.ActionType.FILL_TEXT:
+            if not (cleaned_data.get('selector_value') or '').strip():
+                self.add_error('selector_value', 'Esta accion requiere un elemento (selector CSS).')
+            if not (cleaned_data.get('input_value') or '').strip():
+                self.add_error('input_value', 'Indica el dato que debe ingresarse.')
+
+        # VERIFY: selector_value, expected_value, and comparison_type required
+        elif action == AutomatedValidationRule.ActionType.VERIFY:
+            if not (cleaned_data.get('selector_value') or '').strip():
+                self.add_error('selector_value', 'Esta accion requiere un elemento (selector CSS) o "URL actual".')
+            if not (cleaned_data.get('expected_value') or '').strip():
+                self.add_error('expected_value', 'Indica el resultado esperado de la verificacion.')
+            if not (cleaned_data.get('comparison_type') or '').strip():
+                cleaned_data['comparison_type'] = AutomatedValidationRule.ComparisonType.EXACT
+
+        # WAIT: timeout_seconds (duration) or selector_value (wait for element)
+        elif action == AutomatedValidationRule.ActionType.WAIT:
+            duration = cleaned_data.get('timeout_seconds') or 10
+            selector = cleaned_data.get('selector_value')
+            if not selector and duration < 1:
+                self.add_error('timeout_seconds', 'Indica segundos de espera o un selector a esperar.')
+            cleaned_data['timeout_seconds'] = min(duration, 60)
+
+        return cleaned_data

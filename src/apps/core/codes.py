@@ -3,7 +3,7 @@ import re
 
 def next_code(queryset, prefix, field='code', width=3):
     pattern = re.compile(rf'^{re.escape(prefix)}-(\d+)$')
-    highest = -1
+    highest = 0
 
     for value in queryset.values_list(field, flat=True):
         if not value:

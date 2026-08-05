@@ -1,10 +1,9 @@
 import ipaddress
+import re
 import socket
 from datetime import timedelta
 from decimal import Decimal
-from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
-from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -29,6 +28,7 @@ from apps.executions.models import (
     TestExecution,
     TestStepExecution,
 )
+from apps.testcases.models import TestCase
 
 
 def _allowed_hosts():
@@ -63,85 +63,6 @@ def validate_automation_url(url):
     return url
 
 
-class SafeRedirectHandler(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        validate_automation_url(newurl)
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
-
-
-def _execute_http_status(rule):
-    validate_automation_url(rule.target_url)
-    request = Request(
-        rule.target_url,
-        headers={'User-Agent': 'ISTQB-Testing-Platform/1.0'},
-        method='GET',
-    )
-    opener = build_opener(SafeRedirectHandler())
-    expected = rule.expected_http_status
-
-    try:
-        with opener.open(request, timeout=rule.timeout_seconds) as response:
-            actual = response.status
-            final_url = response.geturl()
-            response.read(1)
-    except HTTPError as exc:
-        actual = exc.code
-        final_url = exc.geturl()
-    except (URLError, TimeoutError, OSError) as exc:
-        return {
-            'status': TestExecution.Result.ERROR,
-            'expected': f'Codigo HTTP {expected}',
-            'actual': 'No fue posible obtener una respuesta HTTP.',
-            'log': f'[ERROR] GET {rule.target_url}: {exc}',
-            'error': str(exc),
-        }
-
-    passed = actual == expected
-    status = TestExecution.Result.PASSED if passed else TestExecution.Result.FAILED
-    return {
-        'status': status,
-        'expected': f'Codigo HTTP {expected}',
-        'actual': f'Codigo HTTP {actual}; URL final: {final_url}',
-        'log': f'[{"PASS" if passed else "FAIL"}] GET {rule.target_url} -> {actual}',
-        'error': '',
-    }
-
-
-def _selector(rule, secondary=False):
-    value = rule.secondary_selector_value if secondary else rule.selector_value
-    if not value:
-        return ''
-    if secondary or rule.selector_type == AutomatedValidationRule.SelectorType.CSS:
-        return value
-    if rule.selector_type == AutomatedValidationRule.SelectorType.ID:
-        return f'#{value.lstrip("#")}'
-    if rule.selector_type == AutomatedValidationRule.SelectorType.NAME:
-        return f'[name="{value}"]'
-    if rule.selector_type == AutomatedValidationRule.SelectorType.XPATH:
-        return f'xpath={value}'
-    return value
-
-
-def _expected_text_visible(page, rule):
-    if not rule.expected_text:
-        return False
-    return page.get_by_text(rule.expected_text, exact=False).first.is_visible()
-
-
-def _field_is_invalid(locator):
-    return locator.evaluate('element => Boolean(element.checkValidity) && !element.checkValidity()')
-
-
-def _click_and_detect_block(page, button, initial_url, rule):
-    button.click()
-    page.wait_for_timeout(300)
-    return (
-        _field_is_invalid(page.locator(_selector(rule)).first)
-        or _expected_text_visible(page, rule)
-        or page.url == initial_url
-    )
-
-
 def _route_request(route):
     request_url = route.request.url
     if request_url.startswith(('data:', 'blob:', 'about:')):
@@ -153,119 +74,6 @@ def _route_request(route):
         route.abort('blockedbyclient')
         return
     route.continue_()
-
-
-def _browser_rule_result(page, rule):
-    validation_type = rule.validation_type
-    primary = page.locator(_selector(rule)).first if rule.selector_value else None
-    secondary = page.locator(_selector(rule, secondary=True)).first if rule.secondary_selector_value else None
-    initial_url = page.url
-
-    if validation_type == AutomatedValidationRule.ValidationType.TEXT_VISIBLE:
-        passed = _expected_text_visible(page, rule)
-        actual = f'Texto {"visible" if passed else "no visible"}: {rule.expected_text}'
-    elif validation_type == AutomatedValidationRule.ValidationType.ELEMENT_VISIBLE:
-        passed = primary.is_visible()
-        actual = f'Elemento {"visible" if passed else "no visible"}: {rule.selector_value}'
-    elif validation_type == AutomatedValidationRule.ValidationType.BUTTON_DISABLED:
-        passed = primary.is_disabled()
-        actual = f'Boton {"deshabilitado" if passed else "habilitado"}: {rule.selector_value}'
-    elif validation_type == AutomatedValidationRule.ValidationType.REDIRECT_URL:
-        primary.click()
-        page.wait_for_load_state('domcontentloaded')
-        passed = page.url.rstrip('/') == rule.expected_url.rstrip('/')
-        actual = f'URL final: {page.url}'
-    elif validation_type == AutomatedValidationRule.ValidationType.FIELD_REQUIRED:
-        primary.fill('')
-        passed = _click_and_detect_block(page, secondary, initial_url, rule)
-        actual = 'El formulario bloqueo el campo vacio.' if passed else 'El formulario permitio enviar el campo vacio.'
-    elif validation_type == AutomatedValidationRule.ValidationType.EMAIL_FORMAT:
-        primary.fill(rule.input_value)
-        passed = _click_and_detect_block(page, secondary, initial_url, rule)
-        actual = 'El correo invalido fue rechazado.' if passed else 'El correo invalido fue aceptado.'
-    elif validation_type == AutomatedValidationRule.ValidationType.MAX_LENGTH:
-        primary.fill(rule.input_value)
-        stored_length = len(primary.input_value())
-        passed = stored_length <= rule.max_length
-        if not passed:
-            passed = _click_and_detect_block(page, secondary, initial_url, rule)
-        actual = f'Longitud almacenada: {stored_length}; máximo esperado: {rule.max_length}.'
-    elif validation_type == AutomatedValidationRule.ValidationType.MIN_LENGTH:
-        primary.fill(rule.input_value)
-        passed = _click_and_detect_block(page, secondary, initial_url, rule)
-        actual = f'Longitud usada: {len(rule.input_value)}; minimo esperado: {rule.min_length}.'
-    elif validation_type == AutomatedValidationRule.ValidationType.FORM_SUBMISSION_BLOCKED:
-        if primary:
-            primary.fill(rule.input_value)
-        passed = _click_and_detect_block(page, secondary, initial_url, rule)
-        actual = 'El envio fue bloqueado.' if passed else f'El formulario navego a {page.url}.'
-    else:
-        raise ValidationError('Tipo de validación de navegador no soportado.')
-
-    return passed, actual
-
-
-def _execute_browser_rule(rule):
-    validate_automation_url(rule.target_url)
-    timeout_ms = rule.timeout_seconds * 1000
-    browser_name = (rule.browser or 'chromium').lower()
-    if browser_name != 'chromium':
-        return {
-            'status': TestExecution.Result.BLOCKED,
-            'expected': rule.expected_text or rule.expected_value or rule.get_validation_type_display(),
-            'actual': f'El navegador {browser_name} no esta habilitado; usa chromium.',
-            'log': f'[BLOCKED] Navegador no habilitado: {browser_name}.',
-            'error': 'Navegador no habilitado.',
-            'screenshot': None,
-        }
-
-    try:
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
-            context = browser.new_context(ignore_https_errors=False)
-            page = context.new_page()
-            page.set_default_timeout(timeout_ms)
-            page.route('**/*', _route_request)
-            page.goto(rule.target_url, wait_until='domcontentloaded', timeout=timeout_ms)
-            passed, actual = _browser_rule_result(page, rule)
-            screenshot = page.screenshot(full_page=True) if rule.capture_evidence else None
-            browser.close()
-    except PlaywrightTimeoutError as exc:
-        return {
-            'status': TestExecution.Result.ERROR,
-            'expected': rule.expected_text or rule.expected_value or rule.get_validation_type_display(),
-            'actual': 'La página o el elemento excedió el tiempo de espera.',
-            'log': f'[ERROR] Timeout en {rule.name}: {exc}',
-            'error': str(exc),
-            'screenshot': None,
-        }
-    except (ValidationError, PlaywrightError, OSError, RuntimeError) as exc:
-        return {
-            'status': TestExecution.Result.ERROR,
-            'expected': rule.expected_text or rule.expected_value or rule.get_validation_type_display(),
-            'actual': 'La validación no pudo ejecutarse.',
-            'log': f'[ERROR] {rule.name}: {exc}',
-            'error': str(exc),
-            'screenshot': None,
-        }
-
-    status = TestExecution.Result.PASSED if passed else TestExecution.Result.FAILED
-    return {
-        'status': status,
-        'expected': rule.expected_text or rule.expected_value or rule.get_validation_type_display(),
-        'actual': actual,
-        'log': f'[{"PASS" if passed else "FAIL"}] {rule.name}: {actual}',
-        'error': '',
-        'screenshot': screenshot,
-    }
-
-
-def execute_rule(rule):
-    if rule.validation_type == AutomatedValidationRule.ValidationType.HTTP_STATUS:
-        outcome = _execute_http_status(rule)
-        outcome['screenshot'] = None
-        return outcome
-    return _execute_browser_rule(rule)
 
 
 def aggregate_automated_status(statuses):
@@ -289,75 +97,310 @@ def _create_automatic_defect(execution, failed_results):
         code=next_code(Defect.objects.filter(project=project), 'DEF'),
         title=f'Fallo automatizado en {execution.test_case.code}'[:180],
         description=(
-            f'La ejecucion semi-automatizada detecto reglas fallidas: {failed_names}.\n\n'
+            f'La ejecucion automatizada detecto pasos fallidos: {failed_names}.\n\n'
             f'Caso: {execution.test_case.code} - {execution.test_case.title}\n\n'
             f'Log técnico:\n{execution.technical_log}'
         ),
-        steps_to_reproduce='Ejecutar nuevamente las reglas automatizadas asociadas al caso de prueba.',
+        steps_to_reproduce='Ejecutar nuevamente los pasos automatizados asociados al caso de prueba.',
         severity=Defect.Severity.MEDIUM,
         priority=Defect.Priority.MEDIUM,
         reported_by=execution.executed_by,
     )
-    record_defect_history(defect, execution.executed_by, 'Defecto generado por regla automatizada')
+    record_defect_history(defect, execution.executed_by, 'Defecto generado por ejecución automatizada')
     return defect
 
 
 def run_automated_execution(test_case, user):
-    rules = list(test_case.automated_rules.filter(is_active=True).order_by('step_number', 'id'))
+    test_case = TestCase.objects.prefetch_related('test_data_vars').get(pk=test_case.pk)
+    steps = list(test_case.automated_rules.filter(is_active=True).order_by('step_number', 'id'))
+    return run_automated_steps(test_case, user, steps)
+
+
+def resolve_variables(text, test_case):
+    """Replace {{variable}} placeholders with values from TestData."""
+    if not text:
+        return text
+    # Use prefetched data to avoid sync DB access in async context
+    variables = getattr(test_case, '_prefetched_objects_cache', {}).get('test_data_vars', None)
+    if variables is None:
+        variables = test_case.test_data_vars.all()
+    var_dict = {var.key: var.value for var in variables}
+    
+    def replace_var(match):
+        key = match.group(1).strip()
+        return var_dict.get(key, match.group(0))
+    
+    return re.sub(r'\{\{([^}]+)\}\}', replace_var, text)
+
+
+def evaluate(expected, actual, comparison_type=AutomatedValidationRule.ComparisonType.EXACT):
+    """Compare expected vs actual based on comparison type. Returns (result, error_message)."""
+    expected_text = '' if expected is None else str(expected).strip()
+    actual_text = '' if actual is None else str(actual).strip()
+    
+    if comparison_type == AutomatedValidationRule.ComparisonType.CONTAINS:
+        if expected_text in actual_text:
+            return 'MATCH', ''
+        else:
+            return 'NO_MATCH', f'Se esperaba que contuviera "{expected_text}" y se obtuvo "{actual_text}"'
+    elif comparison_type == AutomatedValidationRule.ComparisonType.REGEX:
+        try:
+            if re.search(expected_text, actual_text):
+                return 'MATCH', ''
+            else:
+                return 'NO_MATCH', f'La expresión regular "{expected_text}" no coincidió con "{actual_text}"'
+        except re.error as e:
+            return 'NO_MATCH', f'Expresión regular inválida: {e}'
+    else:  # EXACT
+        if expected_text == actual_text:
+            return 'MATCH', ''
+        else:
+            return 'NO_MATCH', f'Se esperaba "{expected_text}" y se obtuvo "{actual_text}"'
+
+
+def get_comparison_description(comparison_type):
+    """Get human-readable description of comparison type."""
+    descriptions = {
+        AutomatedValidationRule.ComparisonType.EXACT: 'Exacto',
+        AutomatedValidationRule.ComparisonType.CONTAINS: 'Contiene',
+        AutomatedValidationRule.ComparisonType.REGEX: 'Expresión regular',
+    }
+    return descriptions.get(comparison_type, 'Exacto')
+
+
+def _step_expected_label(step):
+    if step.action_type == AutomatedValidationRule.ActionType.VERIFY:
+        return step.expected_value or step.input_value or ''
+    if step.action_type == AutomatedValidationRule.ActionType.OPEN_URL:
+        return step.target_url
+    return step.expected_value or step.input_value or ''
+
+
+def _execute_browser_step(page, step, test_case, timeout_ms):
+    action = step.action_type
+    comparison_type = step.comparison_type or AutomatedValidationRule.ComparisonType.EXACT
+    error_message = ''
+    
+    # Resolve variables in step fields
+    target_url = resolve_variables(step.target_url, test_case)
+    selector_value = resolve_variables(step.selector_value, test_case)
+    input_value = resolve_variables(step.input_value, test_case)
+    expected_value = resolve_variables(step.expected_value, test_case)
+    
+    if action == AutomatedValidationRule.ActionType.OPEN_URL:
+        validate_automation_url(target_url)
+        page.goto(target_url, wait_until='domcontentloaded', timeout=timeout_ms)
+        expected = target_url
+        actual = page.url
+        match_result, error_msg = evaluate(expected.rstrip('/'), actual.rstrip('/'), comparison_type)
+        passed = match_result == 'MATCH'
+        if not passed:
+            error_message = error_msg
+    elif action == AutomatedValidationRule.ActionType.CLICK:
+        page.locator(selector_value).first.click()
+        passed = True
+        expected = 'Clic ejecutado'
+        actual = 'Clic ejecutado'
+    elif action == AutomatedValidationRule.ActionType.FILL_TEXT:
+        page.locator(selector_value).first.fill(input_value or '')
+        passed = True
+        expected = f'Campo con texto: {input_value}'
+        actual = 'Texto ingresado'
+    elif action == AutomatedValidationRule.ActionType.WAIT:
+        # WAIT can be either duration (timeout_seconds) or wait for selector
+        if selector_value:
+            page.locator(selector_value).first.wait_for(state='visible', timeout=timeout_ms)
+            expected = f'Elemento visible: {selector_value}'
+            actual = f'Elemento visible: {selector_value}'
+        else:
+            duration = int(step.timeout_seconds or input_value or 1)
+            page.wait_for_timeout(duration * 1000)
+            expected = f'Espera de {duration} segundos'
+            actual = 'Espera completada'
+        passed = True
+    elif action == AutomatedValidationRule.ActionType.VERIFY:
+        # VERIFY can check element visibility, text content, URL, or input value
+        if selector_value == 'URL actual' or selector_value == 'current_url':
+            # Verify current URL
+            actual_url = page.url
+            match_result, error_msg = evaluate(expected_value, actual_url, comparison_type)
+            passed = match_result == 'MATCH'
+            expected = f'URL {get_comparison_description(comparison_type).lower()}: {expected_value}'
+            actual = f'URL actual: {actual_url}'
+            if not passed:
+                error_message = error_msg
+        else:
+            # Verify element - could be visibility, text, or value
+            locator = page.locator(selector_value).first
+            is_visible = locator.is_visible()
+            
+            if not is_visible:
+                passed = False
+                expected = f'Elemento visible: {selector_value}'
+                actual = f'Elemento no visible: {selector_value}'
+                error_message = f'El elemento "{selector_value}" no está visible en la página'
+            else:
+                # Determine if the element is a text input (get its value) or a regular element (get its text)
+                element_value = ''
+                try:
+                    element_value = locator.input_value() or ''
+                except PlaywrightError:
+                    element_value = ''
+                actual_content = element_value if element_value else (locator.text_content() or '')
+
+                match_result, error_msg = evaluate(expected_value, actual_content, comparison_type)
+                passed = match_result == 'MATCH'
+                expected = f'Contenido {get_comparison_description(comparison_type).lower()}: {expected_value}'
+                actual = f'Contenido actual: {actual_content}'
+                if not passed:
+                    error_message = error_msg
+    else:
+        raise ValidationError('Accion de automatizacion no soportada.')
+
+    status = TestExecution.Result.PASSED if passed else TestExecution.Result.FAILED
+    return {
+        'status': status,
+        'expected': expected,
+        'actual': actual,
+        'comparison_type': comparison_type,
+        'log': f'[{"PASS" if passed else "FAIL"}] {step.name or step.get_action_type_display()}: {actual}',
+        'error': error_message,
+        'screenshot': None,
+    }
+
+
+def _run_browser_steps(test_case, steps):
+    outcomes = []
+    timeout_ms = max((step.timeout_seconds or 10) * 1000 for step in steps)
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                context = browser.new_context(ignore_https_errors=False)
+                page = context.new_page()
+                page.set_default_timeout(timeout_ms)
+                page.route('**/*', _route_request)
+                for step in steps:
+                    step_started = timezone.now()
+                    try:
+                        outcome = _execute_browser_step(page, step, test_case, timeout_ms)
+                    except (ValidationError, PlaywrightError, PlaywrightTimeoutError, OSError, RuntimeError) as exc:
+                        outcome = {
+                            'status': TestExecution.Result.ERROR,
+                            'expected': _step_expected_label(step),
+                            'actual': 'La accion no pudo ejecutarse.',
+                            'comparison_type': step.comparison_type or AutomatedValidationRule.ComparisonType.EXACT,
+                            'log': f'[ERROR] {step.name or step.get_action_type_display()}: {exc}',
+                            'error': str(exc),
+                            'screenshot': None,
+                        }
+                    outcome['started_at'] = step_started
+                    outcome['finished_at'] = timezone.now()
+                    if outcome['status'] == TestExecution.Result.FAILED:
+                        try:
+                            outcome['screenshot'] = page.screenshot(full_page=True)
+                        except (PlaywrightError, RuntimeError):
+                            outcome['screenshot'] = None
+                    outcomes.append(outcome)
+                    if outcome['status'] != TestExecution.Result.PASSED and step.is_critical:
+                        break
+            finally:
+                browser.close()
+    except (ValidationError, PlaywrightError, OSError, RuntimeError) as exc:
+        outcomes.append({
+            'status': TestExecution.Result.ERROR,
+            'expected': _step_expected_label(steps[0]),
+            'actual': 'No se pudo iniciar el navegador.',
+            'comparison_type': AutomatedValidationRule.ComparisonType.EXACT,
+            'log': f'[ERROR] Navegador: {exc}',
+            'error': str(exc),
+            'screenshot': None,
+        })
+    return outcomes
+
+
+def run_automated_steps(test_case, user, steps):
     started_at = timezone.now()
     execution = TestExecution.objects.create(
         test_case=test_case,
         executed_by=user,
         executed_at=started_at,
         started_at=started_at,
-        execution_mode=TestExecution.ExecutionMode.SEMI_AUTOMATED,
+        execution_mode=TestExecution.ExecutionMode.AUTOMATED,
         result=TestExecution.Result.RUNNING,
-        environment_url=rules[0].target_url if rules else '',
-        browser=rules[0].browser if rules else '',
-        environment='Ejecución asistida por reglas seguras',
+        environment_url=steps[0].target_url if steps else '',
+        environment='Ejecución automatizada por pasos',
     )
+
+    if sync_playwright is None:
+        executed_outcomes = [
+            {
+                'status': TestExecution.Result.BLOCKED,
+                'expected': _step_expected_label(step),
+                'actual': 'Playwright no esta instalado en el servidor.',
+                'comparison_type': step.comparison_type or AutomatedValidationRule.ComparisonType.EXACT,
+                'log': f'[BLOCKED] {step.name or step.get_action_type_display()}: Playwright no disponible.',
+                'error': 'Playwright no esta instalado.',
+                'screenshot': None,
+            }
+            for step in steps
+        ]
+    else:
+        executed_outcomes = _run_browser_steps(test_case, steps)
 
     result_rows = []
     log_lines = []
-    for rule in rules:
-        rule_started = timezone.now()
-        outcome = execute_rule(rule)
-        rule_finished = timezone.now()
+    for index, step in enumerate(steps):
+        if index < len(executed_outcomes):
+            outcome = executed_outcomes[index]
+            comment = outcome['error']
+        else:
+            outcome = {
+                'status': TestExecution.Result.NOT_RUN,
+                'expected': _step_expected_label(step),
+                'actual': 'Paso no ejecutado por detencion en un paso crítico fallido.',
+                'comparison_type': step.comparison_type or AutomatedValidationRule.ComparisonType.EXACT,
+                'log': f'[NOT_RUN] {step.name or step.get_action_type_display()}: no ejecutado.',
+                'error': '',
+                'screenshot': None,
+            }
+            comment = 'Paso no ejecutado por detencion en un paso crítico fallido.'
         log_lines.append(outcome['log'])
         result = AutomatedExecutionResult.objects.create(
             test_execution=execution,
-            validation_rule=rule,
+            validation_rule=step,
             status=outcome['status'],
             expected_behavior=outcome['expected'],
             actual_behavior=outcome['actual'],
-            input_used=rule.input_value,
+            input_used=step.input_value,
+            comparison_type=outcome.get('comparison_type', AutomatedValidationRule.ComparisonType.EXACT),
             technical_log=outcome['log'],
             error_message=outcome['error'],
-            started_at=rule_started,
-            finished_at=rule_finished,
+            started_at=outcome.get('started_at'),
+            finished_at=outcome.get('finished_at'),
         )
         if outcome.get('screenshot'):
             result.screenshot.save(
-                f'execution-{execution.pk}-rule-{rule.pk}.png',
+                f'execution-{execution.pk}-step-{step.pk}.png',
                 ContentFile(outcome['screenshot']),
                 save=True,
             )
         TestStepExecution.objects.create(
             test_execution=execution,
-            step_number=rule.step_number,
-            action=rule.name,
+            step_number=step.step_number,
+            action=step.name or step.get_action_type_display(),
             expected_result=outcome['expected'],
             obtained_result=outcome['actual'],
             status=outcome['status'],
-            comment=outcome['error'],
+            comment=comment,
             execution_log=outcome['log'],
-            started_at=rule_started,
-            finished_at=rule_finished,
+            started_at=outcome.get('started_at'),
+            finished_at=outcome.get('finished_at'),
         )
         result_rows.append(result)
 
-    if not rules:
-        log_lines.append('[BLOCKED] No existen reglas activas para este caso de prueba.')
+    if not steps:
+        log_lines.append('[BLOCKED] No existen pasos automatizados para este caso de prueba.')
 
     finished_at = timezone.now()
     execution.result = aggregate_automated_status([item.status for item in result_rows])
@@ -398,7 +441,7 @@ def run_automated_execution(test_case, user):
             'test_case_id': test_case.pk,
             'execution_mode': execution.execution_mode,
             'result': execution.result,
-            'rule_count': len(rules),
+            'rule_count': len(steps),
         },
     )
     return execution

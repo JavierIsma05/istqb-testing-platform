@@ -20,6 +20,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait
 
 
@@ -81,10 +82,29 @@ class SeleniumBaseTest:
     def click(self, locator: tuple[str, str]) -> None:
         self.find_clickable(locator).click()
 
+    def scroll_into_view(self, locator: tuple[str, str]):
+        element = self.find_clickable(locator)
+        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+        return element
+
     def type_text(self, locator: tuple[str, str], value: str) -> None:
         element = self.find_visible(locator)
         element.clear()
         element.send_keys(value)
+
+    def set_date(self, locator: tuple[str, str], value: str) -> None:
+        """Asigna un valor a un input type=date via JS (send_keys no es fiable)."""
+        element = self.find_visible(locator)
+        self.driver.execute_script(
+            "arguments[0].value = arguments[1];",
+            element,
+            value,
+        )
+
+    def select_option(self, locator: tuple[str, str], value: str) -> None:
+        """Selecciona un valor en un select."""
+        select = Select(self.find_visible(locator))
+        select.select_by_value(value)
 
     def wait_for_url_contains(self, text: str) -> None:
         self.wait.until(EC.url_contains(text))

@@ -13,10 +13,17 @@
             <i class="bi bi-arrow-left"></i>
             Volver
         </a>
-        <a class="btn btn-brand" href="{% url 'executions:index' %}?case={{ case.pk }}">
-            <i class="bi bi-play"></i>
-            Ejecutar
-        </a>
+        {% if case_blocked %}
+            <span class="btn btn-brand disabled" tabindex="-1" aria-disabled="true" title="{{ case_block_reason }}">
+                <i class="bi bi-lock"></i>
+                Ejecutar
+            </span>
+        {% else %}
+            <a class="btn btn-brand" href="{% url 'executions:index' %}?case={{ case.pk }}">
+                <i class="bi bi-play"></i>
+                Ejecutar
+            </a>
+        {% endif %}
         {% if can_manage %}
             <a class="btn btn-outline-brand" href="{% url 'testcases:edit' case.pk %}">
                 <i class="bi bi-pencil"></i>
@@ -25,6 +32,15 @@
         {% endif %}
     </div>
 </div>
+
+{% if case_blocked %}
+<div class="alert alert-warning mb-3">
+    <i class="bi bi-lock"></i>
+    <strong>Caso bloqueado.</strong>
+    {{ case_block_reason }}
+    <p class="mb-0 mt-1 small">El caso se desbloqueará automáticamente cuando al menos uno de sus requisitos sea <strong>Aprobado</strong>.</p>
+</div>
+{% endif %}
 
 <section class="metric-grid project-detail-metrics">
     <article class="metric-card">
@@ -59,7 +75,7 @@
         </div>
         <div class="detail-summary-list">
             <div><span>Requisito</span><strong>{{ case.requirement.code|default:'Sin requisito' }}</strong></div>
-            <div><span>Tecnica</span><strong>{{ case.get_technique_display }}</strong></div>
+            <div><span>Tecnica</span><strong>{{ case.display_technique }}</strong></div>
             <div><span>Nivel</span><strong>{{ case.get_level_display }}</strong></div>
             <div><span>Creado por</span><strong>{{ case.created_by.get_full_name|default:case.created_by.email|default:'Sin asignar' }}</strong></div>
             <div><span>Creado</span><strong>{{ case.created_at|date:'d M Y H:i' }}</strong></div>
@@ -147,6 +163,7 @@
                 </tr>
             </thead>
             <tbody>
+                <!-- revisar la ejcucion no por pasos sino por resultado esperado-->
                 {% for execution in executions %}
                     <tr>
                         <td>{{ execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}</td>
@@ -171,6 +188,7 @@
     </div>
 </section>
 
+<!-- revisar aqui y cambiar logica-->
 <section class="content-card mt-4">
     <div class="card-heading">
         <div>

@@ -1,12 +1,10 @@
-import json
-
 from django import forms
-from django.db.models import Q
 
 from apps.core.codes import next_code
 from apps.core.permissions import visible_projects_for
+from apps.executions.models import TestExecution
 from apps.projects.models import Project
-from apps.users.models import User
+from apps.testcases.models import TestCase
 
 from .models import Defect
 
@@ -15,107 +13,57 @@ class DefectForm(forms.ModelForm):
     class Meta:
         model = Defect
         fields = (
-            'project',
+            'test_case',
             'execution',
-            'code',
             'title',
             'description',
-            'steps_to_reproduce',
             'severity',
-            'priority',
-            'status',
-            'assigned_to',
         )
         labels = {
-            'project': 'Proyecto',
-            'execution': 'Ejecución relacionada',
-            'code': 'Código',
+            'test_case': 'Caso de prueba',
+            'execution': 'Ejecución relacionada (opcional)',
             'title': 'Título del defecto',
             'description': 'Descripción',
-            'steps_to_reproduce': 'Pasos para reproducir',
             'severity': 'Severidad',
-            'priority': 'Prioridad',
-            'status': 'Estado',
-            'assigned_to': 'Asignado a',
         }
         widgets = {
-            'project': forms.Select(attrs={'class': 'form-select'}),
+            'test_case': forms.Select(attrs={'class': 'form-select'}),
             'execution': forms.Select(attrs={'class': 'form-select'}),
-            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. DEF-001'}),
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. Error al cargar imágenes grandes'}),
             'description': forms.Textarea(
                 attrs={
                     'class': 'form-control',
-                    'placeholder': 'Describe el defecto, pasos para reproducirlo y comportamiento esperado',
-                    'rows': 4,
-                }
-            ),
-            'steps_to_reproduce': forms.Textarea(
-                attrs={
-                    'class': 'form-control',
-                    'placeholder': '1. Abrir...\n2. Ejecutar...\n3. Observar...',
+                    'placeholder': 'Describe el defecto, el comportamiento esperado y lo observado',
                     'rows': 4,
                 }
             ),
             'severity': forms.Select(attrs={'class': 'form-select'}),
-            'priority': forms.Select(attrs={'class': 'form-select'}),
-            'status': forms.Select(attrs={'class': 'form-select'}),
-            'assigned_to': forms.Select(attrs={'class': 'form-select'}),
         }
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         visible_projects = visible_projects_for(user) if user else Project.objects.all()
-        self.fields['project'].queryset = visible_projects.order_by('name')
-        self.fields['execution'].required = True
-        self.fields['assigned_to'].required = False
-        project_id = self.data.get('project') if self.is_bound else self.instance.project_id
-        teacher_queryset = User.objects.filter(role=User.Roles.TEACHER)
-        if project_id:
-            teacher_queryset = teacher_queryset.filter(
-                Q(projects__id=project_id) | Q(project_created__id=project_id)
-            )
-        else:
-            teacher_queryset = teacher_queryset.filter(
-                Q(projects__in=visible_projects) | Q(project_created__in=visible_projects)
-            )
-        self.fields['assigned_to'].queryset = teacher_queryset.distinct().order_by('email')
-        execution_queryset = self.fields['execution'].queryset.filter(
-            result='FAILED',
+
+        test_case_queryset = TestCase.objects.filter(test_plan__project__in=visible_projects)
+        self.fields['test_case'].required = True
+        self.fields['test_case'].queryset = test_case_queryset.select_related('test_plan').order_by('code')
+        self.fields['test_case'].empty_label = 'Selecciona un caso de prueba'
+
+        execution_queryset = TestExecution.objects.filter(
+            result=TestExecution.Result.FAILED,
             test_case__test_plan__project__in=visible_projects,
         )
-        if project_id:
-            execution_queryset = execution_queryset.filter(test_case__test_plan__project_id=project_id)
+        self.fields['execution'].required = False
         self.fields['execution'].queryset = execution_queryset.select_related('test_case', 'test_case__test_plan')
-        self.fields['execution'].empty_label = 'Selecciona una ejecucion fallida'
-        queryset = Defect.objects.filter(project_id=project_id) if project_id else Defect.objects.none()
-        self.fields['code'].required = False
-        self.fields['code'].disabled = True
-        self.fields['code'].initial = self.instance.code or next_code(queryset, 'DEF')
-        self.fields['code'].widget.attrs.update({
-            'placeholder': 'DEF-000',
-            'readonly': 'readonly',
-            'data-default-code': 'DEF-000',
-        })
-        self.fields['project'].widget.attrs.update({
-            'data-code-target': self.fields['code'].widget.attrs.get('id', 'id_code'),
-            'data-next-codes': json.dumps({
-                str(project_id): next_code(Defect.objects.filter(project_id=project_id), 'DEF')
-                for project_id in visible_projects.values_list('id', flat=True)
-            }),
-        })
+        self.fields['execution'].empty_label = 'Sin ejecución relacionada'
+
         help_texts = {
-            'project': 'Proyecto donde se encontro el defecto.',
-            'execution': 'Ejecución fallida que originó el defecto.',
-            'code': 'Identificador unico del defecto, por ejemplo DEF-001.',
+            'test_case': 'Caso de prueba que reveló el defecto.',
+            'execution': 'Opcional: ejecución fallida que originó el defecto, como evidencia.',
             'title': 'Resumen corto del problema observado.',
-            'description': 'Incluye pasos para reproducir, resultado obtenido y resultado esperado.',
-            'steps_to_reproduce': 'Secuencia concreta para reproducir el defecto.',
+            'description': 'Incluye el comportamiento esperado y el resultado obtenido.',
             'severity': 'Impacto técnico o funcional del defecto en el sistema.',
-            'priority': 'Urgencia con la que debería atenderse el defecto.',
-            'status': 'Estado actual del seguimiento del defecto.',
-            'assigned_to': 'Responsable sugerido para analizar o corregir el defecto.',
         }
         for name, help_text in help_texts.items():
             self.fields[name].help_text = help_text
@@ -123,20 +71,23 @@ class DefectForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        project = cleaned_data.get('project')
+        test_case = cleaned_data.get('test_case')
         execution = cleaned_data.get('execution')
-        assigned_to = cleaned_data.get('assigned_to')
-        if not execution:
-            self.add_error('execution', 'Todo defecto debe originarse en una ejecucion fallida.')
-        elif execution.result != execution.Result.FAILED:
-            self.add_error('execution', 'Solo una ejecucion fallida puede originar un defecto.')
-        elif project and execution.test_case.test_plan.project_id != project.id:
-            self.add_error('execution', 'La ejecucion debe pertenecer al proyecto seleccionado.')
-        if assigned_to and assigned_to.role != User.Roles.TEACHER:
-            self.add_error('assigned_to', 'El responsable asignado debe ser un docente.')
-        elif project and assigned_to and not (
-            project.members.filter(pk=assigned_to.pk).exists()
-            or project.created_by_id == assigned_to.pk
-        ):
-            self.add_error('assigned_to', 'El docente asignado debe estar vinculado al proyecto.')
+        if not test_case:
+            self.add_error('test_case', 'Todo defecto debe asociarse a un caso de prueba.')
+        if execution and test_case and execution.test_case_id != test_case.pk:
+            self.add_error('execution', 'La ejecución debe corresponder al caso de prueba seleccionado.')
         return cleaned_data
+
+    def save(self, commit=True):
+        defect = super().save(commit=False)
+        if defect.project_id is None:
+            defect.project_id = defect.test_case.test_plan.project_id
+        if defect.code in (None, '', 'DEF-000'):
+            queryset = Defect.objects.filter(project_id=defect.project_id)
+            defect.code = next_code(queryset, 'DEF')
+        if defect.status in (None, ''):
+            defect.status = Defect.Status.OPEN
+        if commit:
+            defect.save()
+        return defect

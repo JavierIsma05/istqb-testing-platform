@@ -1,0 +1,117 @@
+{% extends 'layouts/dashboard_base.html' %}
+{% load static %}
+
+{% block title %}Informe de Casos de Prueba - {{ plan.name }}{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading reports-heading">
+    <div>
+        <nav class="module-breadcrumb" aria-label="Navegación del módulo Informes">
+            <a href="{% url 'reports:index' %}">Informes</a>
+            <i class="bi bi-chevron-right"></i>
+            <a href="{% url 'reports:plan-dashboard' plan.pk %}">{{ plan.name }}</a>
+            <i class="bi bi-chevron-right"></i>
+            <strong>Casos de Prueba</strong>
+        </nav>
+        <h2>Informe de Casos de Prueba</h2>
+        <p>{{ plan.project.name }} · {{ plan.name }}</p>
+    </div>
+    <div class="d-flex gap-2 no-print">
+        <a class="btn btn-outline-brand" href="{% url 'reports:plan-report' %}?type=casos">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+        <button class="btn btn-brand" type="button" onclick="window.print()">
+            <i class="bi bi-printer"></i> Imprimir
+        </button>
+        <a class="btn btn-outline-brand" href="{% url 'reports:plan-pdf' plan.pk 'casos' %}">
+            <i class="bi bi-file-earmark-pdf"></i> Generar PDF
+        </a>
+    </div>
+</div>
+
+<section class="report-preview plan-report-preview">
+    <header class="unl-report-header">
+        <img
+            class="report-brand-logo report-brand-logo-career"
+            src="{% static 'images/reports/career-logo.png' %}"
+            alt="Carrera de Ingenieria en Sistemas y Computacion"
+        >
+        <div class="report-institution-title">
+            <h3>UNIVERSIDAD NACIONAL DE LOJA</h3>
+            <p>Facultad de la Energía, las Industrias y los Recursos Naturales no Renovables</p>
+            <p>Carrera de Computación</p>
+            <p>Plataforma ISTQB - Gestión del Ciclo de Vida de Pruebas</p>
+        </div>
+        <img
+            class="report-brand-logo report-brand-logo-unl"
+            src="{% static 'images/reports/unl-logo.png' %}"
+            alt="Universidad Nacional de Loja"
+        >
+    </header>
+
+    <div class="report-preview-title">
+        <h4>Informe de Casos de Prueba</h4>
+        <span>{{ plan.project.name }} · {{ plan.name }}</span>
+    </div>
+
+    <div class="final-report-meta">
+        <span><strong>Plan:</strong> {{ plan.name }} (v{{ plan.version }})</span>
+        <span><strong>Total de casos:</strong> {{ total_cases }}</span>
+        <span><strong>Casos ejecutados:</strong> {{ executed_cases }}</span>
+        <span><strong>Fecha:</strong> {{ generated_at|date:'d/m/Y' }}</span>
+    </div>
+
+    {% if test_case_rows %}
+        <div class="report-wide-wrap">
+            <table class="report-preview-table report-wide-table">
+                <thead>
+                    <tr>
+                        <th>ID y Nombre del Caso de Prueba</th>
+                        <th>Estado</th>
+                        <th>Requisito</th>
+                        <th>Prioridad</th>
+                        <th>Técnica</th>
+                        <th>Nivel</th>
+                        <th>Versión</th>
+                        <th>Descripción</th>
+                        <th>Precondiciones</th>
+                        <th>Datos de prueba</th>
+                        <th>Pasos de ejecución</th>
+                        <th>Resultado esperado</th>
+                        <th>Resultado obtenido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in test_case_rows %}
+                        <tr>
+                            <td><strong>{{ item.test_case.code }}</strong> - {{ item.test_case.title }}</td>
+                            <td><span class="testcase-status testcase-status-{{ item.result_tone }}">{{ item.latest_result }}</span></td>
+                            <td>{{ item.test_case.requirement.code|default:'—' }}{% if item.test_case.requirement %} - {{ item.test_case.requirement.title }}{% endif %}</td>
+                            <td>{{ item.test_case.get_priority_display }}</td>
+                            <td>{{ item.test_case.display_technique }}</td>
+                            <td>{{ item.test_case.get_level_display }}</td>
+                            <td>{{ item.test_case.version }}</td>
+                            <td>{{ item.test_case.description|default:'—'|linebreaksbr }}</td>
+                            <td>{{ item.test_case.preconditions|default:'—'|linebreaksbr }}</td>
+                            <td>{{ item.test_case.test_data|default:'—'|linebreaksbr }}</td>
+                            <td>{{ item.test_case.steps|linebreaksbr }}</td>
+                            <td>{{ item.test_case.expected_result|default:'—'|linebreaksbr }}</td>
+                            <td>{{ item.latest_actual_result|default:'—'|linebreaksbr }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="report-observation">
+            El plan de pruebas no tiene casos de prueba registrados.
+        </p>
+    {% endif %}
+
+    <h5>Observación institucional</h5>
+    <p class="report-observation">
+        Este documento fue generado por la Plataforma ISTQB como evidencia del ciclo de vida de pruebas.
+        La información debe ser revisada por el docente tutor antes de su presentación formal.
+    </p>
+</section>
+{% endblock %}

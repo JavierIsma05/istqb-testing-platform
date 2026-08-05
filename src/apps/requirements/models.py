@@ -1,3 +1,5 @@
+import re
+
 from django.db import models
 from django.conf import settings
 
@@ -21,8 +23,6 @@ class Requirement(OwnedModel):
         PENDING = 'PENDING', 'Pendiente'
         REVIEW = 'REVIEW', 'En revisión'
         APPROVED = 'APPROVED', 'Aprobado'
-        CHANGED = 'CHANGED', 'Cambiado'
-        RETIRED = 'RETIRED', 'Retirado'
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='requirements')
     code = models.CharField(max_length=40)
@@ -42,6 +42,20 @@ class Requirement(OwnedModel):
 
     def __str__(self):
         return f'{self.code} - {self.title}'
+
+    @property
+    def type_prefix(self):
+        return 'RF' if self.requirement_type == self.RequirementType.FUNCTIONAL else 'RN'
+
+    @property
+    def typed_code(self):
+        match = re.search(r'(\d+)$', self.code or '')
+        sequence = match.group(1) if match else (self.code or '')
+        return f'{self.type_prefix}-{sequence}'
+
+    @property
+    def display_label(self):
+        return f'{self.typed_code} - {self.title}'
 
 
 class RequirementVersion(TimeStampedModel):

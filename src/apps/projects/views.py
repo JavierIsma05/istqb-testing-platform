@@ -44,7 +44,8 @@ def build_project_card(project):
         else next((member for member in members if member.role == User.Roles.STUDENT), None)
     )
     tutor = (
-        next((member for member in members if member.role == User.Roles.TEACHER), None)
+        project.tutor
+        or next((member for member in members if member.role == User.Roles.TEACHER), None)
         or project.created_by
         or next(iter(members), None)
     )
@@ -151,6 +152,8 @@ def project_create_view(request):
             project.members.add(request.user)
             tutor = form.cleaned_data.get('tutor')
             if tutor:
+                project.tutor = tutor
+                project.save(update_fields=['tutor', 'updated_at'])
                 project.members.add(tutor)
             log_action(
                 request.user,
@@ -169,6 +172,60 @@ def project_create_view(request):
             'title': 'Nuevo Proyecto',
             'automatic_status_label': Project.Status.PLANNED.label,
             'subtitle': 'Registra un proyecto de titulación. El estado inicial se asigna automaticamente.',
+        },
+    )
+
+
+@login_required
+def project_edit_view(request, pk):
+    readonly_redirect = redirect_if_teacher_readonly(request, 'projects:index', 'proyectos')
+    if readonly_redirect:
+        return readonly_redirect
+
+    project = get_object_or_404(visible_projects_for(request.user, request=request), pk=pk)
+
+    if request.user != project.created_by and not request.user.is_admin_role:
+        messages.error(request, 'Solo el propietario del proyecto puede editarlo.')
+        return redirect('projects:detail', pk=project.pk)
+
+    form = ProjectForm(request.POST or None, instance=project)
+
+    if request.method == 'POST' and form.is_valid():
+        updated = form.save(commit=False)
+        previous_tutor_id = project.tutor_id
+        tutor = form.cleaned_data.get('tutor')
+        updated.tutor = tutor
+        updated.save()
+        if tutor and tutor not in updated.members.all():
+            updated.members.add(tutor)
+        if previous_tutor_id and previous_tutor_id != (tutor.pk if tutor else None):
+            previous_tutor = updated.members.filter(pk=previous_tutor_id).first()
+            if previous_tutor and previous_tutor.role == User.Roles.TEACHER and previous_tutor != updated.created_by:
+                updated.members.remove(previous_tutor)
+        log_action(
+            request.user,
+            'UPDATE',
+            'Project',
+            updated.pk,
+            {
+                'code': updated.code,
+                'name': updated.name,
+                'status': updated.status,
+                'tutor_id': tutor.pk if tutor else None,
+            },
+        )
+        messages.success(request, f'El proyecto "{updated.name}" fue actualizado correctamente.')
+        return redirect('projects:detail', pk=updated.pk)
+
+    return render(
+        request,
+        'projects/form.html',
+        {
+            'form': form,
+            'project': project,
+            'title': 'Editar Proyecto',
+            'automatic_status_label': project.get_status_display(),
+            'subtitle': 'Actualiza la información del proyecto. El código no puede modificarse.',
         },
     )
 

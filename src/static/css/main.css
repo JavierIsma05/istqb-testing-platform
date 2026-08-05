@@ -701,6 +701,79 @@ a {
     width: 20px;
 }
 
+.sidebar-group {
+    position: relative;
+}
+
+.sidebar-group-toggle {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    font: inherit;
+    gap: 12px;
+    padding: 10px 12px;
+    text-align: left;
+    text-decoration: none;
+    width: 100%;
+}
+
+.sidebar-group-toggle:hover,
+.sidebar-group-toggle.active {
+    background: var(--brand-light);
+    color: var(--ink);
+}
+
+.sidebar-group-toggle i {
+    font-size: 18px;
+    width: 20px;
+}
+
+.sidebar-group-chevron {
+    font-size: 14px !important;
+    margin-left: auto;
+    transition: transform 0.2s ease;
+    width: auto !important;
+}
+
+.sidebar-group-toggle[aria-expanded="true"] .sidebar-group-chevron {
+    transform: rotate(180deg);
+}
+
+.sidebar-group-menu {
+    display: none;
+}
+
+.sidebar-group-menu.open {
+    display: grid;
+    gap: 2px;
+    padding: 2px 0 2px 44px;
+}
+
+.sidebar-group-menu a {
+    border-radius: 8px;
+    color: var(--muted);
+    display: flex;
+    font-size: 13px;
+    gap: 10px;
+    padding: 8px 12px;
+    text-decoration: none;
+}
+
+.sidebar-group-menu a:hover,
+.sidebar-group-menu a.active {
+    background: var(--brand-light);
+    color: var(--ink);
+}
+
+.sidebar-group-menu a i {
+    font-size: 15px;
+    width: 18px;
+}
+
 .sidebar-mobile-toggle {
     display: none;
     margin: 10px auto 0;
@@ -740,6 +813,20 @@ a {
     font-size: 19px;
     text-align: center;
     width: 22px;
+}
+
+.sidebar-collapsed .sidebar-group-toggle {
+    justify-content: center;
+    padding: 10px;
+}
+
+.sidebar-collapsed .sidebar-group-toggle span,
+.sidebar-collapsed .sidebar-group-chevron {
+    display: none;
+}
+
+.sidebar-collapsed .sidebar-group-menu {
+    display: none !important;
 }
 
 .sidebar-collapsed .sidebar-mobile-toggle {
@@ -850,6 +937,36 @@ a {
 
 .page-heading > div {
     max-width: 760px;
+}
+
+.module-breadcrumb {
+    align-items: center;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 12px;
+    gap: 6px;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.module-breadcrumb i {
+    font-size: 10px;
+}
+
+.module-breadcrumb a {
+    color: var(--muted);
+    text-decoration: none;
+}
+
+.module-breadcrumb a:hover {
+    color: var(--accent);
+}
+
+.module-breadcrumb strong {
+    color: var(--ink);
+    font-weight: 600;
 }
 
 .dashboard-hero {
@@ -2723,6 +2840,39 @@ textarea.form-control {
     min-height: 46px;
 }
 
+.testcase-form-section {
+    background: rgba(246, 250, 252, 0.8);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 18px 4px;
+}
+
+.testcase-form-section-header {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.testcase-form-section-header h3 {
+    font-size: 1rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.testcase-form-badge {
+    align-items: center;
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+    border-radius: 999px;
+    color: #fff;
+    display: inline-flex;
+    font-size: 0.75rem;
+    font-weight: 800;
+    height: 24px;
+    justify-content: center;
+    width: 24px;
+}
+
 .executions-heading {
     margin-bottom: 24px;
 }
@@ -3500,6 +3650,11 @@ textarea.form-control {
     color: var(--brand-dark);
 }
 
+.plan-pill {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
 .execution-pill {
     background: #e0f2fe;
     color: #0369a1;
@@ -3598,7 +3753,107 @@ textarea.form-control {
     justify-content: center;
     min-height: 184px;
     padding: 28px;
+    position: relative;
     text-align: center;
+}
+
+.report-card-number {
+    align-items: center;
+    background: var(--brand);
+    border-radius: 50%;
+    color: #fff;
+    display: flex;
+    font-size: 14px;
+    font-weight: 800;
+    height: 30px;
+    justify-content: center;
+    position: absolute;
+    right: 14px;
+    top: 14px;
+    width: 30px;
+}
+
+.report-type-success .report-card-number {
+    background: var(--success);
+}
+
+.report-type-danger .report-card-number {
+    background: var(--danger);
+}
+
+.report-card-pdf {
+    margin-top: 18px;
+}
+
+.report-case-heading {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.report-case-heading strong {
+    display: inline;
+    margin: 0;
+}
+
+.report-field-label {
+    font-size: 13px;
+    margin: 12px 0 4px;
+}
+
+.report-recommendations {
+    margin: 0;
+    padding-left: 22px;
+}
+
+.report-recommendations li {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.7;
+    margin-bottom: 8px;
+}
+
+.reports-flow-card p {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0 0 16px;
+}
+
+.report-nav-number {
+    align-items: center;
+    background: var(--brand);
+    border-radius: 50%;
+    color: #fff !important;
+    display: inline-flex;
+    font-size: 13px;
+    font-weight: 800;
+    height: 26px;
+    justify-content: center;
+    margin-bottom: 10px;
+    width: 26px;
+}
+
+.benefits-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.benefits-list li {
+    align-items: flex-start;
+    color: var(--muted);
+    display: flex;
+    font-size: 14px;
+    gap: 10px;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+
+.benefits-list li i {
+    color: var(--success);
+    font-size: 16px;
+    margin-top: 1px;
 }
 
 .report-type-card i {
@@ -3625,6 +3880,122 @@ textarea.form-control {
     color: var(--muted);
     font-size: 14px;
     margin: 0;
+}
+
+.report-type-card-link {
+    color: inherit;
+    position: relative;
+    text-decoration: none;
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.report-type-card-link:hover {
+    border-color: var(--brand);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .08);
+    color: inherit;
+    transform: translateY(-2px);
+}
+
+.report-card-action {
+    align-items: center;
+    background: var(--brand);
+    border-radius: 50%;
+    color: #fff;
+    display: flex;
+    height: 30px;
+    justify-content: center;
+    margin-top: 14px;
+    width: 30px;
+}
+
+.report-card-action i {
+    font-size: 15px;
+    margin: 0;
+}
+
+.report-type-card-link h3 {
+    margin-bottom: 8px;
+}
+
+.report-nav-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    margin-bottom: 24px;
+}
+
+.report-nav-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 20px;
+    text-decoration: none;
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.report-nav-card:hover {
+    border-color: var(--brand);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .08);
+    color: inherit;
+    transform: translateY(-2px);
+}
+
+.report-nav-card i {
+    color: var(--brand);
+    font-size: 26px;
+    margin-bottom: 8px;
+}
+
+.report-nav-card strong {
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.report-nav-card span {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.report-steps-block {
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--brand);
+    border-radius: 8px;
+    margin: 0 0 12px;
+    padding: 12px 16px;
+}
+
+.report-steps-block strong {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.report-empty-cell {
+    color: var(--muted);
+    text-align: center;
+}
+
+.final-verdict {
+    border-radius: 10px;
+    margin: 16px 0;
+    padding: 14px 18px;
+    text-align: center;
+}
+
+.final-verdict.verdict-success {
+    background: #e6f6ef;
+    border: 1px solid #b7e4d0;
+    color: #1c7c55;
+}
+
+.final-verdict.verdict-warning {
+    background: #fff4e0;
+    border: 1px solid #f2d9a4;
+    color: #92600a;
 }
 
 .reports-list-card {
@@ -3818,6 +4189,34 @@ textarea.form-control {
 .report-preview-table {
     border-collapse: collapse;
     width: 100%;
+}
+
+.report-wide-wrap {
+    overflow-x: auto;
+    margin: 6px 0 4px;
+}
+
+.report-preview-table.report-wide-table {
+    min-width: 1280px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.report-preview-table.report-wide-table th,
+.report-preview-table.report-wide-table td {
+    padding: 8px 10px;
+    vertical-align: top;
+    word-break: break-word;
+}
+
+.report-preview-table.report-wide-table thead th {
+    width: auto;
+    font-size: 0.82rem;
+    text-align: left;
+}
+
+.report-preview-table.report-wide-table tbody tr:nth-child(even) {
+    background: #f8fbfe;
 }
 
 .report-preview-table th,
@@ -4732,6 +5131,30 @@ textarea.form-control {
         width: 22px;
     }
 
+    .sidebar-group-toggle,
+    .sidebar-collapsed .sidebar-group-toggle {
+        justify-content: flex-start;
+        min-height: 44px;
+        padding: 10px 12px;
+    }
+
+    .sidebar-group-toggle span,
+    .sidebar-collapsed .sidebar-group-toggle span {
+        display: inline;
+    }
+
+    .sidebar-group-menu,
+    .sidebar-collapsed .sidebar-group-menu {
+        display: none;
+        padding-left: 44px;
+    }
+
+    .sidebar-group-menu.open,
+    .sidebar-collapsed .sidebar-group-menu.open {
+        display: grid !important;
+        padding-left: 44px;
+    }
+
     .sidebar-mobile-toggle,
     .sidebar-collapsed .sidebar-mobile-toggle {
         display: none;
@@ -5312,6 +5735,7 @@ textarea.form-control {
 }
 
 .theme-dark .sidebar-nav a,
+.theme-dark .sidebar-group-toggle,
 .theme-dark .dropdown-item,
 .theme-dark .user-menu,
 .theme-dark .icon-button,
@@ -5325,6 +5749,8 @@ textarea.form-control {
 
 .theme-dark .sidebar-nav a:hover,
 .theme-dark .sidebar-nav a.active,
+.theme-dark .sidebar-group-toggle:hover,
+.theme-dark .sidebar-group-toggle.active,
 .theme-dark .project-view-tabs a.active,
 .theme-dark .kebab-button:hover,
 .theme-dark .kebab-button:focus,
@@ -5551,4 +5977,175 @@ textarea.form-control {
     border-color: #3b4d63;
     color: #6f8198;
     opacity: 1;
+}
+
+/* ---------- Selector del Informe del Plan de Pruebas ---------- */
+
+.selectors-hint {
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* ---------- Impresion del Informe del Plan de Pruebas ---------- */
+
+@media print {
+    @page {
+        size: A4;
+        margin: 12mm;
+    }
+
+    body {
+        background: #fff !important;
+    }
+
+    .app-sidebar,
+    .app-navbar,
+    .no-print,
+    .module-breadcrumb,
+    .page-heading .btn,
+    .page-heading h2,
+    .page-heading p,
+    .report-nav-grid,
+    .modal,
+    .confirm-action-modal,
+    .alerts-container {
+        display: none !important;
+    }
+
+    .app-shell {
+        display: block !important;
+        padding: 0 !important;
+    }
+
+    .app-main {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+    }
+
+    .app-content {
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: none !important;
+    }
+
+    .report-preview.plan-report-preview {
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+
+    .theme-dark .report-preview.plan-report-preview {
+        background: #fff !important;
+    }
+
+    .theme-dark .plan-report-preview,
+    .theme-dark .plan-report-preview table {
+        color: #111 !important;
+    }
+
+    .theme-dark .plan-report-preview th,
+    .theme-dark .plan-report-preview td {
+        background: #fff !important;
+        color: #111 !important;
+    }
+
+    .report-preview-table,
+    .report-preview-table th,
+    .report-preview-table td {
+        background: #fff !important;
+        color: #111 !important;
+    }
+
+    .report-preview-table thead {
+        display: table-header-group;
+    }
+
+    .report-preview-table tr {
+        break-inside: avoid;
+    }
+
+    .final-kpi-card,
+    .final-chart-card {
+        break-inside: avoid;
+    }
+
+    .bar-chart-track span {
+        box-shadow: none !important;
+    }
+}
+
+/* =========================
+   AUTOGUARDADO (BORRADORES)
+   ========================= */
+
+.draft-status {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 1060;
+    max-width: calc(100vw - 2rem);
+    padding: 0.55rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.draft-status[data-state="saving"] {
+    color: var(--brand-dark);
+    border-color: var(--brand);
+}
+
+.draft-status[data-state="saved"] {
+    color: var(--success);
+    border-color: var(--success);
+}
+
+.draft-status[data-state="offline"] {
+    color: var(--warning);
+    border-color: var(--warning);
+}
+
+.draft-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    background: var(--brand-light);
+    border: 1px solid var(--brand);
+    color: var(--brand-dark);
+}
+
+.draft-banner-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.draft-banner-text strong {
+    font-size: 0.9rem;
+}
+
+.draft-banner-text span {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.draft-banner-actions {
+    display: flex;
+    gap: 0.5rem;
 }

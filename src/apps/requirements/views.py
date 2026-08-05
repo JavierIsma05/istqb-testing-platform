@@ -25,14 +25,11 @@ STATUS_BADGES = {
     Requirement.Status.APPROVED: 'success',
     Requirement.Status.REVIEW: 'info',
     Requirement.Status.PENDING: 'warning',
-    Requirement.Status.CHANGED: 'info',
-    Requirement.Status.RETIRED: 'muted',
 }
 
 REVIEWABLE_STATUSES = (
     Requirement.Status.PENDING,
     Requirement.Status.REVIEW,
-    Requirement.Status.CHANGED,
 )
 
 
@@ -67,12 +64,9 @@ def requirement_list_view(request):
         requirements = requirements.filter(status=status)
 
     requirement_items = []
-    covered = 0
     for requirement in requirements:
         linked_cases = max(requirement.direct_cases or 0, requirement.traced_cases or 0)
         coverage = 100 if linked_cases else 0
-        if coverage:
-            covered += 1
         requirement_items.append(
             {
                 'requirement': requirement,
@@ -84,11 +78,11 @@ def requirement_list_view(request):
         )
 
     total = len(requirement_items)
-    pending = sum(1 for item in requirement_items if item['requirement'].status != Requirement.Status.APPROVED)
-    reviewable_count = sum(
-        1 for item in requirement_items if item['requirement'].status in REVIEWABLE_STATUSES
+    approved = sum(1 for item in requirement_items if item['requirement'].status == Requirement.Status.APPROVED)
+    in_review = sum(
+        1 for item in requirement_items if item['requirement'].status == Requirement.Status.REVIEW
     )
-    coverage_percent = round((covered / total) * 100) if total else 0
+    pending = sum(1 for item in requirement_items if item['requirement'].status == Requirement.Status.PENDING)
 
     return render(
         request,
@@ -96,9 +90,9 @@ def requirement_list_view(request):
         {
             'requirement_items': requirement_items,
             'total': total,
-            'covered': covered,
+            'approved': approved,
+            'in_review': in_review,
             'pending': pending,
-            'coverage_percent': coverage_percent,
             'projects': visible_projects.order_by('name'),
             'status_choices': Requirement.Status.choices,
             'selected_project': project_id,
@@ -106,7 +100,6 @@ def requirement_list_view(request):
             'query': query,
             'can_manage': can_manage_artifacts(request.user),
             'can_review': is_teacher(request.user),
-            'reviewable_count': reviewable_count,
             'reviewable_statuses': REVIEWABLE_STATUSES,
         },
     )
@@ -123,6 +116,7 @@ def requirement_create_view(request):
     if request.method == 'POST' and form.is_valid():
         requirement = form.save(commit=False)
         requirement.code = next_code(Requirement.objects.filter(project=requirement.project), 'REQ')
+        requirement.status = Requirement.Status.PENDING
         requirement.created_by = request.user
         requirement.save()
         record_requirement_version(requirement, request.user, 'Creación del requisito')

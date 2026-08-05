@@ -1,6 +1,7 @@
 """Pruebas funcionales para registro de defectos."""
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import Select
 
 from base_test import SeleniumBaseTest
 
@@ -12,11 +13,18 @@ class TestDefects(SeleniumBaseTest):
 
         try:
             self.login()
-            self.open_path("/defects/create/")
+            self.open_path("/defects/new/")
+
+            case_select = self.find_visible((By.NAME, "test_case"))
+            select = Select(case_select)
+            select.select_by_index(1)
 
             self.type_text((By.NAME, "title"), "DEF-SEL-001 Mensaje de validacion")
             self.type_text((By.NAME, "description"), "Defecto de ejemplo registrado por Selenium.")
-            self.type_text((By.NAME, "severity"), "Medium")
+
+            severity_select = self.find_visible((By.NAME, "severity"))
+            Select(severity_select).select_by_visible_text("Media")
+
             self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
 
             self.wait_for_any_visible(

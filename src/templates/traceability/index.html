@@ -6,24 +6,24 @@
 <div class="page-heading traceability-heading">
     <div>
         <h2>Matriz de Trazabilidad</h2>
-        <p>Relacion entre requisitos, riesgos, casos de prueba, ejecuciones y defectos</p>
+        <p>Requisito → Plan de Pruebas → Caso de Prueba → Ejecución → Resultado → Defecto</p>
     </div>
 </div>
 
 <section class="traceability-metric-grid">
     <article class="traceability-metric-card">
         <div>
-            <span>Cobertura por Casos</span>
-            <strong>{{ total_coverage }}%</strong>
+            <span>Requisitos</span>
+            <strong>{{ total_requirements }}</strong>
         </div>
-        <i class="bi bi-check-circle"></i>
+        <i class="bi bi-file-earmark-text"></i>
     </article>
     <article class="traceability-metric-card">
         <div>
-            <span>Requisitos Cubiertos</span>
-            <strong>{{ covered_requirements }}/{{ total_requirements }}</strong>
+            <span>Planes de Prueba</span>
+            <strong>{{ total_plans }}</strong>
         </div>
-        <i class="bi bi-file-earmark-text"></i>
+        <i class="bi bi-journal-text"></i>
     </article>
     <article class="traceability-metric-card">
         <div>
@@ -34,24 +34,24 @@
     </article>
     <article class="traceability-metric-card">
         <div>
-            <span>Ejecuciones validadas</span>
-            <strong>{{ validated_executions }}/{{ total_executions }}</strong>
+            <span>Ejecuciones</span>
+            <strong>{{ total_executions }}</strong>
         </div>
-        <i class="bi bi-patch-check"></i>
+        <i class="bi bi-play-circle"></i>
     </article>
     <article class="traceability-metric-card">
         <div>
-            <span>Pendientes de revisión</span>
-            <strong>{{ pending_review_executions }}</strong>
+            <span>Resultados</span>
+            <strong>{{ total_results }}</strong>
         </div>
-        <i class="bi bi-hourglass-split"></i>
+        <i class="bi bi-check2-circle"></i>
     </article>
     <article class="traceability-metric-card">
         <div>
-            <span>Riesgos Altos</span>
-            <strong>{{ high_risks }}/{{ total_risks }}</strong>
+            <span>Defectos</span>
+            <strong>{{ total_defects }}</strong>
         </div>
-        <i class="bi bi-exclamation-triangle"></i>
+        <i class="bi bi-bug"></i>
     </article>
 </section>
 
@@ -62,14 +62,11 @@
             <thead>
                 <tr>
                     <th>Requisito</th>
-                    <th>Caso de prueba</th>
-                    <th>Regla automatizada</th>
+                    <th>Plan de Pruebas</th>
+                    <th>Caso de Prueba</th>
                     <th>Ejecución</th>
                     <th>Resultado</th>
-                    <th>Revisión</th>
-                    <th>Riesgo del requisito</th>
                     <th>Defecto</th>
-                    <th>Cobertura por caso</th>
                 </tr>
             </thead>
             <tbody>
@@ -79,91 +76,61 @@
                             <span class="trace-pill requirement-pill">{{ row.requirement.code }}</span>
                         </td>
                         <td>
-                            <div class="trace-pill-list">
-                                {% for test_case in row.test_cases %}
+                            {% if row.plan %}
+                                <span class="trace-pill plan-pill">{{ row.plan.name }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.case %}
+                                <div class="trace-pill-list">
                                     <span class="trace-pill testcase-pill">
                                         <i class="bi bi-test-tube"></i>
-                                        {{ test_case.code }}
+                                        {{ row.case.code }}
                                     </span>
-                                {% empty %}
-                                    <span class="text-muted">Sin casos</span>
-                                {% endfor %}
-                            </div>
+                                </div>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
                         </td>
                         <td>
-                            <div class="trace-pill-list">
-                                {% for rule in row.automated_rules %}
-                                    <span class="trace-pill execution-pill">{{ rule.name }}</span>
-                                {% empty %}
-                                    <span class="text-muted">Solo manual</span>
-                                {% endfor %}
-                            </div>
+                            {% if row.execution %}
+                                <span class="trace-pill execution-pill">
+                                    <i class="bi bi-play-circle"></i>
+                                    Ejecución #{{ row.execution.id }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
                         </td>
                         <td>
-                            <div class="trace-pill-list">
-                                {% for execution in row.executions %}
-                                    <span class="trace-pill execution-pill">
-                                        <i class="bi bi-play-circle"></i>
-                                        Ejecución #{{ execution.id }}
-                                    </span>
-                                {% empty %}
-                                    <span class="text-muted">Sin ejecuciones</span>
-                                {% endfor %}
-                            </div>
+                            {% if row.execution %}
+                                <span class="trace-pill result-pill result-{{ row.execution.result|lower }}">
+                                    {{ row.execution.get_result_display }}
+                                </span>
+                            {% else %}
+                                <span class="trace-pill result-pill result-not_run">Pendiente</span>
+                            {% endif %}
                         </td>
                         <td>
-                            <div class="trace-pill-list">
-                                {% for execution in row.executions %}
-                                    <span class="trace-pill result-pill result-{{ execution.result|lower }}">
-                                        {{ execution.get_result_display }}
-                                    </span>
-                                {% empty %}
-                                    <span class="text-muted">Sin resultado</span>
-                                {% endfor %}
-                            </div>
-                        </td>
-                        <td>
-                            <div class="trace-pill-list">
-                                {% for execution in row.executions %}
-                                    <span class="trace-pill review-pill review-{{ execution.review_status|lower }}">
-                                        {{ execution.get_review_status_display }}
-                                    </span>
-                                {% empty %}
-                                    <span class="text-muted">Sin revisión</span>
-                                {% endfor %}
-                            </div>
-                        </td>
-                        <td>
-                            <div class="trace-pill-list">
-                                {% for risk in row.risks %}
-                                    <span class="trace-pill incident-pill">
-                                        <i class="bi bi-exclamation-triangle"></i>
-                                        {{ risk.code }} - {{ risk.risk_level }}
-                                    </span>
-                                {% empty %}
-                                    <span class="text-muted">Sin riesgos</span>
-                                {% endfor %}
-                            </div>
-                        </td>
-                        <td>
-                            <div class="trace-pill-list">
-                                {% for defect in row.defects %}
-                                    <span class="trace-pill defect-pill">
-                                        <i class="bi bi-bug"></i>
-                                        {{ defect.code }}
-                                    </span>
-                                {% empty %}
-                                    <span class="text-muted">Sin defectos</span>
-                                {% endfor %}
-                            </div>
-                        </td>
-                        <td>
-                            <span class="coverage-pill coverage-{{ row.coverage_tone }}">{{ row.coverage }}%</span>
+                            {% if row.defects %}
+                                <div class="trace-pill-list">
+                                    {% for defect in row.defects %}
+                                        <span class="trace-pill defect-pill">
+                                            <i class="bi bi-bug"></i>
+                                            {{ defect.code }}
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
                         </td>
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-5">
+                        <td colspan="6" class="text-center text-muted py-5">
                             No hay requisitos para mostrar en la matriz.
                         </td>
                     </tr>

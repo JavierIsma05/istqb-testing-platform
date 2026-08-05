@@ -1,11 +1,9 @@
 import json
 
 from django import forms
-from django.db.models import Q
 
 from apps.core.codes import next_code
 from apps.core.permissions import visible_projects_for
-from apps.incidents.models import Incident
 from apps.requirements.models import Requirement
 from apps.testplans.models import TestPlan
 
@@ -13,13 +11,6 @@ from .models import TestCase
 
 
 class TestCaseModalForm(forms.ModelForm):
-    risks = forms.ModelMultipleChoiceField(
-        label='Riesgos que cubre',
-        queryset=Incident.objects.none(),
-        required=False,
-        widget=forms.SelectMultiple(attrs={'class': 'form-select'}),
-    )
-
     class Meta:
         model = TestCase
         fields = (
@@ -30,14 +21,12 @@ class TestCaseModalForm(forms.ModelForm):
             'description',
             'priority',
             'technique',
-            'level',
+            'custom_technique',
             'preconditions',
             'test_data',
             'steps',
             'expected_result',
-            'version',
             'status',
-            'risks',
         )
         labels = {
             'test_plan': 'Plan de Pruebas',
@@ -47,16 +36,15 @@ class TestCaseModalForm(forms.ModelForm):
             'description': 'Descripción',
             'priority': 'Prioridad',
             'technique': 'Técnica ISTQB',
-            'level': 'Nivel de Prueba',
+            'custom_technique': 'Técnica personalizada',
             'preconditions': 'Precondiciones',
             'test_data': 'Datos de Prueba',
             'steps': 'Pasos de Ejecución',
             'expected_result': 'Resultado Esperado',
-            'version': 'Versión',
             'status': 'Estado',
         }
         widgets = {
-            'test_plan': forms.Select(attrs={'class': 'form-select'}),
+            'test_plan': forms.HiddenInput(),
             'requirement': forms.Select(attrs={'class': 'form-select'}),
             'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'TC-XXX'}),
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título descriptivo del caso de prueba'}),
@@ -64,8 +52,10 @@ class TestCaseModalForm(forms.ModelForm):
                 attrs={'class': 'form-control', 'placeholder': 'Descripción detallada del caso de prueba', 'rows': 3}
             ),
             'priority': forms.Select(attrs={'class': 'form-select'}),
-            'technique': forms.Select(attrs={'class': 'form-select'}),
-            'level': forms.Select(attrs={'class': 'form-select'}),
+            'technique': forms.Select(attrs={'class': 'form-select', 'data-custom-technique-target': 'id_custom_technique'}),
+            'custom_technique': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'Especifique la técnica personalizada'}
+            ),
             'preconditions': forms.Textarea(
                 attrs={'class': 'form-control', 'placeholder': 'Condiciones previas para ejecutar el caso', 'rows': 3}
             ),
@@ -75,7 +65,7 @@ class TestCaseModalForm(forms.ModelForm):
             'steps': forms.Textarea(
                 attrs={
                     'class': 'form-control',
-                    'placeholder': 'Abrir login => Se muestra el formulario\nIngresar credenciales => Los datos son aceptados',
+                    'placeholder': '1. Abrir el formulario de login\n2. Ingresar credenciales válidas\n3. Confirmar acceso',
                     'rows': 5,
                 }
             ),
@@ -83,7 +73,6 @@ class TestCaseModalForm(forms.ModelForm):
                 attrs={'class': 'form-control', 'placeholder': 'Descripción del resultado esperado', 'rows': 3}
             ),
             'status': forms.Select(attrs={'class': 'form-select'}),
-            'version': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '1.0'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -96,8 +85,6 @@ class TestCaseModalForm(forms.ModelForm):
                 'name',
             )
         self.fields['requirement'].required = True
-        self.fields['version'].required = False
-        self.fields['version'].initial = self.instance.version or '1.0'
         test_plan_id = self.data.get('test_plan') if self.is_bound else self.instance.test_plan_id
         if not test_plan_id and not self.is_bound:
             first_plan = self.fields['test_plan'].queryset.order_by('project__name', 'name').first()
@@ -112,6 +99,7 @@ class TestCaseModalForm(forms.ModelForm):
             if project_id
             else self.fields['requirement'].queryset.none()
         )
+        self.fields['requirement'].label_from_instance = lambda obj: obj.display_label
         queryset = TestCase.objects.filter(test_plan__project_id=project_id) if project_id else TestCase.objects.none()
         self.fields['code'].required = False
         self.fields['code'].disabled = True
@@ -125,12 +113,11 @@ class TestCaseModalForm(forms.ModelForm):
         self.fields['test_plan'].widget.attrs.update({
             'data-code-target': self.fields['code'].widget.attrs.get('id', 'id_code'),
             'data-requirement-target': self.fields['requirement'].widget.attrs.get('id', 'id_requirement'),
-            'data-risk-target': self.fields['risks'].widget.attrs.get('id', 'id_risks'),
             'data-requirements-by-plan': json.dumps({
                 str(test_plan.pk): [
                     {
                         'value': requirement.pk,
-                        'label': str(requirement),
+                        'label': requirement.display_label,
                     }
                     for requirement in Requirement.objects.filter(project_id=test_plan.project_id).order_by('code')
                 ]
@@ -143,41 +130,16 @@ class TestCaseModalForm(forms.ModelForm):
                 )
                 for test_plan in available_plans
             }),
-            'data-risks-by-plan': json.dumps({
-                str(test_plan.pk): [
-                    {
-                        'value': risk.pk,
-                        'label': f'{risk.code} - {risk.title}',
-                        'requirement': risk.requirement_id,
-                    }
-                    for risk in Incident.objects.filter(test_plan_id=test_plan.pk).order_by('code')
-                ]
-                for test_plan in available_plans
-            }),
         })
         self.fields['requirement'].empty_label = 'Selecciona un requisito'
-        risk_queryset = Incident.objects.none()
-        if test_plan_id:
-            risk_queryset = Incident.objects.filter(test_plan_id=test_plan_id)
-            requirement_id = self.data.get('requirement') if self.is_bound else self.instance.requirement_id
-            if requirement_id:
-                risk_queryset = risk_queryset.filter(
-                    Q(requirement_id=requirement_id) | Q(requirement__isnull=True)
-                )
-        self.fields['risks'].queryset = risk_queryset.select_related('requirement', 'test_plan').order_by('code')
-        if self.instance.pk:
-            self.fields['risks'].initial = self.instance.covered_risks.all()
         help_texts = {
             'test_plan': 'Plan de pruebas donde se ejecutara o controlara este caso.',
             'requirement': 'Requisito cubierto por el caso; ayuda a medir trazabilidad.',
             'test_data': 'Datos concretos que deben usarse durante la ejecucion.',
-            'steps': 'Escribe un paso por linea con el formato Accion => Resultado esperado.',
-            'version': 'Versión del caso aplicable a la versión actual del proyecto.',
+            'steps': 'Escribe un paso por linea numerado, por ejemplo: 1. Abrir login.',
             'priority': 'Importancia del caso para ordenar la ejecucion.',
             'technique': 'Tecnica ISTQB usada para disenar el caso, como particion de equivalencia o valores limite.',
-            'level': 'Nivel donde aplica el caso: componente, integracion, sistema o aceptacion.',
             'status': 'Estado de preparacion o ejecucion del caso.',
-            'risks': 'Selecciona riesgos ya registrados en el plan que este caso ayuda a cubrir o mitigar.',
         }
         for name, help_text in help_texts.items():
             self.fields[name].help_text = help_text
@@ -186,25 +148,45 @@ class TestCaseModalForm(forms.ModelForm):
     def clean_steps(self):
         steps = (self.cleaned_data.get('steps') or '').strip()
         parsed_steps = []
+        expected_result_default = (self.cleaned_data.get('expected_result') or '').strip()
+
         for number, line in enumerate(steps.splitlines(), start=1):
             line = line.strip()
             if not line:
                 continue
-            if '=>' not in line:
-                raise forms.ValidationError(
-                    f'El paso {number} debe usar el formato Accion => Resultado esperado.'
-                )
-            action, expected = (part.strip() for part in line.split('=>', 1))
-            if not action or not expected:
-                raise forms.ValidationError(f'Completa la acción y el resultado esperado del paso {number}.')
-            parsed_steps.append({'number': len(parsed_steps) + 1, 'action': action, 'expected_result': expected})
+
+            if '=>' in line:
+                action, expected = (part.strip() for part in line.split('=>', 1))
+                if not action or not expected:
+                    raise forms.ValidationError(f'Completa la acción y el resultado esperado del paso {number}.')
+                parsed_steps.append({
+                    'number': len(parsed_steps) + 1,
+                    'action': action,
+                    'expected_result': expected,
+                })
+                continue
+
+            normalized = line
+            if normalized.startswith(f'{number}.'):
+                normalized = normalized[number:].lstrip('. ').strip()
+            elif normalized[0].isdigit() and '.' in normalized:
+                _, normalized = normalized.split('.', 1)
+                normalized = normalized.strip()
+
+            if not normalized:
+                raise forms.ValidationError(f'El paso {number} no puede estar vacío.')
+
+            parsed_steps.append({
+                'number': len(parsed_steps) + 1,
+                'action': normalized,
+                'expected_result': expected_result_default,
+            })
+
         if not parsed_steps:
             raise forms.ValidationError('Registra al menos un paso de ejecucion.')
+
         self.parsed_steps = parsed_steps
         return steps
-
-    def clean_version(self):
-        return (self.cleaned_data.get('version') or '').strip() or '1.0'
 
     def clean(self):
         cleaned_data = super().clean()
@@ -212,15 +194,10 @@ class TestCaseModalForm(forms.ModelForm):
         requirement = cleaned_data.get('requirement')
         if test_plan and requirement and test_plan.project_id != requirement.project_id:
             self.add_error('requirement', 'El requisito debe pertenecer al proyecto del plan seleccionado.')
-        risks = cleaned_data.get('risks')
-        if test_plan and risks:
-            invalid_risks = [
-                risk for risk in risks
-                if risk.test_plan_id != test_plan.id
-                or (risk.requirement_id and requirement and risk.requirement_id != requirement.id)
-            ]
-            if invalid_risks:
-                self.add_error('risks', 'Selecciona solo riesgos del plan y requisito del caso.')
+        technique = cleaned_data.get('technique')
+        custom = (cleaned_data.get('custom_technique') or '').strip()
+        if technique == TestCase.Technique.OTHER and not custom:
+            self.add_error('custom_technique', 'Especifique la técnica personalizada cuando selecciona "Otra".')
         return cleaned_data
 
     def save(self, commit=True):
@@ -229,7 +206,4 @@ class TestCaseModalForm(forms.ModelForm):
         if commit:
             instance.save()
             self.save_m2m()
-            selected_risks = self.cleaned_data.get('risks')
-            if selected_risks is not None:
-                instance.covered_risks.set(selected_risks)
         return instance

@@ -8,10 +8,12 @@
         <button class="icon-button" type="button" title="Cambiar tema" aria-label="Cambiar tema" data-theme-toggle>
             <i class="bi bi-moon" data-theme-icon></i>
         </button>
-        <a class="icon-button {% if request.user.unread_notifications_count %}has-alert{% endif %}" href="{% url 'notifications:index' %}" title="Notificaciones" aria-label="Notificaciones">
+        {% with unread_notifications_count=request.user.unread_notifications_count %}
+        <a class="icon-button {% if unread_notifications_count %}has-alert{% endif %}" href="{% url 'notifications:index' %}" title="Notificaciones" aria-label="Notificaciones">
             <i class="bi bi-bell"></i>
-            <span class="visually-hidden">{{ request.user.unread_notifications_count }} notificaciones sin leer</span>
+            <span class="visually-hidden">{{ unread_notifications_count }} notificaciones sin leer</span>
         </a>
+        {% endwith %}
         <div class="dropdown">
             <button class="user-menu" data-bs-toggle="dropdown" type="button">
                 <span class="avatar">{{ request.user.first_name|first|default:'U' }}{{ request.user.last_name|first }}</span>

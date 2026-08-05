@@ -60,6 +60,7 @@ LOCAL_APPS = [
     'apps.notifications',
     'apps.audit',
     'apps.phases',
+    'apps.drafts',
 ]
 
 # =========================

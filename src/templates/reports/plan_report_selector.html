@@ -1,0 +1,64 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}{{ report_type_label }}{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading reports-heading">
+    <div>
+        <nav class="module-breadcrumb" aria-label="Navegación del módulo Informes">
+            <a href="{% url 'reports:index' %}">Informes de Calidad</a>
+            <i class="bi bi-chevron-right"></i>
+            <strong>{{ report_type_label }}</strong>
+        </nav>
+        <h2>{{ report_type_label }}</h2>
+        <p>Selecciona un proyecto y un plan para generar su vista previa imprimible y su PDF</p>
+    </div>
+    <a class="btn btn-outline-brand" href="{% url 'reports:index' %}">
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
+</div>
+
+<section class="incidents-filter-card">
+    <form method="GET" class="incidents-filters" id="planReportSelectorForm">
+        <input type="hidden" name="type" value="{{ report_type }}">
+        <div class="search-control">
+            <i class="bi bi-file-earmark-richtext"></i>
+            <span class="selectors-hint">Plan de Pruebas</span>
+        </div>
+        <select
+            name="project"
+            id="planReportProject"
+            aria-label="Proyecto"
+            required
+            data-plans-by-project='{{ plans_by_project_json }}'
+        >
+            <option value="">Selecciona un proyecto</option>
+            {% for project in projects %}
+                <option value="{{ project.id }}">{{ project.name }}</option>
+            {% endfor %}
+        </select>
+        <select
+            name="plan"
+            id="planReportPlan"
+            aria-label="Plan de Pruebas"
+            required
+            disabled
+        >
+            <option value="">Selecciona primero un proyecto</option>
+        </select>
+        <button class="btn btn-brand" type="submit" id="planReportGo" disabled>
+            <i class="bi bi-file-earmark-pdf"></i>
+            Generar Informe
+        </button>
+    </form>
+</section>
+
+<section class="reports-list-card">
+    <h3>Como funciona</h3>
+    <p>
+        Selecciona el proyecto y luego el plan de pruebas del que deseas generar el informe.
+        Se abrira la vista previa imprimible con los datos reales del plan; desde ahi puedes
+        descargar el PDF o imprimirla directamente con el navegador.
+    </p>
+</section>
+{% endblock %}

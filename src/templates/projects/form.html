@@ -62,18 +62,23 @@
                 {% if form.end_date.errors %}<div class="form-error">{{ form.end_date.errors|striptags }}</div>{% endif %}
             </div>
             <div class="col-12">
-                <label class="form-label" for="{{ form.tutor_email.id_for_label }}">{{ form.tutor_email.label }}</label>
-                {{ form.tutor_email }}
-                <div class="form-text">{{ form.tutor_email.help_text }}</div>
-                {% if form.tutor_email.errors %}<div class="form-error">{{ form.tutor_email.errors|striptags }}</div>{% endif %}
+                <label class="form-label" for="{{ form.tutor.id_for_label }}">{{ form.tutor.label }}</label>
+                {% if form.tutor.field.queryset %}
+                    {{ form.tutor }}
+                    <div class="form-text">{{ form.tutor.help_text }}</div>
+                {% else %}
+                    <input class="form-control" type="text" value="No hay docentes registrados" disabled>
+                    <div class="form-text">Un administrador debe registrar docentes antes de asignar un tutor al proyecto.</div>
+                {% endif %}
+                {% if form.tutor.errors %}<div class="form-error">{{ form.tutor.errors|striptags }}</div>{% endif %}
             </div>
         </div>
 
         <div class="d-flex justify-content-end gap-2 mt-4">
-            <a class="btn btn-outline-brand" href="{% url 'projects:index' %}">Cancelar</a>
+            <a class="btn btn-outline-brand" href="{% if project %}{% url 'projects:detail' project.pk %}{% else %}{% url 'projects:index' %}{% endif %}">Cancelar</a>
             <button class="btn btn-brand" type="submit">
                 <i class="bi bi-save"></i>
-                Guardar Proyecto
+                {% if project %}Guardar Cambios{% else %}Guardar Proyecto{% endif %}
             </button>
         </div>
     </form>

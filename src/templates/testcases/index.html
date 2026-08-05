@@ -16,13 +16,21 @@
     {% endif %}
 </div>
 
+{% if messages %}
+    <div class="project-messages">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+{% endif %}
+
 <section class="testcase-metric-grid">
     <article class="testcase-metric-card">
         <div><span>Total Casos</span><strong>{{ total }}</strong></div>
         <i class="bi bi-test-tube"></i>
     </article>
     <article class="testcase-metric-card success">
-        <div><span>Pasados</span><strong>{{ passed }}</strong></div>
+        <div><span>Completado</span><strong>{{ passed }}</strong></div>
         <i class="bi bi-check-circle"></i>
     </article>
     <article class="testcase-metric-card danger">
@@ -72,7 +80,7 @@
                 <h3>{{ item.case.title }}</h3>
                 <p>{{ item.case.description|default:item.case.expected_result }}</p>
                 <div class="testcase-meta">
-                    <span>Técnica: <strong class="soft-tag">{{ item.case.get_technique_display }}</strong></span>
+                    <span>Técnica: <strong class="soft-tag">{{ item.case.display_technique }}</strong></span>
                     <span>Prioridad: <strong>{{ item.case.get_priority_display }}</strong></span>
                     <span>Riesgos cubiertos: <strong>{{ item.case.risk_count }}</strong></span>
                     <span>Ejecuciones: <strong>{{ item.case.execution_count }}</strong></span>
@@ -81,15 +89,29 @@
                 </div>
             </div>
             <div class="testcase-actions">
-                <span class="testcase-status testcase-status-{{ item.badge }}">
-                    <i class="bi bi-check-circle"></i>
-                    {{ item.case.get_status_display }}
-                </span>
+                {% if item.blocked %}
+                    <span class="testcase-status testcase-status-muted" title="{{ item.block_reason }}">
+                        <i class="bi bi-lock"></i>
+                        Bloqueado
+                    </span>
+                {% else %}
+                    <span class="testcase-status testcase-status-{{ item.badge }}">
+                        <i class="bi bi-check-circle"></i>
+                        {{ item.case.get_status_display }}
+                    </span>
+                {% endif %}
                 <div>
                     <a class="btn btn-outline-brand btn-sm" href="{% url 'testcases:detail' item.case.pk %}">Ver Detalle</a>
                     {% if can_manage %}
                         <a class="btn btn-outline-brand btn-sm" href="{% url 'testcases:edit' item.case.pk %}">Editar</a>
-                        <a class="btn btn-brand btn-sm" href="{% url 'executions:index' %}?case={{ item.case.pk }}">Ejecutar</a>
+                        {% if item.blocked %}
+                            <span class="btn btn-brand btn-sm disabled" tabindex="-1" aria-disabled="true" title="{{ item.block_reason }}">
+                                <i class="bi bi-lock"></i>
+                                Ejecutar
+                            </span>
+                        {% else %}
+                            <a class="btn btn-brand btn-sm" href="{% url 'executions:index' %}?case={{ item.case.pk }}">Ejecutar</a>
+                        {% endif %}
                         <form method="POST" action="{% url 'testcases:delete' item.case.pk %}">
                             {% csrf_token %}
                             <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar este caso tambien eliminara sus ejecuciones y defectos asociados. Deseas continuar?">
@@ -123,77 +145,133 @@
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <form method="POST" novalidate>
+            <form method="POST" novalidate
+                data-draft-module="testcase"
+                data-draft-object-id="0"
+                data-draft-project="0"
+                data-draft-save-url="{% url 'drafts:save' %}"
+                data-draft-get-url="{% url 'drafts:get' %}"
+                data-draft-clear-url="{% url 'drafts:clear' %}">
                 {% csrf_token %}
                 {% if form.non_field_errors %}
                     <div class="alert alert-danger mx-3 mt-3" role="alert">{{ form.non_field_errors|striptags }}</div>
                 {% endif %}
                 <div class="modal-body">
                     <div class="row g-3">
-                        <div class="col-lg-3 col-md-6">
-                            <label class="form-label" for="{{ form.code.id_for_label }}">{{ form.code.label }}</label>
-                            {{ form.code }}
-                            {% if form.code.errors %}<div class="form-error">{{ form.code.errors|striptags }}</div>{% endif %}
-                        </div>
-                        <div class="col-lg-3 col-md-6">
-                            <label class="form-label" for="{{ form.requirement.id_for_label }}">{{ form.requirement.label }}</label>
-                            {{ form.requirement }}
-                            {% if form.requirement.errors %}<div class="form-error">{{ form.requirement.errors|striptags }}</div>{% endif %}
-                        </div>
-                        <div class="col-lg-6">
-                            <label class="form-label" for="{{ form.test_plan.id_for_label }}">{{ form.test_plan.label }}</label>
-                            {{ form.test_plan }}
-                            {% if form.test_plan.errors %}<div class="form-error">{{ form.test_plan.errors|striptags }}</div>{% endif %}
-                        </div>
-                        <div class="col-lg-6">
-                            <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
-                            {{ form.title }}
-                            {% if form.title.errors %}<div class="form-error">{{ form.title.errors|striptags }}</div>{% endif %}
-                        </div>
-                        <div class="col-lg-6">
-                            <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
-                            {{ form.description }}
-                            {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label" for="{{ form.priority.id_for_label }}">{{ form.priority.label }}</label>
-                            {{ form.priority }}
-                            {% if form.priority.errors %}<div class="form-error">{{ form.priority.errors|striptags }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label" for="{{ form.technique.id_for_label }}">{{ form.technique.label }}</label>
-                            {{ form.technique }}
-                            {% if form.technique.errors %}<div class="form-error">{{ form.technique.errors|striptags }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label" for="{{ form.level.id_for_label }}">{{ form.level.label }}</label>
-                            {{ form.level }}
-                            {% if form.level.errors %}<div class="form-error">{{ form.level.errors|striptags }}</div>{% endif %}
-                        </div>
-                        <div class="col-lg-4">
-                            <label class="form-label" for="{{ form.preconditions.id_for_label }}">{{ form.preconditions.label }}</label>
-                            {{ form.preconditions }}
-                            {% if form.preconditions.errors %}<div class="form-error">{{ form.preconditions.errors|striptags }}</div>{% endif %}
-                        </div>
-                        <div class="col-lg-4">
-                            <label class="form-label" for="{{ form.steps.id_for_label }}">{{ form.steps.label }}</label>
-                            {{ form.steps }}
-                            {% if form.steps.errors %}<div class="form-error">{{ form.steps.errors|striptags }}</div>{% endif %}
-                        </div>
-                        <div class="col-lg-4">
-                            <label class="form-label" for="{{ form.expected_result.id_for_label }}">{{ form.expected_result.label }}</label>
-                            {{ form.expected_result }}
-                            {% if form.expected_result.errors %}<div class="form-error">{{ form.expected_result.errors|striptags }}</div>{% endif %}
-                        </div>
                         <div class="col-12">
-                            <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
-                            {{ form.status }}
-                            {% if form.status.errors %}<div class="form-error">{{ form.status.errors|striptags }}</div>{% endif %}
+                            <div class="testcase-form-section">
+                                <div class="testcase-form-section-header">
+                                    <span class="testcase-form-badge">1</span>
+                                    <h3>Identificación del caso</h3>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-lg-3 col-md-6">
+                                        <label class="form-label" for="{{ form.code.id_for_label }}">{{ form.code.label }}</label>
+                                        {{ form.code }}
+                                        {% if form.code.errors %}<div class="form-error">{{ form.code.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-lg-3 col-md-6">
+                                        <label class="form-label" for="{{ form.requirement.id_for_label }}">{{ form.requirement.label }}</label>
+                                        {{ form.requirement }}
+                                        {% if form.requirement.errors %}<div class="form-error">{{ form.requirement.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                    {{ form.test_plan }}
+                                    <div class="col-lg-6">
+                                        <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+                                        {{ form.title }}
+                                        {% if form.title.errors %}<div class="form-error">{{ form.title.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+                                        {{ form.description }}
+                                        {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
                         <div class="col-12">
-                            <label class="form-label" for="{{ form.risks.id_for_label }}">{{ form.risks.label }}</label>
-                            {{ form.risks }}
-                            {% if form.risks.errors %}<div class="form-error">{{ form.risks.errors|striptags }}</div>{% endif %}
+                            <div class="testcase-form-section">
+                                <div class="testcase-form-section-header">
+                                    <span class="testcase-form-badge">2</span>
+                                    <h3>Clasificación y trazabilidad</h3>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="{{ form.priority.id_for_label }}">{{ form.priority.label }}</label>
+                                        {{ form.priority }}
+                                        {% if form.priority.errors %}<div class="form-error">{{ form.priority.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-md-4 technique-field-group">
+                                        <label class="form-label" for="{{ form.technique.id_for_label }}">{{ form.technique.label }}</label>
+                                        {{ form.technique }}
+                                        {% if form.technique.errors %}<div class="form-error">{{ form.technique.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-md-4 custom-technique-field" data-custom-technique-wrap>
+                                        <label class="form-label" for="{{ form.custom_technique.id_for_label }}">{{ form.custom_technique.label }}</label>
+                                        {{ form.custom_technique }}
+                                        {% if form.custom_technique.errors %}<div class="form-error">{{ form.custom_technique.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
+                                        {{ form.status }}
+                                        {% if form.status.errors %}<div class="form-error">{{ form.status.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="testcase-form-section">
+                                <div class="testcase-form-section-header">
+                                    <span class="testcase-form-badge">3</span>
+                                    <h3>Datos y condiciones</h3>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-lg-6">
+                                        <label class="form-label" for="{{ form.preconditions.id_for_label }}">{{ form.preconditions.label }}</label>
+                                        {{ form.preconditions }}
+                                        {% if form.preconditions.errors %}<div class="form-error">{{ form.preconditions.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <label class="form-label" for="{{ form.test_data.id_for_label }}">{{ form.test_data.label }}</label>
+                                        {{ form.test_data }}
+                                        {% if form.test_data.errors %}<div class="form-error">{{ form.test_data.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="testcase-form-section">
+                                <div class="testcase-form-section-header">
+                                    <span class="testcase-form-badge">4</span>
+                                    <h3>Pasos de ejecución</h3>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label" for="{{ form.steps.id_for_label }}">{{ form.steps.label }}</label>
+                                        {{ form.steps }}
+                                        {% if form.steps.errors %}<div class="form-error">{{ form.steps.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="testcase-form-section">
+                                <div class="testcase-form-section-header">
+                                    <span class="testcase-form-badge">5</span>
+                                    <h3>Resultado esperado</h3>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label" for="{{ form.expected_result.id_for_label }}">{{ form.expected_result.label }}</label>
+                                        {{ form.expected_result }}
+                                        {% if form.expected_result.errors %}<div class="form-error">{{ form.expected_result.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -215,4 +293,27 @@
         });
     </script>
 {% endif %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        function bindCustomTechnique(scope) {
+            scope.querySelectorAll('[data-custom-technique-target]').forEach(function (select) {
+                var wrap = scope.querySelector('[data-custom-technique-wrap]');
+                if (!wrap) return;
+                var otherValue = scope.querySelector('option[value="OTHER"]') ? 'OTHER' : '';
+                function toggle() {
+                    var show = select.value === 'OTHER';
+                    wrap.style.display = show ? '' : 'none';
+                    var input = wrap.querySelector('input');
+                    if (input && !show && !input.value) {
+                        input.removeAttribute('required');
+                    }
+                }
+                select.addEventListener('change', toggle);
+                toggle();
+            });
+        }
+        bindCustomTechnique(document);
+    });
+</script>
 {% endblock %}

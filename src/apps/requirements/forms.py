@@ -57,9 +57,9 @@ class RequirementForm(forms.ModelForm):
         self.fields['code'].disabled = True
         self.fields['code'].initial = self.instance.code or next_code(queryset, 'REQ')
         self.fields['code'].widget.attrs.update({
-            'placeholder': 'REQ-000',
+            'placeholder': 'REQ-001',
             'readonly': 'readonly',
-            'data-default-code': 'REQ-000',
+            'data-default-code': 'REQ-001',
         })
         self.fields['project'].widget.attrs.update({
             'data-code-target': self.fields['code'].widget.attrs.get('id', 'id_code'),
@@ -75,7 +75,7 @@ class RequirementForm(forms.ModelForm):
             'description': 'Describe con claridad que debe hacer el sistema y bajo que condiciones.',
             'requirement_type': 'Clasifica si el requisito es funcional, no funcional u otro tipo definido.',
             'priority': 'Indica la importancia del requisito para planificar pruebas y entregas.',
-            'status': 'Refleja si el requisito esta pendiente, aprobado, en cambio o cerrado.',
+            'status': 'Pendiente: recien creado y aun no revisado. En revision: el responsable lo esta revisando. Aprobado: validado y listo para usarse en pruebas.',
         }
         for name, help_text in help_texts.items():
             self.fields[name].help_text = help_text

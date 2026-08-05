@@ -116,6 +116,12 @@
                                     <i class="bi bi-eye"></i>
                                     Ver
                                 </a>
+                                {% if can_manage and request.user == item.project.created_by or request.user.is_admin_role %}
+                                    <a class="btn btn-outline-brand btn-sm" href="{% url 'projects:edit' item.project.pk %}">
+                                        <i class="bi bi-pencil"></i>
+                                        Editar
+                                    </a>
+                                {% endif %}
                             </td>
                         </tr>
                     {% empty %}
@@ -145,6 +151,12 @@
                                 <i class="bi bi-three-dots-vertical"></i>
                             </button>
                             <div class="project-actions-menu" data-project-menu>
+                                {% if request.user == item.project.created_by or request.user.is_admin_role %}
+                                    <a class="project-action-item" href="{% url 'projects:edit' item.project.pk %}">
+                                        <i class="bi bi-pencil"></i>
+                                        Editar
+                                    </a>
+                                {% endif %}
                                 <form method="POST" action="{% url 'projects:delete' item.project.pk %}">
                                     {% csrf_token %}
                                     <button type="submit" class="project-action-item danger" data-confirm-message="Eliminar este proyecto borrar&aacute; tambi&eacute;n su informaci&oacute;n asociada. &iquest;Deseas continuar?">

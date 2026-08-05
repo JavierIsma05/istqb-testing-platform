@@ -1,0 +1,220 @@
+{% extends 'layouts/dashboard_base.html' %}
+{% load static %}
+
+{% block title %}Informe: {{ plan.name }}{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading reports-heading report-toolbar">
+    <div>
+        <nav class="module-breadcrumb" aria-label="Navegación del módulo Informes">
+            <a href="{% url 'reports:index' %}">Informes</a>
+            <i class="bi bi-chevron-right"></i>
+            <a href="{% url 'reports:plan-report' %}">Informe del Plan de Pruebas</a>
+            <i class="bi bi-chevron-right"></i>
+            <strong>{{ plan.name }}</strong>
+        </nav>
+        <h2>{{ plan.name }}</h2>
+        <p>Vista previa imprimible del plan de pruebas</p>
+    </div>
+    <div class="d-flex gap-2 no-print">
+        <a class="btn btn-outline-brand" href="{% url 'reports:plan-report' %}?type=plan">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+        <button class="btn btn-brand" type="button" onclick="window.print()">
+            <i class="bi bi-printer"></i> Imprimir
+        </button>
+        <a class="btn btn-outline-brand" href="{% url 'reports:plan-pdf' plan.pk 'plan' %}">
+            <i class="bi bi-file-earmark-pdf"></i> Generar PDF
+        </a>
+    </div>
+</div>
+
+<section class="report-preview plan-report-preview">
+    <header class="unl-report-header">
+        <img
+            class="report-brand-logo report-brand-logo-career"
+            src="{% static 'images/reports/career-logo.png' %}"
+            alt="Carrera de Ingenieria en Sistemas y Computacion"
+        >
+        <div class="report-institution-title">
+            <h3>UNIVERSIDAD NACIONAL DE LOJA</h3>
+            <p>Facultad de la Energía, las Industrias y los Recursos Naturales no Renovables</p>
+            <p>Carrera de Computación</p>
+            <p>Plataforma ISTQB - Gestión del Ciclo de Vida de Pruebas</p>
+        </div>
+        <img
+            class="report-brand-logo report-brand-logo-unl"
+            src="{% static 'images/reports/unl-logo.png' %}"
+            alt="Universidad Nacional de Loja"
+        >
+    </header>
+
+    <div class="report-preview-title">
+        <h4>Informe del Plan de Pruebas</h4>
+        <span>{{ plan.project.name }}</span>
+    </div>
+
+    <div class="final-report-meta">
+        <span><strong>Proyecto:</strong> {{ plan.project.name }}</span>
+        <span><strong>Versión:</strong> {{ plan.version }}</span>
+        <span><strong>Estado:</strong> {{ plan.get_status_display }}</span>
+        <span><strong>Fecha:</strong> {{ generated_at|date:'d/m/Y' }}</span>
+    </div>
+
+    <h5>1. Información general</h5>
+    <table class="report-preview-table">
+        <tbody>
+            <tr><th>Proyecto</th><td>{{ plan.project.name }}</td></tr>
+            <tr><th>Nombre del plan</th><td>{{ plan.name }}</td></tr>
+            <tr><th>Versión</th><td>{{ plan.version }}</td></tr>
+            <tr><th>Descripción</th><td>{{ plan.description|default:'—' }}</td></tr>
+            <tr><th>Estado</th><td>{{ plan.get_status_display }}</td></tr>
+        </tbody>
+    </table>
+
+    <h5>2. Objetivos y alcance</h5>
+    <table class="report-preview-table">
+        <tbody>
+            <tr><th>Objetivo</th><td>{{ plan.objective }}</td></tr>
+            <tr><th>Alcance</th><td>{{ plan.scope|default:'—' }}</td></tr>
+        </tbody>
+    </table>
+
+    <h5>3. Estrategia y tipos de prueba</h5>
+    <table class="report-preview-table">
+        <tbody>
+            <tr><th>Estrategia</th><td>{{ plan.strategy|default:'—' }}</td></tr>
+            <tr><th>Tipos de prueba</th><td>{{ test_types_display|default:'—' }}</td></tr>
+        </tbody>
+    </table>
+
+    <h5>4. Criterios de entrada y salida</h5>
+    <table class="report-preview-table">
+        <tbody>
+            <tr><th>Criterios de entrada</th><td>{{ plan.entry_criteria|default:'—' }}</td></tr>
+            <tr><th>Criterios de salida</th><td>{{ plan.exit_criteria|default:'—' }}</td></tr>
+            <tr><th>Porcentaje mínimo de aprobación</th><td>{{ plan.minimum_pass_percentage }}%</td></tr>
+            <tr><th>Defectos críticos máximos</th><td>{{ plan.maximum_critical_defects }}</td></tr>
+            <tr><th>Porcentaje mínimo de cobertura</th><td>{{ plan.minimum_coverage_percentage }}%</td></tr>
+        </tbody>
+    </table>
+
+    <h5>5. Recursos y cronograma</h5>
+    <table class="report-preview-table">
+        <tbody>
+            <tr><th>Recursos</th><td>{{ plan.resources|default:'—' }}</td></tr>
+            <tr><th>Entorno de pruebas</th><td>{{ plan.environment|default:'—' }}</td></tr>
+            <tr><th>Responsabilidades</th><td>{{ plan.responsibilities|default:'—' }}</td></tr>
+            <tr><th>Estimación</th><td>{{ plan.estimation|default:'—' }}</td></tr>
+            <tr><th>Fecha de inicio</th><td>{{ plan.start_date|date:'d/m/Y'|default:'—' }}</td></tr>
+            <tr><th>Fecha de fin</th><td>{{ plan.end_date|date:'d/m/Y'|default:'—' }}</td></tr>
+        </tbody>
+    </table>
+
+    <h5>Riesgos asociados al plan</h5>
+    {% if risks %}
+        <table class="report-preview-table metrics">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Riesgo</th>
+                    <th>Probabilidad</th>
+                    <th>Impacto</th>
+                    <th>Nivel</th>
+                    <th>Estrategia de mitigación</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in risks %}
+                    <tr>
+                        <td>{{ item.risk.code }}</td>
+                        <td>{{ item.risk.title }}</td>
+                        <td>{{ item.probability_label }}</td>
+                        <td>{{ item.impact_label }}</td>
+                        <td>{{ item.risk.risk_level }}</td>
+                        <td>{{ item.risk.mitigation_strategy|default:'—' }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="final-kpi-grid">
+            <article class="final-kpi-card">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Riesgos totales</span>
+                <strong>{{ risk_summary.total }}</strong>
+            </article>
+            <article class="final-kpi-card">
+                <i class="bi bi-emoji-dizzy"></i>
+                <span>Nivel alto</span>
+                <strong>{{ risk_summary.alto }}</strong>
+            </article>
+            <article class="final-kpi-card">
+                <i class="bi bi-emoji-neutral"></i>
+                <span>Nivel medio</span>
+                <strong>{{ risk_summary.medio }}</strong>
+            </article>
+            <article class="final-kpi-card">
+                <i class="bi bi-emoji-smile"></i>
+                <span>Nivel bajo</span>
+                <strong>{{ risk_summary.bajo }}</strong>
+            </article>
+        </div>
+
+        <h5>Matriz de probabilidad-impacto</h5>
+        <table class="report-preview-table metrics">
+            <thead>
+                <tr>
+                    <th>Probabilidad \ Impacto</th>
+                    {% for impact in risk_matrix_impacts %}
+                        <th>Impacto {{ impact }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in risk_matrix %}
+                    <tr>
+                        <td>Probabilidad {{ row.probability }}</td>
+                        <td>{{ row.low }}</td>
+                        <td>{{ row.medium }}</td>
+                        <td>{{ row.high }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h5>Distribución de riesgos</h5>
+        <div class="final-chart-grid">
+            {% for group in distribution_groups %}
+                <article class="final-chart-card">
+                    <h5>{{ group.title }}</h5>
+                    <div class="bar-chart" role="img" aria-label="{{ group.title }}">
+                        {% for item in group.items %}
+                            <div class="bar-chart-row">
+                                <span>{{ item.label }}</span>
+                                <div class="bar-chart-track"><span class="tone-{{ item.tone }}" style="width: {{ item.percent }}%"></span></div>
+                                <strong>{{ item.value }}</strong>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="chart-legend">
+                        {% for item in group.items %}
+                            <span><i class="legend-dot tone-{{ item.tone }}"></i>{{ item.label }}: {{ item.value }}</span>
+                        {% endfor %}
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="report-observation">
+            El plan de pruebas no tiene riesgos vinculados. Registra riesgos en la seccion Riesgos del Plan para que aparezcan en este informe.
+        </p>
+    {% endif %}
+
+    <h5>Observación institucional</h5>
+    <p class="report-observation">
+        Este documento fue generado por la Plataforma ISTQB como evidencia del ciclo de vida de pruebas.
+        La información debe ser revisada por el docente tutor antes de su presentación formal.
+    </p>
+</section>
+{% endblock %}

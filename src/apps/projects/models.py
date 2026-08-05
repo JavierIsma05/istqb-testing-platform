@@ -17,6 +17,13 @@ class Project(OwnedModel):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PLANNED)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
+    tutor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tutored_projects',
+    )
     members = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name='projects')
 
     class Meta:

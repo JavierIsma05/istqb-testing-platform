@@ -5,6 +5,11 @@
 {% block dashboard_content %}
 <div class="page-heading incidents-heading">
     <div>
+        <nav class="module-breadcrumb" aria-label="Navegación del módulo Plan de Pruebas">
+            <a href="{% url 'testplans:index' %}">Plan de Pruebas</a>
+            <i class="bi bi-chevron-right"></i>
+            <strong>Riesgos del Plan</strong>
+        </nav>
         <h2>Gestión de Riesgos</h2>
         <p>Riesgos del proyecto y producto para priorizar el plan de pruebas</p>
     </div>

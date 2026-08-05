@@ -129,8 +129,8 @@
 <section class="execution-history-card mt-4">
     <div class="card-heading">
         <div>
-            <h3>Historial semi-automatizado ({{ automated_count }})</h3>
-            <p>Validaciones ejecutadas con reglas guiadas seguras.</p>
+            <h3>Historial automatizado ({{ automated_count }})</h3>
+            <p>Pasos automatizados ejecutados con Chromium.</p>
         </div>
     </div>
     <div class="table-responsive">
@@ -141,7 +141,7 @@
                     <th>Resultado</th>
                     <th>Usuario</th>
                     <th>Revisión</th>
-                    <th>Reglas</th>
+                    <th>Pasos</th>
                     <th>Resultado obtenido</th>
                     <th>Log técnico</th>
                     {% if can_manage %}<th>Gestionar</th>{% endif %}
@@ -161,7 +161,7 @@
                                         {{ result.validation_rule.name }}: {{ result.get_status_display }}
                                     </span>
                                 {% empty %}
-                                    <span class="text-muted">Sin reglas registradas</span>
+                                    <span class="text-muted">Sin pasos registrados</span>
                                 {% endfor %}
                             </div>
                         </td>
@@ -188,7 +188,7 @@
                 {% empty %}
                     <tr>
                         <td colspan="{% if can_manage %}8{% else %}7{% endif %}" class="text-center text-muted py-4">
-                            Este caso aun no tiene ejecuciones semi-automatizadas registradas.
+                            Este caso aun no tiene ejecuciones automatizadas registradas.
                         </td>
                     </tr>
                 {% endfor %}

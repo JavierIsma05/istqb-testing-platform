@@ -1,0 +1,167 @@
+{% extends 'layouts/dashboard_base.html' %}
+{% load static %}
+
+{% block title %}Dashboard del Plan - {{ plan.name }}{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading reports-heading">
+    <div>
+        <nav class="module-breadcrumb" aria-label="Navegación del módulo Informes">
+            <a href="{% url 'reports:index' %}">Informes</a>
+            <i class="bi bi-chevron-right"></i>
+            <a href="{% url 'reports:plan-report' %}">Informe del Plan de Pruebas</a>
+            <i class="bi bi-chevron-right"></i>
+            <strong>{{ plan.name }}</strong>
+        </nav>
+        <h2>{{ plan.name }}</h2>
+        <p>Dashboard de estadísticas del plan de pruebas</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-brand" href="{% url 'reports:plan-report' %}">
+            <i class="bi bi-arrow-left"></i> Seleccionar otro plan
+        </a>
+        <button class="btn btn-brand" type="button" onclick="window.print()">
+            <i class="bi bi-printer"></i> Imprimir
+        </button>
+    </div>
+</div>
+
+<section class="report-nav-grid">
+    <a class="report-nav-card" href="{% url 'reports:plan-report-detail' plan.pk %}">
+        <i class="bi bi-clipboard-check"></i>
+        <strong>Informe del Plan</strong>
+        <span>Objetivos, criterios y riesgos</span>
+    </a>
+    <a class="report-nav-card" href="{% url 'reports:plan-casos' plan.pk %}">
+        <i class="bi bi-list-check"></i>
+        <strong>Casos de Prueba</strong>
+        <span>Casos y pasos del plan</span>
+    </a>
+    <a class="report-nav-card" href="{% url 'reports:plan-ejecuciones' plan.pk %}">
+        <i class="bi bi-play-circle"></i>
+        <strong>Ejecuciones</strong>
+        <span>Resultados y porcentajes</span>
+    </a>
+    <a class="report-nav-card" href="{% url 'reports:plan-defectos' plan.pk %}">
+        <i class="bi bi-bug"></i>
+        <strong>Defectos</strong>
+        <span>Severidad y estado</span>
+    </a>
+    <a class="report-nav-card" href="{% url 'reports:plan-final' plan.pk %}">
+        <i class="bi bi-file-earmark-check"></i>
+        <strong>Informe Final</strong>
+        <span>Informe consolidado</span>
+    </a>
+</section>
+
+<section class="report-preview plan-report-preview">
+    <header class="unl-report-header">
+        <img
+            class="report-brand-logo report-brand-logo-career"
+            src="{% static 'images/reports/career-logo.png' %}"
+            alt="Carrera de Ingenieria en Sistemas y Computacion"
+        >
+        <div class="report-institution-title">
+            <h3>UNIVERSIDAD NACIONAL DE LOJA</h3>
+            <p>Facultad de la Energía, las Industrias y los Recursos Naturales no Renovables</p>
+            <p>Carrera de Computación</p>
+            <p>Plataforma ISTQB - Gestión del Ciclo de Vida de Pruebas</p>
+        </div>
+        <img
+            class="report-brand-logo report-brand-logo-unl"
+            src="{% static 'images/reports/unl-logo.png' %}"
+            alt="Universidad Nacional de Loja"
+        >
+    </header>
+
+    <div class="report-preview-title">
+        <h4>Dashboard del Plan de Pruebas</h4>
+        <span>{{ plan.project.name }} · {{ plan.name }} · v{{ plan.version }}</span>
+    </div>
+
+    <div class="final-kpi-grid">
+        <article class="final-kpi-card">
+            <i class="bi bi-journal-text"></i>
+            <span>Requisitos</span>
+            <strong>{{ requirements }}</strong>
+        </article>
+        <article class="final-kpi-card">
+            <i class="bi bi-list-check"></i>
+            <span>Casos de Prueba</span>
+            <strong>{{ test_cases }}</strong>
+        </article>
+        <article class="final-kpi-card">
+            <i class="bi bi-play-circle"></i>
+            <span>Ejecuciones</span>
+            <strong>{{ executions }}</strong>
+        </article>
+        <article class="final-kpi-card">
+            <i class="bi bi-check-circle"></i>
+            <span>Aprobadas</span>
+            <strong>{{ passed_executions }}</strong>
+        </article>
+        <article class="final-kpi-card">
+            <i class="bi bi-x-circle"></i>
+            <span>Fallidas</span>
+            <strong>{{ failed_executions }}</strong>
+        </article>
+        <article class="final-kpi-card">
+            <i class="bi bi-bug"></i>
+            <span>Defectos</span>
+            <strong>{{ defects }}</strong>
+        </article>
+    </div>
+
+    <h5>Cobertura y trazabilidad</h5>
+    <div class="quality-indicator-grid">
+        <article class="quality-indicator">
+            <div><span>Cobertura de requisitos</span><strong>{{ coverage }}%</strong></div>
+            <div class="quality-track"><span class="tone-success" style="width: {{ coverage }}%"></span></div>
+        </article>
+        <article class="quality-indicator">
+            <div><span>Progreso de ejecución</span><strong>{{ execution_progress }}%</strong></div>
+            <div class="quality-track"><span class="tone-brand" style="width: {{ execution_progress }}%"></span></div>
+        </article>
+        <article class="quality-indicator">
+            <div><span>Tasa de aprobación</span><strong>{{ success_rate }}%</strong></div>
+            <div class="quality-track"><span class="tone-success" style="width: {{ success_rate }}%"></span></div>
+        </article>
+        <article class="quality-indicator">
+            <div><span>Índice de trazabilidad</span><strong>{{ traceability_index }}%</strong></div>
+            <div class="quality-track"><span class="tone-brand" style="width: {{ traceability_index }}%"></span></div>
+        </article>
+    </div>
+
+    <h5>Estado de ejecuciones</h5>
+    <div class="bar-chart" role="img" aria-label="Estado de ejecuciones">
+        {% for item in execution_chart.items %}
+            <div class="bar-chart-row">
+                <span>{{ item.label }}</span>
+                <div class="bar-chart-track"><span class="tone-{{ item.tone }}" style="width: {{ item.percent }}%"></span></div>
+                <strong>{{ item.value }}</strong>
+            </div>
+        {% endfor %}
+    </div>
+    <div class="chart-legend">
+        {% for item in execution_chart.items %}
+            <span><i class="legend-dot tone-{{ item.tone }}"></i>{{ item.label }}: {{ item.value }}</span>
+        {% endfor %}
+    </div>
+
+    <h5>Defectos por severidad</h5>
+    <div class="bar-chart" role="img" aria-label="Defectos por severidad">
+        {% for item in severity_chart.items %}
+            <div class="bar-chart-row">
+                <span>{{ item.label }}</span>
+                <div class="bar-chart-track"><span class="tone-{{ item.tone }}" style="width: {{ item.percent }}%"></span></div>
+                <strong>{{ item.value }}</strong>
+            </div>
+        {% endfor %}
+    </div>
+    <div class="chart-legend">
+        {% for item in severity_chart.items %}
+            <span><i class="legend-dot tone-{{ item.tone }}"></i>{{ item.label }}: {{ item.value }}</span>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

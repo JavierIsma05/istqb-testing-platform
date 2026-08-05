@@ -97,7 +97,6 @@ package "Planificacion de pruebas" {
     +environment: Text
     +responsibilities: Text
     +estimation: Text
-    +base_document: File
     +start_date: Date
     +end_date: Date
     +status: TestPlanStatus

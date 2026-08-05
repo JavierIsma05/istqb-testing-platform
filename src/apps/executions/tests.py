@@ -1,5 +1,6 @@
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
+from contextlib import contextmanager
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
@@ -7,10 +8,44 @@ from django.utils import timezone
 
 from apps.audit.models import AuditLog
 from apps.defects.models import Defect
-from apps.executions.forms import AutomatedValidationRuleForm, ExecutionResultForm
+from apps.executions.forms import AutomatedStepForm, ExecutionResultForm
 from apps.executions.models import AutomatedExecutionResult, AutomatedValidationRule, TestExecution as ExecutionModel
-from apps.executions.services.automated_runner import aggregate_automated_status, execute_rule
+from apps.executions.services.automated_runner import (
+    aggregate_automated_status,
+    evaluate,
+    run_automated_execution,
+)
+from apps.requirements.models import Requirement
+from apps.traceability.models import TraceabilityLink
 from apps.users.models import User
+
+
+def approve_requirement(test_case):
+    test_case.requirement.status = Requirement.Status.APPROVED
+    test_case.requirement.save(update_fields=['status'])
+    return test_case
+
+
+def evidence_file(name='captura.png'):
+    return SimpleUploadedFile(
+        name,
+        b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR',
+        content_type='image/png',
+    )
+
+
+def manual_payload(**overrides):
+    data = {
+        'execution_type': ExecutionModel.ExecutionType.NORMAL,
+        'actual_result': 'Cumple',
+        'planned_date': timezone.localdate().isoformat(),
+        'test_data': 'usuario=estudiante@example.com',
+        'environment': 'Chrome en Windows',
+        'notes': 'Resultado registrado.',
+        'evidence': evidence_file(),
+    }
+    data.update(overrides)
+    return data
 
 
 def step_payload(*statuses):
@@ -74,6 +109,7 @@ def test_formulario_de_resultado_rechaza_evidencia_no_permitida():
 
 @pytest.mark.django_db
 def test_vista_de_ejecucion_guarda_y_muestra_evidencia(client, test_case, user, tmp_path):
+    approve_requirement(test_case)
     client.force_login(user)
     evidence = SimpleUploadedFile(
         'captura.png',
@@ -92,11 +128,6 @@ def test_vista_de_ejecucion_guarda_y_muestra_evidencia(client, test_case, user, 
                 'environment': 'Chrome en Windows',
                 'notes': 'Ejecución con evidencia.',
                 'evidence': evidence,
-                **step_payload(
-                    ExecutionModel.Result.PASSED,
-                    ExecutionModel.Result.PASSED,
-                    ExecutionModel.Result.PASSED,
-                ),
             },
             follow=True,
         )
@@ -107,46 +138,48 @@ def test_vista_de_ejecucion_guarda_y_muestra_evidencia(client, test_case, user, 
     assert execution.evidence.name.startswith('evidence/')
     assert execution.evidence.name.endswith('.png')
     assert execution.actual_result == 'El sistema mostro la confirmacion esperada.'
-    assert len(execution.step_results) == 3
-    assert execution.step_results[0]['status'] == ExecutionModel.Result.PASSED
+    assert execution.step_results == []
     assert execution.result == ExecutionModel.Result.PASSED
     assert b'Evidencia adjunta' in response.content
     assert b'Ver archivo' in response.content
 
 
 @pytest.mark.django_db
-def test_vista_de_ejecucion_manual_genera_resumen_desde_pasos(client, test_case, user):
+def test_vista_de_ejecucion_manual_guarda_resultado_global_sin_pasos(client, test_case, user):
+    approve_requirement(test_case)
     client.force_login(user)
 
     response = client.post(
         f'{reverse("executions:index")}?case={test_case.id}',
-        data={
-            'execution_type': ExecutionModel.ExecutionType.NORMAL,
-            'result': ExecutionModel.Result.PASSED,
-            **step_payload(
-                ExecutionModel.Result.PASSED,
-                ExecutionModel.Result.PASSED,
-                ExecutionModel.Result.PASSED,
-            ),
-        },
+        data=manual_payload(
+            result=ExecutionModel.Result.PASSED,
+            actual_result='Cumple',
+            notes='Resultado registrado de forma global.',
+            test_data='',
+            environment='',
+        ),
     )
 
     execution = ExecutionModel.objects.get(test_case=test_case)
 
     assert response.status_code == 302
     assert execution.result == ExecutionModel.Result.PASSED
-    assert execution.actual_result == (
-        'Paso 1 [PASSED]: Resultado observado en el paso 1.\n'
-        'Paso 2 [PASSED]: Resultado observado en el paso 2.\n'
-        'Paso 3 [PASSED]: Resultado observado en el paso 3.'
-    )
+    assert execution.actual_result == 'Cumple'
+    assert execution.notes == 'Resultado registrado de forma global.'
+    assert execution.step_results == []
     assert execution.test_data == ''
     assert execution.environment == ''
-    assert execution.notes == ''
+
+
+def test_formulario_de_resultado_bloquea_comentario_para_estudiante():
+    form = ExecutionResultForm(user=User(role=User.Roles.STUDENT))
+
+    assert form.fields['notes'].widget.attrs.get('disabled') is True
 
 
 @pytest.mark.django_db
 def test_ejecucion_fallida_crea_defecto_asociado(client, test_case, user):
+    approve_requirement(test_case)
     test_case.test_data = 'usuario=estudiante@example.com'
     test_case.save(update_fields=['test_data'])
     test_case.test_plan.environment = 'Firefox'
@@ -155,15 +188,13 @@ def test_ejecucion_fallida_crea_defecto_asociado(client, test_case, user):
 
     response = client.post(
         f'{reverse("executions:index")}?case={test_case.id}',
-        data={
-            'execution_type': ExecutionModel.ExecutionType.NORMAL,
-            'result': ExecutionModel.Result.FAILED,
-            **step_payload(
-                ExecutionModel.Result.PASSED,
-                ExecutionModel.Result.FAILED,
-                ExecutionModel.Result.BLOCKED,
-            ),
-        },
+        data=manual_payload(
+            result=ExecutionModel.Result.FAILED,
+            actual_result='No cumple',
+            test_data='usuario=estudiante@example.com',
+            environment='Firefox',
+            notes='Se detectó una regresión funcional.',
+        ),
     )
 
     execution = ExecutionModel.objects.get(test_case=test_case)
@@ -173,7 +204,7 @@ def test_ejecucion_fallida_crea_defecto_asociado(client, test_case, user):
     assert defect.project == test_case.test_plan.project
     assert defect.reported_by == user
     assert execution.result == ExecutionModel.Result.FAILED
-    assert 'Paso 2 [FAILED]: Resultado observado en el paso 2.' in defect.description
+    assert 'Resultado obtenido:\nNo cumple' in defect.description
     assert 'Datos usados:\nusuario=estudiante@example.com' in defect.description
     assert 'Ambiente:\nFirefox' in defect.description
     assert AuditLog.objects.filter(action='CREATE', entity='TestExecution', entity_id=str(execution.pk)).exists()
@@ -182,34 +213,33 @@ def test_ejecucion_fallida_crea_defecto_asociado(client, test_case, user):
 
 @pytest.mark.django_db
 def test_prueba_de_confirmacion_aprobada_cierra_defecto(client, test_case, execution, user):
+    approve_requirement(test_case)
     defect = Defect.objects.create(
         project=test_case.test_plan.project,
+        test_case=test_case,
         execution=execution,
         code='DEF-CONF-001',
         title='Defecto corregido',
         description='Pendiente de confirmacion.',
-        status=Defect.Status.PENDING_CONFIRMATION,
+        status=Defect.Status.RESOLVED,
         reported_by=user,
     )
     client.force_login(user)
 
     response = client.post(
         f'{reverse("executions:index")}?case={test_case.id}',
-        data={
-            'execution_type': ExecutionModel.ExecutionType.CONFIRMATION,
-            'related_defect': defect.pk,
-            'planned_date': timezone.localdate().isoformat(),
-            'result': ExecutionModel.Result.PASSED,
-            'actual_result': 'La corrección queda verificada.',
-            'test_data': 'usuario=estudiante@example.com',
-            'environment': 'Chrome',
-            'notes': 'Confirmacion correcta.',
+        data=manual_payload(
+            execution_type=ExecutionModel.ExecutionType.CONFIRMATION,
+            related_defect=defect.pk,
+            planned_date=timezone.localdate().isoformat(),
+            result=ExecutionModel.Result.PASSED,
+            actual_result='Cumple',
             **step_payload(
                 ExecutionModel.Result.PASSED,
                 ExecutionModel.Result.PASSED,
                 ExecutionModel.Result.PASSED,
             ),
-        },
+        ),
     )
 
     defect.refresh_from_db()
@@ -224,33 +254,33 @@ def test_prueba_de_confirmacion_aprobada_cierra_defecto(client, test_case, execu
 
 @pytest.mark.django_db
 def test_prueba_de_confirmacion_fallida_no_duplica_defecto(client, test_case, execution, user):
+    approve_requirement(test_case)
     defect = Defect.objects.create(
         project=test_case.test_plan.project,
+        test_case=test_case,
         execution=execution,
         code='DEF-CONF-002',
         title='Defecto no corregido',
         description='Pendiente de confirmacion.',
-        status=Defect.Status.PENDING_CONFIRMATION,
+        status=Defect.Status.RESOLVED,
         reported_by=user,
     )
     client.force_login(user)
 
     response = client.post(
         f'{reverse("executions:index")}?case={test_case.id}',
-        data={
-            'execution_type': ExecutionModel.ExecutionType.CONFIRMATION,
-            'related_defect': defect.pk,
-            'result': ExecutionModel.Result.FAILED,
-            'actual_result': 'El error persiste.',
-            'test_data': 'usuario=estudiante@example.com',
-            'environment': 'Firefox',
-            'notes': 'Confirmacion fallida.',
+        data=manual_payload(
+            execution_type=ExecutionModel.ExecutionType.CONFIRMATION,
+            related_defect=defect.pk,
+            planned_date=timezone.localdate().isoformat(),
+            result=ExecutionModel.Result.FAILED,
+            actual_result='No cumple',
             **step_payload(
                 ExecutionModel.Result.FAILED,
                 ExecutionModel.Result.PASSED,
                 ExecutionModel.Result.PASSED,
             ),
-        },
+        ),
     )
 
     defect.refresh_from_db()
@@ -338,13 +368,14 @@ def test_historial_separa_ejecuciones_manuales_y_automatizadas(client, test_case
         requirement=test_case.requirement,
         step_number=1,
         name='Titulo visible',
-        validation_type=AutomatedValidationRule.ValidationType.TEXT_VISIBLE,
+        action_type=AutomatedValidationRule.ActionType.VERIFY,
         target_url='http://localhost:8000/login/',
-        expected_text='Iniciar Sesión',
+        selector_value='h2',
+        expected_value='Iniciar Sesión',
     )
     automated_execution = ExecutionModel.objects.create(
         test_case=test_case,
-        execution_mode=ExecutionModel.ExecutionMode.SEMI_AUTOMATED,
+        execution_mode=ExecutionModel.ExecutionMode.AUTOMATED,
         execution_type=ExecutionModel.ExecutionType.NORMAL,
         executed_by=user,
         result=ExecutionModel.Result.PASSED,
@@ -366,7 +397,7 @@ def test_historial_separa_ejecuciones_manuales_y_automatizadas(client, test_case
     assert response.context['manual_history'][0]['execution'] == execution
     assert response.context['automated_history'][0]['execution'] == automated_execution
     assert b'Historial manual' in response.content
-    assert b'Historial semi-automatizado' in response.content
+    assert b'Historial automatizado' in response.content
     assert response.context['test_cases'].filter(pk=test_case.pk).exists()
     assert test_case.code.encode() in response.content
 
@@ -378,13 +409,14 @@ def test_vista_elimina_ejecucion_automatizada_revisada_del_historial(client, tes
         requirement=test_case.requirement,
         step_number=1,
         name='Titulo de login visible',
-        validation_type=AutomatedValidationRule.ValidationType.TEXT_VISIBLE,
+        action_type=AutomatedValidationRule.ActionType.VERIFY,
         target_url='http://localhost:8000/login/',
-        expected_text='Iniciar Sesión',
+        selector_value='h2',
+        expected_value='Iniciar Sesión',
     )
     execution = ExecutionModel.objects.create(
         test_case=test_case,
-        execution_mode=ExecutionModel.ExecutionMode.SEMI_AUTOMATED,
+        execution_mode=ExecutionModel.ExecutionMode.AUTOMATED,
         execution_type=ExecutionModel.ExecutionType.NORMAL,
         executed_by=user,
         result=ExecutionModel.Result.PASSED,
@@ -417,9 +449,10 @@ def test_vista_elimina_regla_automatizada_sin_historial(client, test_case, user)
         requirement=test_case.requirement,
         step_number=1,
         name='Titulo de login visible',
-        validation_type=AutomatedValidationRule.ValidationType.TEXT_VISIBLE,
+        action_type=AutomatedValidationRule.ActionType.VERIFY,
         target_url='http://localhost:8000/login/',
-        expected_text='Iniciar Sesión',
+        selector_value='h2',
+        expected_value='Iniciar Sesión',
     )
     client.force_login(user)
 
@@ -427,7 +460,7 @@ def test_vista_elimina_regla_automatizada_sin_historial(client, test_case, user)
 
     assert response.status_code == 200
     assert not AutomatedValidationRule.objects.filter(pk=rule.pk).exists()
-    assert b'Regla automatizada eliminada.' in response.content
+    assert b'Paso automatizado eliminado.' in response.content
 
 
 @pytest.mark.django_db
@@ -437,9 +470,10 @@ def test_vista_oculta_regla_automatizada_con_historial(client, test_case, execut
         requirement=test_case.requirement,
         step_number=1,
         name='Titulo de login visible',
-        validation_type=AutomatedValidationRule.ValidationType.TEXT_VISIBLE,
+        action_type=AutomatedValidationRule.ActionType.VERIFY,
         target_url='http://localhost:8000/login/',
-        expected_text='Iniciar Sesión',
+        selector_value='h2',
+        expected_value='Iniciar Sesión',
     )
     AutomatedExecutionResult.objects.create(
         test_execution=execution,
@@ -455,7 +489,7 @@ def test_vista_oculta_regla_automatizada_con_historial(client, test_case, execut
 
     assert response.status_code == 200
     assert rule.is_active is False
-    assert b'La regla tiene historial y fue desactivada en lugar de eliminarse.' in response.content
+    assert b'El paso automatizado tiene historial y fue desactivado en lugar de eliminarse.' in response.content
 
 
 def test_agregacion_automatizada_prioriza_fallo_y_error():
@@ -469,79 +503,399 @@ def test_agregacion_automatizada_prioriza_fallo_y_error():
     ]) == ExecutionModel.Result.FAILED
 
 
-@pytest.mark.django_db
-def test_formulario_http_exige_estado_esperado(test_case, settings):
-    settings.AUTOMATION_ALLOWED_HOSTS = ('localhost',)
-    form = AutomatedValidationRuleForm(
-        data={
-            'name': 'Disponibilidad local',
-            'step_number': 1,
-            'validation_type': AutomatedValidationRule.ValidationType.HTTP_STATUS,
-            'target_url': 'http://localhost:8000/health/',
-            'timeout_seconds': 5,
-            'browser': 'chromium',
-            'is_active': True,
-        },
-        test_case=test_case,
-    )
-
-    assert not form.is_valid()
-    assert 'expected_http_status' in form.errors
-
-
-@pytest.mark.django_db
-def test_ejecucion_http_status_aprobada(client, test_case, user, settings):
-    settings.AUTOMATION_ALLOWED_HOSTS = ('localhost',)
-    rule = AutomatedValidationRule.objects.create(
+@pytest.mark.django_db(transaction=True)
+def test_playwright_valida_texto_visible_en_servidor_django(live_server, settings, test_case, user):
+    settings.AUTOMATION_ALLOWED_HOSTS = ('localhost', '127.0.0.1')
+    AutomatedValidationRule.objects.create(
         test_case=test_case,
         requirement=test_case.requirement,
         step_number=1,
-        name='Pagina disponible',
-        validation_type=AutomatedValidationRule.ValidationType.HTTP_STATUS,
-        target_url='http://localhost:8000/health/',
-        expected_http_status=200,
-        timeout_seconds=5,
+        name='Abrir login',
+        action_type=AutomatedValidationRule.ActionType.OPEN_URL,
+        target_url=f'{live_server.url}/login/',
+        timeout_seconds=10,
     )
-    response_mock = Mock()
-    response_mock.status = 200
-    response_mock.geturl.return_value = rule.target_url
-    response_mock.read.return_value = b''
-    response_mock.__enter__ = Mock(return_value=response_mock)
-    response_mock.__exit__ = Mock(return_value=False)
-    client.force_login(user)
+    AutomatedValidationRule.objects.create(
+        test_case=test_case,
+        requirement=test_case.requirement,
+        step_number=2,
+        name='Pantalla de login visible',
+        action_type=AutomatedValidationRule.ActionType.VERIFY,
+        selector_value='h2',
+        expected_value='Iniciar Sesión',
+        timeout_seconds=10,
+    )
 
-    with patch('apps.executions.services.automated_runner.socket.getaddrinfo') as resolver, patch(
-        'apps.executions.services.automated_runner.build_opener'
-    ) as opener_builder:
-        resolver.return_value = [(None, None, None, None, ('127.0.0.1', 8000))]
-        opener_builder.return_value.open.return_value = response_mock
-        response = client.post(reverse('executions:run-automated', args=[test_case.pk]))
+    execution = run_automated_execution(test_case, user)
 
-    execution = ExecutionModel.objects.get(execution_mode=ExecutionModel.ExecutionMode.SEMI_AUTOMATED)
-    result = AutomatedExecutionResult.objects.get(test_execution=execution)
-
-    assert response.status_code == 302
     assert execution.result == ExecutionModel.Result.PASSED
+    result = AutomatedExecutionResult.objects.get(
+        test_execution=execution,
+        validation_rule__name='Pantalla de login visible',
+    )
     assert result.status == ExecutionModel.Result.PASSED
     assert '[PASS]' in execution.technical_log
 
 
-@pytest.mark.django_db(transaction=True)
-def test_playwright_valida_texto_visible_en_servidor_django(live_server, settings):
-    settings.AUTOMATION_ALLOWED_HOSTS = ('localhost', '127.0.0.1')
-    rule = AutomatedValidationRule(
-        name='Pantalla de login visible',
+def test_evaluate_deterministico_devuelve_match_o_no_match():
+    match, _ = evaluate('abc', 'abc')
+    assert match == 'MATCH'
+    match, _ = evaluate('abc', 'ABC')
+    assert match == 'NO_MATCH'
+    match, _ = evaluate('  valor ', 'valor')
+    assert match == 'MATCH'
+    match, _ = evaluate('http://x/', 'http://x')
+    assert match == 'NO_MATCH'
+    match, _ = evaluate(None, '')
+    assert match == 'MATCH'
+    match, _ = evaluate(200, '200')
+    assert match == 'MATCH'
+
+
+@pytest.mark.django_db
+def test_formulario_de_paso_exige_url_autorizada(test_case, settings):
+    settings.AUTOMATION_ALLOWED_HOSTS = ('localhost',)
+    form = AutomatedStepForm(
+        data={
+            'step_number': 1,
+            'action_type': AutomatedValidationRule.ActionType.OPEN_URL,
+            'target_url': 'https://ejemplo-inseguro.com/',
+            'timeout_seconds': 5,
+            'is_critical': True,
+        },
+        test_case=test_case,
+    )
+    assert not form.is_valid()
+    assert 'target_url' in form.errors
+
+
+@pytest.mark.django_db
+def test_formulario_de_paso_exige_elemento_y_dato_para_escribir(test_case):
+    form = AutomatedStepForm(
+        data={
+            'step_number': 2,
+            'action_type': AutomatedValidationRule.ActionType.FILL_TEXT,
+            'timeout_seconds': 5,
+            'is_critical': True,
+        },
+        test_case=test_case,
+    )
+    assert not form.is_valid()
+    assert 'selector_value' in form.errors
+    assert 'input_value' in form.errors
+
+
+@pytest.mark.django_db
+def test_formulario_de_paso_genera_nombre_y_guardado(test_case):
+    form = AutomatedStepForm(
+        data={
+            'step_number': 1,
+            'action_type': AutomatedValidationRule.ActionType.CLICK,
+            'selector_value': '.btn-login',
+            'timeout_seconds': 5,
+            'is_critical': True,
+        },
+        test_case=test_case,
+    )
+    assert form.is_valid(), form.errors
+    rule = form.save(commit=False)
+    rule.test_case = test_case
+    rule.requirement = test_case.requirement
+    rule.save()
+
+    rule.refresh_from_db()
+    assert rule.action_type == AutomatedValidationRule.ActionType.CLICK
+    assert rule.is_critical is True
+    assert rule.name == 'Paso 1: Click'
+
+
+def _fake_playwright_cm():
+    class FakeBrowser:
+        def new_context(self, **kwargs):
+            return FakeContext()
+
+        def close(self):
+            pass
+
+    class FakeContext:
+        def new_page(self):
+            return FakePage()
+
+    class FakePage:
+        def route(self, *args, **kwargs):
+            pass
+
+        def set_default_timeout(self, *args, **kwargs):
+            pass
+
+        def screenshot(self, *args, **kwargs):
+            return b'\x89PNG\r\n\x1a\n' + b'fake-png'
+
+    class FakeChromium:
+        def launch(self, **kwargs):
+            return FakeBrowser()
+
+    class FakePlaywright:
+        def __init__(self):
+            self.chromium = FakeChromium()
+
+    @contextmanager
+    def _cm():
+        yield FakePlaywright()
+
+    return _cm
+
+
+def _step_outcome(status, index, error=''):
+    return {
+        'status': status,
+        'expected': f'Esperado {index}',
+        'actual': f'Obtenido {index}',
+        'log': f'[{status}] paso {index}',
+        'error': error,
+        'screenshot': None,
+    }
+
+
+@pytest.mark.django_db
+def test_ejecucion_por_pasos_detiene_en_paso_critico_y_marca_no_ejecutados(
+    test_case, user, tmp_path
+):
+    steps_data = [
+        AutomatedValidationRule.objects.create(
+            test_case=test_case,
+            requirement=test_case.requirement,
+            step_number=1,
+            name='Abrir URL',
+            action_type=AutomatedValidationRule.ActionType.OPEN_URL,
+            target_url='http://localhost:8000/',
+            is_critical=True,
+        ),
+        AutomatedValidationRule.objects.create(
+            test_case=test_case,
+            requirement=test_case.requirement,
+            step_number=2,
+            name='Verificar texto',
+            action_type=AutomatedValidationRule.ActionType.VERIFY,
+            selector_value='h2',
+            expected_value='Bienvenido',
+            is_critical=True,
+        ),
+        AutomatedValidationRule.objects.create(
+            test_case=test_case,
+            requirement=test_case.requirement,
+            step_number=3,
+            name='Hacer clic',
+            action_type=AutomatedValidationRule.ActionType.CLICK,
+            selector_value='.btn',
+            is_critical=True,
+        ),
+    ]
+    outcomes = [
+        _step_outcome(ExecutionModel.Result.PASSED, 1),
+        _step_outcome(ExecutionModel.Result.FAILED, 2),
+        _step_outcome(ExecutionModel.Result.PASSED, 3),
+    ]
+    with override_settings(MEDIA_ROOT=tmp_path), patch(
+        'apps.executions.services.automated_runner.sync_playwright', _fake_playwright_cm()
+    ), patch(
+        'apps.executions.services.automated_runner._execute_browser_step',
+        side_effect=outcomes,
+    ):
+        execution = run_automated_execution(test_case, user)
+
+    results = list(execution.automated_results.order_by('id'))
+    assert execution.execution_mode == ExecutionModel.ExecutionMode.AUTOMATED
+    assert execution.result == ExecutionModel.Result.FAILED
+    assert [item.status for item in results] == [
+        ExecutionModel.Result.PASSED,
+        ExecutionModel.Result.FAILED,
+        ExecutionModel.Result.NOT_RUN,
+    ]
+    assert Defect.objects.filter(execution=execution).exists()
+    test_case.refresh_from_db()
+    assert test_case.status == test_case.Status.FAILED
+
+
+@pytest.mark.django_db
+def test_ejecucion_por_pasos_continua_si_paso_no_critico_falla(test_case, user, tmp_path):
+    AutomatedValidationRule.objects.create(
+        test_case=test_case,
+        requirement=test_case.requirement,
         step_number=1,
-        validation_type=AutomatedValidationRule.ValidationType.TEXT_VISIBLE,
-        target_url=f'{live_server.url}/login/',
-        expected_text='Iniciar Sesión',
-        timeout_seconds=10,
-        browser='chromium',
-        capture_evidence=True,
+        name='Abrir URL',
+        action_type=AutomatedValidationRule.ActionType.OPEN_URL,
+        target_url='http://localhost:8000/',
+        is_critical=True,
+    )
+    AutomatedValidationRule.objects.create(
+        test_case=test_case,
+        requirement=test_case.requirement,
+        step_number=2,
+        name='Verificar opcional',
+        action_type=AutomatedValidationRule.ActionType.VERIFY,
+        selector_value='h2',
+        expected_value='Opcional',
+        is_critical=False,
+    )
+    outcomes = [
+        _step_outcome(ExecutionModel.Result.PASSED, 1),
+        _step_outcome(ExecutionModel.Result.FAILED, 2),
+        _step_outcome(ExecutionModel.Result.PASSED, 3),
+    ]
+    with override_settings(MEDIA_ROOT=tmp_path), patch(
+        'apps.executions.services.automated_runner.sync_playwright', _fake_playwright_cm()
+    ), patch(
+        'apps.executions.services.automated_runner._execute_browser_step',
+        side_effect=outcomes[:2],
+    ):
+        execution = run_automated_execution(test_case, user)
+
+    results = list(execution.automated_results.order_by('id'))
+    assert [item.status for item in results] == [
+        ExecutionModel.Result.PASSED,
+        ExecutionModel.Result.FAILED,
+    ]
+    assert execution.result == ExecutionModel.Result.FAILED
+
+
+@pytest.mark.django_db
+def test_vista_crea_paso_automatizado(client, test_case, user):
+    client.force_login(user)
+    response = client.post(
+        reverse('executions:rule-create', args=[test_case.pk]),
+        {
+            'name': 'Buscar usuario',
+            'step_number': 1,
+            'action_type': AutomatedValidationRule.ActionType.FILL_TEXT,
+            'selector_value': '#usuario',
+            'input_value': 'ana',
+            'timeout_seconds': 5,
+            'is_critical': True,
+        },
+        follow=True,
+    )
+    rule = AutomatedValidationRule.objects.get(test_case=test_case)
+    assert response.status_code == 200
+    assert rule.action_type == AutomatedValidationRule.ActionType.FILL_TEXT
+    assert rule.selector_value == '#usuario'
+    assert b'Paso automatizado registrado correctamente.' in response.content
+
+
+@pytest.mark.django_db
+def test_vista_de_ejecucion_muestra_pasos_automatizados(client, test_case, user):
+    test_case.execution_type = test_case.ExecutionType.AUTOMATED
+    test_case.save(update_fields=['execution_type'])
+    AutomatedValidationRule.objects.create(
+        test_case=test_case,
+        requirement=test_case.requirement,
+        step_number=1,
+        name='Abrir URL',
+        action_type=AutomatedValidationRule.ActionType.OPEN_URL,
+        target_url='http://localhost:8000/',
+        is_critical=True,
+    )
+    client.force_login(user)
+    response = client.get(reverse('executions:index'), {'case': test_case.pk})
+
+    assert response.status_code == 200
+    assert b'Abrir URL' in response.content
+    assert b'Automatizada' in response.content
+
+
+@pytest.mark.django_db
+def test_ejecucion_manual_bloqueada_con_requisito_pendiente(client, test_case, user):
+    client.force_login(user)
+    response = client.post(
+        f'{reverse("executions:index")}?case={test_case.id}',
+        data={
+            'execution_type': ExecutionModel.ExecutionType.NORMAL,
+            'result': ExecutionModel.Result.PASSED,
+            'actual_result': 'Resultado.',
+        },
+        follow=True,
     )
 
-    outcome = execute_rule(rule)
+    assert not ExecutionModel.objects.filter(test_case=test_case).exists()
+    assert 'ningún requisito aprobado'.encode() in response.content
 
-    assert outcome['status'] == ExecutionModel.Result.PASSED
-    assert outcome['screenshot'].startswith(b'\x89PNG')
-    assert '[PASS]' in outcome['log']
+
+@pytest.mark.django_db
+def test_ejecucion_manual_bloqueada_con_requisito_en_revision(client, test_case, user):
+    test_case.requirement.status = Requirement.Status.REVIEW
+    test_case.requirement.save(update_fields=['status'])
+    client.force_login(user)
+    response = client.post(
+        f'{reverse("executions:index")}?case={test_case.id}',
+        data={
+            'execution_type': ExecutionModel.ExecutionType.NORMAL,
+            'result': ExecutionModel.Result.PASSED,
+            'actual_result': 'Resultado.',
+        },
+        follow=True,
+    )
+
+    assert not ExecutionModel.objects.filter(test_case=test_case).exists()
+    assert 'ningún requisito aprobado'.encode() in response.content
+
+
+@pytest.mark.django_db
+def test_ejecucion_permitida_cuando_al_menos_un_requisito_aprobado(
+    client, test_case, project, user
+):
+    related = Requirement.objects.create(
+        project=project,
+        code='REQ-APPROVED',
+        title='Requisito aprobado',
+        description='Requisito aprobado para permitir ejecucion.',
+        status=Requirement.Status.APPROVED,
+        created_by=user,
+    )
+    TraceabilityLink.objects.create(requirement=related, test_case=test_case)
+    client.force_login(user)
+
+    response = client.post(
+        f'{reverse("executions:index")}?case={test_case.id}',
+        data=manual_payload(
+            result=ExecutionModel.Result.PASSED,
+            actual_result='Cumple',
+        ),
+    )
+
+    execution = ExecutionModel.objects.get(test_case=test_case)
+    assert response.status_code == 302
+    assert execution.result == ExecutionModel.Result.PASSED
+
+
+@pytest.mark.django_db
+def test_ejecucion_desbloqueada_al_aprobar_requisito(client, test_case, user):
+    client.force_login(user)
+    assert not test_case.has_approved_requirement
+
+    test_case.requirement.status = Requirement.Status.APPROVED
+    test_case.requirement.save(update_fields=['status'])
+    test_case.refresh_from_db()
+
+    assert test_case.has_approved_requirement is True
+    response = client.post(
+        f'{reverse("executions:index")}?case={test_case.id}',
+        data=manual_payload(
+            result=ExecutionModel.Result.PASSED,
+            actual_result='Cumple',
+        ),
+    )
+
+    assert ExecutionModel.objects.filter(test_case=test_case).exists()
+    assert response.status_code == 302
+
+
+@pytest.mark.django_db
+def test_ejecucion_automatizada_bloqueada_sin_requisito_aprobado(client, test_case, user):
+    client.force_login(user)
+    response = client.post(
+        reverse('executions:run-automated', args=[test_case.pk]),
+        follow=True,
+    )
+
+    assert not ExecutionModel.objects.filter(test_case=test_case).exists()
+    assert 'ningún requisito aprobado'.encode() in response.content

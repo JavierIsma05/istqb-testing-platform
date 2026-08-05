@@ -5,7 +5,12 @@
 {% block dashboard_content %}
 <div class="page-heading testplan-heading">
     <div>
-        <h2>Plan de Pruebas</h2>
+        <nav class="module-breadcrumb" aria-label="Navegación del módulo Plan de Pruebas">
+            <span>Plan de Pruebas</span>
+            <i class="bi bi-chevron-right"></i>
+            <strong>Información del Plan</strong>
+        </nav>
+        <h2>Información del Plan</h2>
         <p>Gestión de planes de prueba según ISTQB</p>
     </div>
     {% if can_manage %}

@@ -5,6 +5,13 @@
 {% block dashboard_content %}
 <div class="page-heading">
     <div>
+        <nav class="module-breadcrumb" aria-label="Navegación del módulo Plan de Pruebas">
+            <a href="{% url 'testplans:index' %}">Plan de Pruebas</a>
+            <i class="bi bi-chevron-right"></i>
+            <a href="{% url 'incidents:index' %}">Riesgos del Plan</a>
+            <i class="bi bi-chevron-right"></i>
+            <strong>{{ title }}</strong>
+        </nav>
         <h2>{{ title }}</h2>
         <p>{{ subtitle }}</p>
     </div>

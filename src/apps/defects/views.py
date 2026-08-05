@@ -20,18 +20,15 @@ from .models import Defect
 
 STATUS_BADGES = {
     Defect.Status.OPEN: 'open',
-    Defect.Status.ANALYSIS: 'info',
     Defect.Status.IN_PROGRESS: 'warning',
-    Defect.Status.PENDING_CONFIRMATION: 'info',
+    Defect.Status.RESOLVED: 'info',
     Defect.Status.CLOSED: 'success',
-    Defect.Status.REJECTED: 'muted',
-    Defect.Status.DUPLICATED: 'muted',
+    Defect.Status.REOPENED: 'warning',
 }
 
 
 SEVERITY_BADGES = {
-    Defect.Severity.CRITICAL: 'danger',
-    Defect.Severity.HIGH: 'high',
+    Defect.Severity.HIGH: 'danger',
     Defect.Severity.MEDIUM: 'medium',
     Defect.Severity.LOW: 'low',
 }
@@ -42,6 +39,15 @@ PRIORITY_BADGES = {
     Defect.Priority.HIGH: 'high',
     Defect.Priority.MEDIUM: 'medium',
     Defect.Priority.LOW: 'low',
+}
+
+
+TRANSITIONS = {
+    Defect.Status.OPEN: Defect.Status.IN_PROGRESS,
+    Defect.Status.IN_PROGRESS: Defect.Status.RESOLVED,
+    Defect.Status.RESOLVED: Defect.Status.CLOSED,
+    Defect.Status.CLOSED: Defect.Status.REOPENED,
+    Defect.Status.REOPENED: Defect.Status.IN_PROGRESS,
 }
 
 
@@ -82,6 +88,8 @@ def defect_list_view(request):
     total = defects.count()
     open_count = defects.filter(status=Defect.Status.OPEN).count()
     in_fix_count = defects.filter(status=Defect.Status.IN_PROGRESS).count()
+    resolved_count = defects.filter(status=Defect.Status.RESOLVED).count()
+    reopened_count = defects.filter(status=Defect.Status.REOPENED).count()
     closed_count = defects.filter(status=Defect.Status.CLOSED).count()
 
     return render(
@@ -94,12 +102,15 @@ def defect_list_view(request):
                     'badge': STATUS_BADGES.get(defect.status, 'muted'),
                     'severity_badge': SEVERITY_BADGES.get(defect.severity, 'muted'),
                     'priority_badge': PRIORITY_BADGES.get(defect.priority, 'muted'),
+                    'next_status': TRANSITIONS.get(defect.status),
                 }
                 for defect in defects
             ],
             'total': total,
             'open_count': open_count,
             'in_fix_count': in_fix_count,
+            'resolved_count': resolved_count,
+            'reopened_count': reopened_count,
             'closed_count': closed_count,
             'projects': visible_projects.order_by('name'),
             'status_choices': Defect.Status.choices,
@@ -178,7 +189,7 @@ def defect_update_view(request, pk):
         {
             'form': form,
             'title': 'Editar Defecto',
-            'subtitle': 'Actualiza severidad, prioridad, estado y asignacion sin perder la relacion con ejecuciones.',
+            'subtitle': 'Actualiza la severidad o la descripción del defecto sin perder su historial ni su vínculo con el caso de prueba.',
         },
     )
 
@@ -207,5 +218,46 @@ def defect_delete_view(request, pk):
         messages.success(request, 'Defecto eliminado correctamente.')
     else:
         messages.error(request, 'La eliminacion debe confirmarse desde el listado.')
+
+    return redirect('defects:index')
+
+
+@login_required
+def defect_transition_view(request, pk):
+    readonly_redirect = redirect_if_teacher_readonly(request, 'defects:index', 'defectos')
+    if readonly_redirect:
+        return readonly_redirect
+
+    defect = get_object_or_404(
+        Defect,
+        pk=pk,
+        project__in=visible_projects_for(request.user, request=request),
+    )
+
+    if request.method == 'POST':
+        target = TRANSITIONS.get(defect.status)
+        if target:
+            defect.status = target
+            defect.save()
+            reason = {
+                Defect.Status.OPEN: 'Transición a En progreso',
+                Defect.Status.IN_PROGRESS: 'Transición a Resuelto',
+                Defect.Status.RESOLVED: 'Transición a Cerrado',
+                Defect.Status.CLOSED: 'Transición a Reabierto',
+                Defect.Status.REOPENED: 'Transición a En progreso',
+            }.get(target, 'Transición de estado')
+            record_defect_history(defect, request.user, reason)
+            log_action(
+                request.user,
+                'UPDATE',
+                'Defect',
+                defect.pk,
+                {'project_id': defect.project_id, 'code': defect.code, 'title': defect.title, 'status': defect.status},
+            )
+            messages.success(request, f'Estado actualizado a {defect.get_status_display()}.')
+        else:
+            messages.error(request, 'No hay una transición válida para este estado.')
+    else:
+        messages.error(request, 'La transición debe confirmarse desde el listado.')
 
     return redirect('defects:index')

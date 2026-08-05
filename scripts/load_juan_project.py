@@ -180,6 +180,7 @@ def create_execution(test_case, user, result, actual_result, days_offset, execut
 def create_defect(project, execution, user, code, title, description, severity, priority, status):
     defect = Defect.objects.create(
         project=project,
+        test_case=execution.test_case,
         execution=execution,
         code=code,
         title=title,
@@ -344,10 +345,10 @@ def main():
     defects = [
         ("DEF-001", "Validacion de limite de proyectos no bloquea el undecimo registro", "El limite de 10 proyectos por Tester no impidio un intento adicional en la prueba de frontera.", "TC-012", Defect.Severity.MEDIUM, Defect.Priority.HIGH, Defect.Status.CLOSED),
         ("DEF-002", "Generacion IA devuelve casos incompletos ante flujo alterno", "La generacion inicial omitio escenarios alternos del caso de uso seleccionado.", "TC-017", Defect.Severity.HIGH, Defect.Priority.HIGH, Defect.Status.CLOSED),
-        ("DEF-003", "Reporte IEEE 829 omite seccion de riesgos", "El PDF generado no incluyo riesgos/incidentes del proyecto en la primera verificacion.", "TC-021", Defect.Severity.MEDIUM, Defect.Priority.MEDIUM, Defect.Status.PENDING_CONFIRMATION),
-        ("DEF-004", "Clave de usuario visible en traza de depuracion", "Durante la validacion de seguridad se detecto informacion sensible en logs de depuracion.", "TC-022", Defect.Severity.CRITICAL, Defect.Priority.CRITICAL, Defect.Status.CLOSED),
+        ("DEF-003", "Reporte IEEE 829 omite seccion de riesgos", "El PDF generado no incluyo riesgos/incidentes del proyecto en la primera verificacion.", "TC-021", Defect.Severity.MEDIUM, Defect.Priority.MEDIUM, Defect.Status.RESOLVED),
+        ("DEF-004", "Clave de usuario visible en traza de depuracion", "Durante la validacion de seguridad se detecto informacion sensible en logs de depuracion.", "TC-022", Defect.Severity.HIGH, Defect.Priority.CRITICAL, Defect.Status.CLOSED),
         ("DEF-005", "Operacion de generacion supera cinco segundos", "La generacion de casos funcionales supero el umbral de rendimiento bajo carga documental.", "TC-024", Defect.Severity.MEDIUM, Defect.Priority.HIGH, Defect.Status.IN_PROGRESS),
-        ("DEF-006", "Invitacion de proyecto depende de correo no configurado", "La prueba de compartir proyecto quedo bloqueada por configuracion de envio de correo.", "TC-011", Defect.Severity.LOW, Defect.Priority.MEDIUM, Defect.Status.ANALYSIS),
+        ("DEF-006", "Invitacion de proyecto depende de correo no configurado", "La prueba de compartir proyecto quedo bloqueada por configuracion de envio de correo.", "TC-011", Defect.Severity.LOW, Defect.Priority.MEDIUM, Defect.Status.IN_PROGRESS),
     ]
     created_defects = {}
     for code, title, description, case_code, severity, priority, status in defects:

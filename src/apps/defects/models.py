@@ -4,6 +4,7 @@ from django.db import models
 from apps.core.models import TimeStampedModel
 from apps.executions.models import TestExecution
 from apps.projects.models import Project
+from apps.testcases.models import TestCase
 
 
 class Defect(TimeStampedModel):
@@ -11,7 +12,6 @@ class Defect(TimeStampedModel):
         LOW = 'LOW', 'Baja'
         MEDIUM = 'MEDIUM', 'Media'
         HIGH = 'HIGH', 'Alta'
-        CRITICAL = 'CRITICAL', 'Crítica'
 
     class Priority(models.TextChoices):
         LOW = 'LOW', 'Baja'
@@ -21,14 +21,13 @@ class Defect(TimeStampedModel):
 
     class Status(models.TextChoices):
         OPEN = 'OPEN', 'Abierto'
-        ANALYSIS = 'ANALYSIS', 'En análisis'
-        IN_PROGRESS = 'IN_PROGRESS', 'En corrección'
-        PENDING_CONFIRMATION = 'PENDING_CONFIRMATION', 'Pendiente de confirmación'
+        IN_PROGRESS = 'IN_PROGRESS', 'En progreso'
+        RESOLVED = 'RESOLVED', 'Resuelto'
         CLOSED = 'CLOSED', 'Cerrado'
-        REJECTED = 'REJECTED', 'Rechazado'
-        DUPLICATED = 'DUPLICATED', 'Duplicado'
+        REOPENED = 'REOPENED', 'Reabierto'
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='defects')
+    test_case = models.ForeignKey(TestCase, on_delete=models.CASCADE, related_name='defects', null=True, blank=True)
     execution = models.ForeignKey(TestExecution, on_delete=models.SET_NULL, null=True, blank=True, related_name='defects')
     code = models.CharField(max_length=40, default='DEF-000')
     title = models.CharField(max_length=180)

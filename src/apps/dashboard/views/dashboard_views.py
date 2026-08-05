@@ -7,9 +7,9 @@ from apps.core.permissions import visible_projects_for
 from apps.defects.models import Defect
 from apps.executions.models import TestExecution
 from apps.incidents.models import Incident
-from apps.projects.models import Project
 from apps.phases.models import TestingPhase
-from apps.phases.views import ensure_default_phases, phase_criteria_status
+from apps.phases.views import ensure_default_phases, phase_criteria_status, project_criteria_snapshot
+from apps.projects.models import Project
 from apps.requirements.models import Requirement
 from apps.testcases.models import TestCase
 from apps.testplans.models import TestPlan
@@ -50,26 +50,7 @@ def get_time_label(value):
 
 def build_project_summaries(projects):
     summaries = []
-    annotated_projects = projects.annotate(
-        total_cases=Count('test_plans__test_cases', distinct=True),
-        passed_cases=Count(
-            'test_plans__test_cases',
-            filter=Q(test_plans__test_cases__status=TestCase.Status.PASSED),
-            distinct=True,
-        ),
-        failed_cases=Count(
-            'test_plans__test_cases',
-            filter=Q(test_plans__test_cases__status=TestCase.Status.FAILED),
-            distinct=True,
-        ),
-        pending_cases=Count(
-            'test_plans__test_cases',
-            filter=Q(test_plans__test_cases__status=TestCase.Status.PENDING),
-            distinct=True,
-        ),
-    ).order_by('-updated_at', '-created_at')
-
-    for project in annotated_projects[:3]:
+    for project in projects[:3]:
         summaries.append(
             {
                 'project': project,
@@ -207,12 +188,15 @@ def build_teacher_dashboard(request):
 
 
 def build_student_phase_timeline(projects):
-    project = projects.filter(status=Project.Status.ACTIVE).first() or projects.first()
+    project = next(
+        (item for item in projects if item.status == Project.Status.ACTIVE),
+        projects[0] if projects else None,
+    )
     if not project:
         return None
 
-    ensure_default_phases(project)
-    phases = TestingPhase.objects.filter(project=project).order_by('order')
+    phases = ensure_default_phases(project)
+    snapshot = project_criteria_snapshot(project)
     short_names = {
         1: 'Requisitos',
         2: 'Riesgos',
@@ -223,12 +207,9 @@ def build_student_phase_timeline(projects):
     }
     items = []
     for phase in phases:
-        criteria = phase_criteria_status(phase)
+        criteria = phase_criteria_status(phase, snapshot=snapshot)
         status = phase.status
-        if phase.order == 5 and (
-            TestExecution.objects.filter(test_case__test_plan__project=project).exists() or
-            Defect.objects.filter(project=project).exists()
-        ):
+        if phase.order == 5 and (snapshot['executions_registered'] or snapshot['defects_registered']):
             status = TestingPhase.Status.IN_PROGRESS
         elif status != TestingPhase.Status.DONE and criteria['progress'] == 100:
             status = TestingPhase.Status.IN_PROGRESS
@@ -257,14 +238,48 @@ def dashboard_view(request):
         )
 
     visible_projects = visible_projects_for(request.user, request=request)
+    annotated_projects = visible_projects.annotate(
+        total_cases=Count('test_plans__test_cases', distinct=True),
+        passed_cases=Count(
+            'test_plans__test_cases',
+            filter=Q(test_plans__test_cases__status=TestCase.Status.PASSED),
+            distinct=True,
+        ),
+        failed_cases=Count(
+            'test_plans__test_cases',
+            filter=Q(test_plans__test_cases__status=TestCase.Status.FAILED),
+            distinct=True,
+        ),
+        pending_cases=Count(
+            'test_plans__test_cases',
+            filter=Q(test_plans__test_cases__status=TestCase.Status.PENDING),
+            distinct=True,
+        ),
+        total_requirements=Count('requirements', distinct=True),
+        total_test_plans=Count('test_plans', distinct=True),
+        total_executions=Count('test_plans__test_cases__executions', distinct=True),
+        total_defects=Count('defects', distinct=True),
+        total_incidents=Count('incidents', distinct=True),
+    ).order_by('-updated_at', '-created_at')
+
+    project_list = list(annotated_projects)
+    counts = {
+        'projects': len(project_list),
+        'requirements': sum(item.total_requirements or 0 for item in project_list),
+        'test_plans': sum(item.total_test_plans or 0 for item in project_list),
+        'test_cases': sum(item.total_cases or 0 for item in project_list),
+        'executions': sum(item.total_executions or 0 for item in project_list),
+        'defects': sum(item.total_defects or 0 for item in project_list),
+        'incidents': sum(item.total_incidents or 0 for item in project_list),
+    }
     cards = [
-        ('Proyectos', visible_projects.count(), 'bi-folder2-open', 'projects:index'),
-        ('Requisitos', Requirement.objects.filter(project__in=visible_projects).count(), 'bi-card-checklist', 'requirements:index'),
-        ('Planes de prueba', TestPlan.objects.filter(project__in=visible_projects).count(), 'bi-diagram-3', 'testplans:index'),
-        ('Casos de prueba', TestCase.objects.filter(test_plan__project__in=visible_projects).count(), 'bi-list-check', 'testcases:index'),
-        ('Ejecuciones', TestExecution.objects.filter(test_case__test_plan__project__in=visible_projects).count(), 'bi-play-circle', 'executions:index'),
-        ('Defectos', Defect.objects.filter(project__in=visible_projects).count(), 'bi-bug', 'defects:index'),
-        ('Incidentes', Incident.objects.filter(project__in=visible_projects).count(), 'bi-exclamation-triangle', 'incidents:index'),
+        ('Proyectos', counts['projects'], 'bi-folder2-open', 'projects:index'),
+        ('Requisitos', counts['requirements'], 'bi-card-checklist', 'requirements:index'),
+        ('Planes de prueba', counts['test_plans'], 'bi-diagram-3', 'testplans:index'),
+        ('Casos de prueba', counts['test_cases'], 'bi-list-check', 'testcases:index'),
+        ('Ejecuciones', counts['executions'], 'bi-play-circle', 'executions:index'),
+        ('Defectos', counts['defects'], 'bi-bug', 'defects:index'),
+        ('Incidentes', counts['incidents'], 'bi-exclamation-triangle', 'incidents:index'),
     ]
 
     return render(
@@ -272,10 +287,10 @@ def dashboard_view(request):
         'dashboard/dashboard.html',
         {
             'cards': cards,
-            'project_summaries': build_project_summaries(visible_projects),
+            'project_summaries': build_project_summaries(project_list),
             'recent_activities': build_recent_activity(visible_projects),
             'student_phase_timeline': (
-                build_student_phase_timeline(visible_projects)
+                build_student_phase_timeline(project_list)
                 if request.user.role == User.Roles.STUDENT
                 else None
             ),

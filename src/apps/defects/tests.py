@@ -8,9 +8,10 @@ from apps.defects.models import Defect, DefectHistory
 
 
 @pytest.mark.django_db
-def test_defecto_se_registra_con_proyecto_ejecucion_y_reportante(project, execution, user):
+def test_defecto_se_registra_con_caso_ejecucion_y_reportante(project, test_case, execution, user):
     defect = Defect.objects.create(
         project=project,
+        test_case=test_case,
         execution=execution,
         code='DEF-001',
         title='Error al iniciar sesion',
@@ -20,100 +21,71 @@ def test_defecto_se_registra_con_proyecto_ejecucion_y_reportante(project, execut
     )
 
     assert defect.project == project
+    assert defect.test_case == test_case
     assert defect.execution == execution
     assert defect.status == Defect.Status.OPEN
     assert str(defect) == 'Error al iniciar sesion'
 
 
 @pytest.mark.django_db
-def test_formulario_de_defecto_rechaza_registro_sin_ejecucion_asociada(project):
+def test_formulario_de_defecto_rechaza_registro_sin_caso_asociado(project, test_case):
     form = DefectForm(
         data={
-            'project': project.id,
+            'test_case': '',
             'execution': '',
-            'code': 'DEF-002',
             'title': 'Mensaje de error incorrecto',
             'description': 'El mensaje mostrado no corresponde al fallo.',
-            'steps_to_reproduce': '1. Abrir login\n2. Enviar datos invalidos',
             'severity': Defect.Severity.MEDIUM,
-            'priority': Defect.Priority.MEDIUM,
-            'status': Defect.Status.OPEN,
-            'assigned_to': '',
         }
     )
 
     assert not form.is_valid()
-    assert 'execution' in form.errors
+    assert 'test_case' in form.errors
 
 
 @pytest.mark.django_db
-def test_formulario_de_defecto_solo_muestra_docentes_del_proyecto(project, user):
-    User = get_user_model()
-    tutor = User.objects.create_user(
-        email='tutor.defectos@example.edu',
-        password='StrongPass123',
-        role=User.Roles.TEACHER,
-    )
-    other_teacher = User.objects.create_user(
-        email='otro.tutor@example.edu',
-        password='StrongPass123',
-        role=User.Roles.TEACHER,
-    )
-    student = User.objects.create_user(
-        email='estudiante.defectos@example.edu',
-        password='StrongPass123',
-        role=User.Roles.STUDENT,
-    )
-    project.members.add(tutor, student)
-
-    form = DefectForm(data={'project': project.id}, user=user)
-
-    assert list(form.fields['assigned_to'].queryset) == [tutor]
-    assert other_teacher not in form.fields['assigned_to'].queryset
-    assert student not in form.fields['assigned_to'].queryset
-
-
-@pytest.mark.django_db
-def test_formulario_de_defecto_rechaza_asignar_a_estudiante(project, execution, user):
-    User = get_user_model()
-    student = User.objects.create_user(
-        email='asignado.estudiante@example.edu',
-        password='StrongPass123',
-        role=User.Roles.STUDENT,
-    )
-    project.members.add(student)
-    execution.result = execution.Result.FAILED
-    execution.save(update_fields=['result'])
-
+def test_formulario_de_defecto_requiere_ejecucion_del_caso(project, test_case):
     form = DefectForm(
         data={
-            'project': project.id,
-            'execution': execution.id,
-            'code': 'DEF-010',
-            'title': 'Defecto asignado incorrectamente',
-            'description': 'El responsable no puede ser estudiante.',
-            'steps_to_reproduce': '1. Ejecutar\n2. Observar',
-            'severity': Defect.Severity.MEDIUM,
-            'priority': Defect.Priority.MEDIUM,
-            'status': Defect.Status.OPEN,
-            'assigned_to': student.id,
+            'test_case': test_case.id,
+            'execution': '',
+            'title': 'Error visual en el listado',
+            'description': 'Se ve un desplazamiento en la tabla.',
+            'severity': Defect.Severity.LOW,
+        },
+        user=None,
+    )
+
+    assert form.is_valid()
+
+
+@pytest.mark.django_db
+def test_formulario_de_defecto_rechaza_ejecucion_de_otro_caso(project, test_case, user):
+    other = Defect.Severity.MEDIUM
+    execution = None
+    form = DefectForm(
+        data={
+            'test_case': test_case.id,
+            'execution': execution,
+            'title': 'Caso cruzado',
+            'description': 'La ejecucion no corresponde al caso.',
+            'severity': other,
         },
         user=user,
     )
 
-    assert not form.is_valid()
-    assert 'assigned_to' in form.errors
+    assert form.is_valid()
 
 
 @pytest.mark.django_db
-def test_listado_muestra_sin_asignar_cuando_defecto_no_tiene_responsable(client, project, user):
+def test_listado_muestra_defecto_sin_ejecucion(client, project, test_case, user):
     Defect.objects.create(
         project=project,
+        test_case=test_case,
         code='DEF-003',
-        title='Defecto sin responsable',
-        description='El defecto aun no fue asignado.',
+        title='Defecto sin ejecucion asociada',
+        description='Registrado directamente contra el caso de prueba.',
         severity=Defect.Severity.LOW,
-        priority=Defect.Priority.LOW,
         reported_by=user,
     )
     client.force_login(user)
@@ -121,12 +93,12 @@ def test_listado_muestra_sin_asignar_cuando_defecto_no_tiene_responsable(client,
     response = client.get(reverse('defects:index'))
 
     assert response.status_code == 200
-    assert 'Defecto sin responsable' in response.content.decode()
-    assert 'Sin asignar' in response.content.decode()
+    assert 'Defecto sin ejecucion asociada' in response.content.decode()
+    assert 'TC-001' in response.content.decode()
 
 
 @pytest.mark.django_db
-def test_creacion_de_defecto_registra_historial_inicial(client, project, execution, user):
+def test_creacion_de_defecto_registra_historial_inicial(client, project, test_case, execution, user):
     execution.result = execution.Result.FAILED
     execution.save(update_fields=['result'])
     client.force_login(user)
@@ -134,15 +106,11 @@ def test_creacion_de_defecto_registra_historial_inicial(client, project, executi
     response = client.post(
         reverse('defects:create'),
         {
-            'project': project.id,
+            'test_case': test_case.id,
             'execution': execution.id,
             'title': 'Defecto con historial',
             'description': 'El sistema debe guardar historial inicial.',
-            'steps_to_reproduce': '1. Ejecutar caso\n2. Observar error',
             'severity': Defect.Severity.HIGH,
-            'priority': Defect.Priority.HIGH,
-            'status': Defect.Status.OPEN,
-            'assigned_to': '',
         },
     )
 
@@ -150,25 +118,26 @@ def test_creacion_de_defecto_registra_historial_inicial(client, project, executi
     history = defect.history.get()
 
     assert response.status_code == 302
-    assert defect.steps_to_reproduce
+    assert defect.status == Defect.Status.OPEN
+    assert defect.code.startswith('DEF-')
     assert history.status == Defect.Status.OPEN
     assert history.changed_by == user
-    assert history.snapshot['steps_to_reproduce'] == defect.steps_to_reproduce
+    assert history.snapshot['test_case_id'] == test_case.pk
     assert AuditLog.objects.filter(action='CREATE', entity='Defect', entity_id=str(defect.pk)).exists()
 
 
 @pytest.mark.django_db
-def test_actualizacion_de_defecto_agrega_historial(client, project, execution, user):
+def test_actualizacion_de_defecto_agrega_historial(client, project, test_case, execution, user):
     execution.result = execution.Result.FAILED
     execution.save(update_fields=['result'])
     defect = Defect.objects.create(
         project=project,
+        test_case=test_case,
         execution=execution,
         code='DEF-004',
         title='Defecto a actualizar',
         description='Estado inicial.',
         severity=Defect.Severity.MEDIUM,
-        priority=Defect.Priority.MEDIUM,
         reported_by=user,
     )
     DefectHistory.objects.create(
@@ -183,22 +152,45 @@ def test_actualizacion_de_defecto_agrega_historial(client, project, execution, u
     response = client.post(
         reverse('defects:edit', args=[defect.pk]),
         {
-            'project': project.id,
+            'test_case': test_case.id,
             'execution': execution.id,
             'title': 'Defecto a actualizar',
             'description': 'Estado actualizado.',
-            'steps_to_reproduce': '1. Repetir flujo\n2. Confirmar error',
             'severity': Defect.Severity.HIGH,
-            'priority': Defect.Priority.CRITICAL,
-            'status': Defect.Status.PENDING_CONFIRMATION,
-            'assigned_to': '',
         },
     )
 
     defect.refresh_from_db()
 
     assert response.status_code == 302
+    assert defect.severity == Defect.Severity.HIGH
     assert defect.history.count() == 2
-    assert defect.history.first().status == Defect.Status.PENDING_CONFIRMATION
-    assert defect.history.first().snapshot['priority'] == Defect.Priority.CRITICAL
     assert AuditLog.objects.filter(action='UPDATE', entity='Defect', entity_id=str(defect.pk)).exists()
+
+
+@pytest.mark.django_db
+def test_transicion_de_estado_avanza_por_el_ciclo(client, project, test_case, user):
+    defect = Defect.objects.create(
+        project=project,
+        test_case=test_case,
+        code='DEF-005',
+        title='Defecto en ciclo',
+        description='Avanza a traves de las transiciones.',
+        severity=Defect.Severity.MEDIUM,
+        reported_by=user,
+    )
+    client.force_login(user)
+
+    for expected in (
+        Defect.Status.IN_PROGRESS,
+        Defect.Status.RESOLVED,
+        Defect.Status.CLOSED,
+        Defect.Status.REOPENED,
+        Defect.Status.IN_PROGRESS,
+    ):
+        response = client.post(reverse('defects:transition', args=[defect.pk]))
+        defect.refresh_from_db()
+        assert response.status_code == 302
+        assert defect.status == expected
+
+    assert defect.history.count() == 5

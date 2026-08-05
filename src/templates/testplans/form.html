@@ -9,6 +9,11 @@
             <i class="bi bi-arrow-left"></i>
         </a>
         <div>
+            <nav class="module-breadcrumb" aria-label="Navegación del módulo Plan de Pruebas">
+                <a href="{% url 'testplans:index' %}">Plan de Pruebas</a>
+                <i class="bi bi-chevron-right"></i>
+                <strong>Información del Plan</strong>
+            </nav>
             <h2>{{ form_title|default:'Crear Plan de Pruebas' }}</h2>
             <p>Asistente paso a paso alineado al flujo ISTQB</p>
         </div>
@@ -24,9 +29,17 @@
         <div class="wizard-step" data-step-dot="4"><span>4</span><small>Criterios</small></div>
         <div class="wizard-line"></div>
         <div class="wizard-step" data-step-dot="5"><span>5</span><small>Recursos y<br>Calendario</small></div>
+        <div class="wizard-line"></div>
+        <div class="wizard-step" data-step-dot="6"><span>6</span><small>Riesgos<br>del Plan</small></div>
     </div>
 
-    <form method="POST" enctype="multipart/form-data" class="wizard-form" novalidate>
+    <form method="POST" class="wizard-form" novalidate
+        data-draft-module="testplan"
+        data-draft-object-id="{{ form.instance.pk|default:0 }}"
+        data-draft-project-select="#id_project"
+        data-draft-save-url="{% url 'drafts:save' %}"
+        data-draft-get-url="{% url 'drafts:get' %}"
+        data-draft-clear-url="{% url 'drafts:clear' %}">
         {% csrf_token %}
 
         <section class="wizard-panel active" data-step-panel="1">
@@ -52,12 +65,6 @@
                     <label class="form-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
                     {{ form.description }}
                     {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
-                </div>
-                <div class="col-12">
-                    <label class="form-label" for="{{ form.base_document.id_for_label }}">{{ form.base_document.label }}</label>
-                    {{ form.base_document }}
-                    <small class="text-muted">{{ form.base_document.help_text }}</small>
-                    {% if form.base_document.errors %}<div class="form-error">{{ form.base_document.errors|striptags }}</div>{% endif %}
                 </div>
             </div>
         </section>
@@ -163,6 +170,122 @@
             </div>
         </section>
 
+        <section class="wizard-panel" data-step-panel="6">
+            <h3>Paso 6: Riesgos del Plan</h3>
+            <p>Registra amenazas probables y prioriza el esfuerzo de prueba segun la matriz de Probabilidad-Impacto.</p>
+
+            <div class="alert alert-info d-flex gap-3 align-items-start" role="alert">
+                <i class="bi bi-shield-exclamation fs-4"></i>
+                <div>
+                    <h5 class="alert-heading mb-1">Matriz de Probabilidad e Impacto</h5>
+                    <p class="mb-1 small">Usa este criterio para clasificar cada riesgo y priorizar el esfuerzo de prueba:</p>
+                    <ul class="mb-0 small">
+                        <li><span class="fw-semibold text-danger">Riesgo Alto</span>: Probabilidad alta con impacto medio/alto, o impacto alto con probabilidad media/alta.</li>
+                        <li><span class="fw-semibold text-warning">Riesgo Medio</span>: Combinaciones moderadas de probabilidad e impacto.</li>
+                        <li><span class="fw-semibold text-success">Riesgo Bajo</span>: Probabilidad baja o impacto bajo en el resto de combinaciones.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <table class="table table-bordered text-center small mb-4">
+                <thead class="table-light">
+                    <tr>
+                        <th>Probabilidad \ Impacto</th>
+                        <th>Bajo</th>
+                        <th>Medio</th>
+                        <th>Alto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for label, cells in matrix_rows %}
+                        <tr>
+                            <td class="fw-semibold">{{ label }}</td>
+                            {% for text, tone in cells %}
+                                <td class="align-middle">
+                                    <span class="badge bg-{{ tone }}">
+                                        {% if tone == 'danger' %}Alto{% elif tone == 'warning' %}Medio{% else %}Bajo{% endif %}
+                                    </span>
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <input type="hidden" id="risks-json" name="risks_json" value="[]">
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Agregar riesgo</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="risk_title">Titulo del riesgo <span class="text-muted">(opcional)</span></label>
+                            <input type="text" class="form-control" id="risk_title" placeholder="Ej. Riesgo de integracion con API externa">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label" for="risk_description">Descripcion del riesgo <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="risk_description" rows="2" placeholder="Describe el riesgo, causa probable y efecto esperado"></textarea>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label" for="risk_mitigation">Mitigacion / Respuesta <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="risk_mitigation" rows="2" placeholder="Indica como se evitara, reducira, transferira o aceptara el riesgo"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="risk_probability">Probabilidad <span class="text-danger">*</span></label>
+                            <select class="form-select" id="risk_probability">
+                                <option value="">Selecciona...</option>
+                                <option value="HIGH">Alta</option>
+                                <option value="MEDIUM">Media</option>
+                                <option value="LOW">Baja</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="risk_impact">Impacto <span class="text-danger">*</span></label>
+                            <select class="form-select" id="risk_impact">
+                                <option value="">Selecciona...</option>
+                                <option value="HIGH">Alto</option>
+                                <option value="MEDIUM">Medio</option>
+                                <option value="LOW">Bajo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-3 d-flex justify-content-end">
+                        <button type="button" class="btn btn-outline-success" id="risk-add-btn">
+                            <i class="bi bi-plus-lg"></i> Agregar riesgo
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong>Riesgos agregados (<span id="risk-count">0</span>)</strong>
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="risk-clear-all" style="display:none">
+                        <i class="bi bi-trash"></i> Vaciar todo
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" id="risk-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Titulo</th>
+                                    <th>Descripcion</th>
+                                    <th>Mitigacion</th>
+                                    <th>Probabilidad</th>
+                                    <th>Impacto</th>
+                                    <th class="text-end">Opciones</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="p-3 text-muted small" id="risk-empty">Aun no has agregado riesgos a este plan.</div>
+                </div>
+            </div>
+        </section>
+
         <div class="wizard-actions">
             <button class="btn btn-outline-brand" type="button" data-wizard-prev disabled>Anterior</button>
             <button class="btn btn-brand" type="button" data-wizard-next>Siguiente</button>
@@ -173,4 +296,173 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var projectSelect = document.getElementById('id_project');
+    var startInput = document.getElementById('id_start_date');
+    var endInput = document.getElementById('id_end_date');
+    if (!projectSelect || !startInput || !endInput) return;
+
+    function applyProjectDateRange() {
+        var ranges = {};
+        try {
+            ranges = JSON.parse(projectSelect.getAttribute('data-date-ranges') || '{}');
+        } catch (e) {
+            ranges = {};
+        }
+        var range = ranges[projectSelect.value] || {};
+        var hasStart = !!range.start;
+        var hasEnd = !!range.end;
+        var min = hasStart ? range.start : '';
+        var max = hasEnd ? range.end : '';
+        if (min) {
+            startInput.min = min;
+            endInput.min = min;
+        }
+        if (max) {
+            startInput.max = max;
+            endInput.max = max;
+        }
+        if (!min) {
+            startInput.removeAttribute('min');
+            endInput.removeAttribute('min');
+        }
+        if (!max) {
+            startInput.removeAttribute('max');
+            endInput.removeAttribute('max');
+        }
+    }
+
+    projectSelect.addEventListener('change', applyProjectDateRange);
+    document.addEventListener('DOMContentLoaded', applyProjectDateRange);
+    applyProjectDateRange();
+})();
+
+(function() {
+    var riesgosPlan = [];
+    var titleInput = document.getElementById('risk_title');
+    var descInput = document.getElementById('risk_description');
+    var mitInput = document.getElementById('risk_mitigation');
+    var probSelect = document.getElementById('risk_probability');
+    var impactSelect = document.getElementById('risk_impact');
+    var addBtn = document.getElementById('risk-add-btn');
+    var jsonInput = document.getElementById('risks-json');
+    var tbody = document.querySelector('#risk-table tbody');
+    var emptyRow = document.getElementById('risk-empty');
+    var countSpan = document.getElementById('risk-count');
+    var clearAllBtn = document.getElementById('risk-clear-all');
+
+    if (!descInput || !addBtn || !jsonInput || !tbody) return;
+
+    var probLabels = { HIGH: 'Alta', MEDIUM: 'Media', LOW: 'Baja' };
+    var impactLabels = { HIGH: 'Alto', MEDIUM: 'Medio', LOW: 'Bajo' };
+
+    function syncJson() {
+        jsonInput.value = JSON.stringify(riesgosPlan);
+    }
+
+    function syncCount() {
+        countSpan.textContent = String(riesgosPlan.length);
+        clearAllBtn.style.display = riesgosPlan.length ? '' : 'none';
+        if (emptyRow) emptyRow.style.display = riesgosPlan.length ? 'none' : '';
+    }
+
+    function renderTable() {
+        tbody.innerHTML = '';
+        riesgosPlan.forEach(function (risk, index) {
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td class="fw-semibold">' + (index + 1) + '</td>' +
+                '<td>' + (risk.title ? escapeHtml(risk.title) : '<em class="text-muted">Sin titulo</em>') + '</td>' +
+                '<td class="text-truncate" style="max-width:220px">' + escapeHtml(risk.description) + '</td>' +
+                '<td class="text-truncate" style="max-width:220px">' + escapeHtml(risk.mitigation_strategy) + '</td>' +
+                '<td><span class="badge bg-' + riskTone(risk.probability) + '">' + (probLabels[risk.probability] || '') + '</span></td>' +
+                '<td><span class="badge bg-' + riskTone(risk.impact) + '">' + (impactLabels[risk.impact] || '') + '</span></td>' +
+                '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger risk-remove" data-index="' + index + '"><i class="bi bi-x-lg"></i> Quitar</button></td>';
+            tbody.appendChild(tr);
+        });
+        syncJson();
+        syncCount();
+    }
+
+    function riskTone(value) {
+        return value === 'HIGH' ? 'danger' : value === 'MEDIUM' ? 'warning' : 'success';
+    }
+
+    function clearForm() {
+        titleInput.value = '';
+        descInput.value = '';
+        mitInput.value = '';
+        probSelect.value = '';
+        impactSelect.value = '';
+        [titleInput, descInput, mitInput, probSelect, impactSelect].forEach(function (el) {
+            el.classList.remove('is-invalid');
+        });
+        descInput.focus();
+    }
+
+    function escapeHtml(value) {
+        var div = document.createElement('div');
+        div.textContent = value || '';
+        return div.innerHTML;
+    }
+
+    addBtn.addEventListener('click', function () {
+        var description = descInput.value.trim();
+        var mitigation = mitInput.value.trim();
+        var probability = probSelect.value;
+        var impact = impactSelect.value;
+
+        var valid = true;
+        [descInput, mitInput, probSelect, impactSelect].forEach(function (el) {
+            el.classList.remove('is-invalid');
+            if (!el.value) {
+                el.classList.add('is-invalid');
+                valid = false;
+            }
+        });
+
+        if (!description || !mitigation || !probability || !impact) {
+            return;
+        }
+
+        riesgosPlan.push({
+            title: titleInput.value.trim(),
+            description: description,
+            mitigation_strategy: mitigation,
+            probability: probability,
+            impact: impact,
+        });
+        renderTable();
+        clearForm();
+    });
+
+    tbody.addEventListener('click', function (e) {
+        var btn = e.target.closest('.risk-remove');
+        if (!btn) return;
+        var index = parseInt(btn.getAttribute('data-index'), 10);
+        riesgosPlan.splice(index, 1);
+        renderTable();
+    });
+
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', function () {
+            riesgosPlan = [];
+            renderTable();
+        });
+    }
+
+    var form = document.querySelector('form.wizard-form');
+    if (form) {
+        form.addEventListener('submit', function () {
+            syncJson();
+        });
+    }
+
+    renderTable();
+})();
+</script>
 {% endblock %}

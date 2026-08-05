@@ -158,7 +158,7 @@ def test_estudiante_no_puede_crear_otro_proyecto_activo(client, user):
 
 
 @pytest.mark.django_db
-def test_proyecto_se_vincula_a_tutor_por_correo(client, user):
+def test_proyecto_se_vincula_a_tutor_por_seleccion(client, user):
     tutor = get_user_model().objects.create_user(
         email='tutor@example.edu',
         password='StrongPass123',
@@ -171,7 +171,7 @@ def test_proyecto_se_vincula_a_tutor_por_correo(client, user):
         data={
             'name': 'Proyecto con tutor',
             'description': 'Proyecto de titulacion',
-            'tutor_email': tutor.email,
+            'tutor': tutor.pk,
         },
     )
 
@@ -180,3 +180,114 @@ def test_proyecto_se_vincula_a_tutor_por_correo(client, user):
     assert response.status_code == 302
     assert project.members.filter(pk=user.pk).exists()
     assert project.members.filter(pk=tutor.pk).exists()
+    assert project.tutor == tutor
+
+
+@pytest.mark.django_db
+def test_formulario_solo_lista_docentes_en_tutor(client, user):
+    student = get_user_model().objects.create_user(
+        email='estudiante@example.edu',
+        password='StrongPass123',
+        role=get_user_model().Roles.STUDENT,
+    )
+    tutor = get_user_model().objects.create_user(
+        email='tutor@example.edu',
+        password='StrongPass123',
+        role=get_user_model().Roles.TEACHER,
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('projects:create'))
+
+    assert response.status_code == 200
+    assert student not in response.context['form'].fields['tutor'].queryset
+    assert tutor in response.context['form'].fields['tutor'].queryset
+
+
+@pytest.mark.django_db
+def test_miembro_que_no_es_propietario_no_puede_editar_proyecto(client, user):
+    owner = get_user_model().objects.create_user(
+        email='propietario@example.edu',
+        password='StrongPass123',
+    )
+    owned_project = Project.objects.create(
+        code='PRJ-999',
+        name='Proyecto del propietario',
+        created_by=owner,
+    )
+    owned_project.members.add(user)
+
+    client.force_login(user)
+    response = client.post(
+        reverse('projects:edit', args=[owned_project.pk]),
+        data={'name': 'Intento de edicion'},
+    )
+
+    assert response.status_code == 302
+    owned_project.refresh_from_db()
+    assert owned_project.name == 'Proyecto del propietario'
+
+
+@pytest.mark.django_db
+def test_propietario_puede_editar_proyecto(client, user, project):
+    client.force_login(user)
+
+    response = client.post(
+        reverse('projects:edit', args=[project.pk]),
+        data={
+            'code': project.code,
+            'name': 'Nombre actualizado',
+            'description': 'Descripcion actualizada',
+            'start_date': timezone.localdate().isoformat(),
+        },
+    )
+
+    project.refresh_from_db()
+
+    assert response.status_code == 302
+    assert project.name == 'Nombre actualizado'
+    assert project.description == 'Descripcion actualizada'
+
+
+@pytest.mark.django_db
+def test_formulario_rechaza_fechas_de_otro_anio():
+    other_year = timezone.localdate().year - 1
+    form = ProjectForm(
+        data={
+            'code': 'PRJ-002',
+            'name': 'Sistema academico',
+            'description': 'Proyecto de pruebas academicas',
+            'start_date': f'{other_year}-05-10',
+            'members': [],
+        }
+    )
+
+    assert not form.is_valid()
+    assert 'start_date' in form.errors
+
+
+@pytest.mark.django_db
+def test_eliminar_proyecto_con_automatizaciones_no_lanza_protected_error(client, project, test_case, execution):
+    from apps.executions.models import AutomatedExecutionResult, AutomatedValidationRule
+
+    rule = AutomatedValidationRule.objects.create(
+        test_case=test_case,
+        requirement=test_case.requirement,
+        step_number=1,
+        name='Verificar login',
+        action_type=AutomatedValidationRule.ActionType.VERIFY,
+        target_url='https://example.com/login',
+        expected_value='Bienvenido',
+    )
+    AutomatedExecutionResult.objects.create(
+        test_execution=execution,
+        validation_rule=rule,
+        status=execution.result,
+    )
+
+    client.force_login(project.created_by)
+    response = client.post(reverse('projects:delete', args=[project.pk]))
+
+    assert response.status_code == 302
+    assert not Project.objects.filter(pk=project.pk).exists()
+    assert not AutomatedExecutionResult.objects.filter(validation_rule=rule).exists()

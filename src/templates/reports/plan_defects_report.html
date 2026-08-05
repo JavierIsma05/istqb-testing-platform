@@ -1,0 +1,119 @@
+{% extends 'layouts/dashboard_base.html' %}
+{% load static %}
+
+{% block title %}Informe de Defectos - {{ plan.name }}{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading reports-heading">
+    <div>
+        <nav class="module-breadcrumb" aria-label="Navegación del módulo Informes">
+            <a href="{% url 'reports:index' %}">Informes</a>
+            <i class="bi bi-chevron-right"></i>
+            <a href="{% url 'reports:plan-dashboard' plan.pk %}">{{ plan.name }}</a>
+            <i class="bi bi-chevron-right"></i>
+            <strong>Defectos</strong>
+        </nav>
+        <h2>Informe de Defectos</h2>
+        <p>{{ plan.project.name }} · {{ plan.name }}</p>
+    </div>
+    <div class="d-flex gap-2 no-print">
+        <a class="btn btn-outline-brand" href="{% url 'reports:plan-report' %}?type=defectos">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+        <button class="btn btn-brand" type="button" onclick="window.print()">
+            <i class="bi bi-printer"></i> Imprimir
+        </button>
+        <a class="btn btn-outline-brand" href="{% url 'reports:plan-pdf' plan.pk 'defectos' %}">
+            <i class="bi bi-file-earmark-pdf"></i> Generar PDF
+        </a>
+    </div>
+</div>
+
+<section class="report-preview plan-report-preview">
+    <header class="unl-report-header">
+        <img
+            class="report-brand-logo report-brand-logo-career"
+            src="{% static 'images/reports/career-logo.png' %}"
+            alt="Carrera de Ingenieria en Sistemas y Computacion"
+        >
+        <div class="report-institution-title">
+            <h3>UNIVERSIDAD NACIONAL DE LOJA</h3>
+            <p>Facultad de la Energía, las Industrias y los Recursos Naturales no Renovables</p>
+            <p>Carrera de Computación</p>
+            <p>Plataforma ISTQB - Gestión del Ciclo de Vida de Pruebas</p>
+        </div>
+        <img
+            class="report-brand-logo report-brand-logo-unl"
+            src="{% static 'images/reports/unl-logo.png' %}"
+            alt="Universidad Nacional de Loja"
+        >
+    </header>
+
+    <div class="report-preview-title">
+        <h4>Informe de Defectos</h4>
+        <span>{{ plan.project.name }} · {{ plan.name }}</span>
+    </div>
+
+    <h5>Resumen por severidad</h5>
+    <div class="bar-chart" role="img" aria-label="Defectos por severidad">
+        {% for item in severity_chart.items %}
+            <div class="bar-chart-row">
+                <span>{{ item.label }}</span>
+                <div class="bar-chart-track"><span class="tone-{{ item.tone }}" style="width: {{ item.percent }}%"></span></div>
+                <strong>{{ item.value }}</strong>
+            </div>
+        {% endfor %}
+    </div>
+    <div class="chart-legend">
+        {% for item in severity_chart.items %}
+            <span><i class="legend-dot tone-{{ item.tone }}"></i>{{ item.label }}: {{ item.value }}</span>
+        {% endfor %}
+    </div>
+
+    <h5>Resumen por estado</h5>
+    <table class="report-preview-table metrics">
+        <thead><tr><th>Estado</th><th>Cantidad</th></tr></thead>
+        <tbody>
+            {% for row in defect_status_rows %}
+                <tr><td>{{ row.status }}</td><td>{{ row.count }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h5>Detalle de defectos</h5>
+    <table class="report-preview-table metrics">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Caso de prueba</th>
+                <th>Descripción</th>
+                <th>Severidad</th>
+                <th>Prioridad</th>
+                <th>Responsable</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for defect in defects %}
+                <tr>
+                    <td>{{ defect.code }}</td>
+                    <td>{{ defect.test_case.code|default:'—' }}</td>
+                    <td>{{ defect.title }}</td>
+                    <td>{{ defect.get_severity_display }}</td>
+                    <td>{{ defect.get_priority_display }}</td>
+                    <td>{{ defect.assigned_to.get_full_name|default:defect.assigned_to.username|default:'—' }}</td>
+                    <td>{{ defect.get_status_display }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="report-empty-cell">El plan de pruebas no tiene defectos registrados.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h5>Observación institucional</h5>
+    <p class="report-observation">
+        Este documento fue generado por la Plataforma ISTQB como evidencia del ciclo de vida de pruebas.
+        La información debe ser revisada por el docente tutor antes de su presentación formal.
+    </p>
+</section>
+{% endblock %}
