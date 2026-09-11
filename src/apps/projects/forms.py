@@ -8,6 +8,13 @@ from .models import Project
 
 
 class ProjectForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
+    members = forms.ModelMultipleChoiceField(
+        label='Estudiantes participantes',
+        required=False,
+        queryset=User.objects.filter(role=User.Roles.STUDENT).order_by('first_name', 'last_name', 'email'),
+        widget=forms.SelectMultiple(attrs={'class': 'form-select', 'size': 5}),
+        help_text='Selecciona los estudiantes que participarán en el proyecto. El propietario se conserva automáticamente.',
+    )
     tutor = forms.ModelChoiceField(
         label='Docente tutor',
         required=False,
@@ -19,13 +26,14 @@ class ProjectForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
 
     class Meta:
         model = Project
-        fields = ('code', 'name', 'description', 'start_date', 'end_date', 'tutor')
+        fields = ('code', 'name', 'description', 'start_date', 'end_date', 'members', 'tutor')
         labels = {
             'code': 'Código',
             'name': 'Nombre del proyecto',
             'description': 'Descripción',
             'start_date': 'Fecha de inicio',
             'end_date': 'Fecha de fin',
+            'members': 'Estudiantes participantes',
             'tutor': 'Docente tutor',
         }
         widgets = {
@@ -67,6 +75,7 @@ class ProjectForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
             'start_date': 'Fecha desde la que se planifica iniciar las actividades de prueba.',
             'end_date': 'Fecha estimada para cerrar las actividades principales del proyecto.',
             'tutor': 'Solo se listan los docentes registrados en la plataforma.',
+            'members': 'Solo se listan estudiantes. El propietario y el tutor se gestionan automáticamente.',
         }
         for name, help_text in help_texts.items():
             self.fields[name].help_text = help_text

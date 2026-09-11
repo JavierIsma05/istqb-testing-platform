@@ -72,6 +72,12 @@
                 {% endif %}
                 {% if form.tutor.errors %}<div class="form-error">{{ form.tutor.errors|striptags }}</div>{% endif %}
             </div>
+            <div class="col-12">
+                <label class="form-label" for="{{ form.members.id_for_label }}">{{ form.members.label }}</label>
+                {{ form.members }}
+                <div class="form-text">{{ form.members.help_text }}</div>
+                {% if form.members.errors %}<div class="form-error">{{ form.members.errors|striptags }}</div>{% endif %}
+            </div>
         </div>
 
         <div class="d-flex justify-content-end gap-2 mt-4">

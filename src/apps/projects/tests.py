@@ -184,6 +184,58 @@ def test_proyecto_se_vincula_a_tutor_por_seleccion(client, user):
 
 
 @pytest.mark.django_db
+def test_proyecto_asigna_participantes_estudiantes_y_tutor(client, user):
+    participant = get_user_model().objects.create_user(
+        email='participante@example.edu',
+        password='StrongPass123',
+        role=get_user_model().Roles.STUDENT,
+    )
+    tutor = get_user_model().objects.create_user(
+        email='tutor-asignado@example.edu',
+        password='StrongPass123',
+        role=get_user_model().Roles.TEACHER,
+    )
+
+    client.force_login(user)
+    response = client.post(
+        reverse('projects:create'),
+        data={
+            'name': 'Proyecto con participantes',
+            'description': 'Proyecto con equipo asignado.',
+            'members': [participant.pk],
+            'tutor': tutor.pk,
+        },
+    )
+
+    project = Project.objects.get(name='Proyecto con participantes')
+    assert response.status_code == 302
+    assert set(project.members.values_list('pk', flat=True)) == {user.pk, participant.pk, tutor.pk}
+    assert project.tutor_id == tutor.pk
+
+
+@pytest.mark.django_db
+def test_formulario_no_permite_asignar_docente_como_participante(client, user):
+    tutor = get_user_model().objects.create_user(
+        email='solo-tutor@example.edu',
+        password='StrongPass123',
+        role=get_user_model().Roles.TEACHER,
+    )
+
+    client.force_login(user)
+    response = client.post(
+        reverse('projects:create'),
+        data={
+            'name': 'Proyecto invalido',
+            'description': 'No debe aceptar un docente como participante.',
+            'members': [tutor.pk],
+        },
+    )
+
+    assert response.status_code == 200
+    assert not Project.objects.filter(name='Proyecto invalido').exists()
+
+
+@pytest.mark.django_db
 def test_formulario_solo_lista_docentes_en_tutor(client, user):
     student = get_user_model().objects.create_user(
         email='estudiante@example.edu',
