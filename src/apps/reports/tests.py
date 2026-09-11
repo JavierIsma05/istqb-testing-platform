@@ -646,3 +646,49 @@ def test_plan_pdf_incluye_chart_datos_de_distribucion(project, user, test_plan):
     chart_titles = [s['title'] for s in sections if 'chart_data' in s]
     for expected in ('Distribución de riesgos por nivel', 'Distribución por probabilidad', 'Distribución por impacto'):
         assert expected in chart_titles
+
+
+@pytest.mark.django_db
+def test_lista_de_informes_muestra_informe_guardado_y_acciones(client, project, user):
+    report = Report.objects.create(
+        project=project,
+        title='Informe accesible',
+        report_type=Report.ReportType.SUMMARY,
+        generated_by=user,
+        content={'requirements': 1},
+    )
+    client.force_login(user)
+
+    response = client.get(reverse('reports:index'))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert report.title in content
+    assert reverse('reports:detail', args=[report.pk]) in content
+    assert reverse('reports:download', args=[report.pk]) in content
+
+
+@pytest.mark.django_db
+def test_selector_de_informes_muestra_plan_visible(client, project, user, test_plan):
+    client.force_login(user)
+
+    response = client.get(reverse('reports:plan-report'), {'type': 'ejecuciones'})
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert test_plan.name in content
+    assert 'data-plans-by-project=' in content
+    assert 'planReportProject' in content
+
+
+@pytest.mark.django_db
+def test_selector_redirige_al_informe_del_plan(client, project, user, test_plan):
+    client.force_login(user)
+
+    response = client.get(
+        reverse('reports:plan-report'),
+        {'type': 'casos', 'plan': test_plan.pk},
+    )
+
+    assert response.status_code == 302
+    assert response.url == reverse('reports:plan-casos', args=[test_plan.pk])
