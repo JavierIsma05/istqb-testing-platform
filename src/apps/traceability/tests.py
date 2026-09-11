@@ -1,12 +1,14 @@
 import pytest
 from datetime import timedelta
 from django.db import IntegrityError
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.executions.models import TestExecution
 from apps.testcases.models import TestCase
 from apps.traceability.models import TraceabilityLink
+from apps.projects.models import Project
 
 
 @pytest.mark.django_db
@@ -28,6 +30,25 @@ def test_trazabilidad_no_permite_duplicar_requisito_y_caso(requirement, test_cas
 
     with pytest.raises(IntegrityError):
         TraceabilityLink.objects.create(requirement=requirement, test_case=test_case)
+
+
+@pytest.mark.django_db
+def test_trazabilidad_rechaza_requisito_y_caso_de_proyectos_distintos(requirement, test_case, user):
+    other_project = Project.objects.create(
+        code='PRJ-TRZ-002',
+        name='Proyecto de otra trazabilidad',
+        created_by=user,
+    )
+    other_requirement = requirement.__class__.objects.create(
+        project=other_project,
+        code='REQ-999',
+        title='Requisito de otro proyecto',
+        description='No debe vincularse a un caso externo.',
+        created_by=user,
+    )
+
+    with pytest.raises(ValidationError, match='mismo proyecto'):
+        TraceabilityLink.objects.create(requirement=other_requirement, test_case=test_case)
 
 
 @pytest.mark.django_db
