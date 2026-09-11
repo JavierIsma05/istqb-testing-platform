@@ -36,7 +36,7 @@ class RegisterForm(UserCreationForm):
         self.fields['password2'].widget.attrs.update({'class': 'form-control form-control-lg'})
 
     def clean_email(self):
-        email = self.cleaned_data['email']
+        email = self.cleaned_data['email'].strip().lower()
         domain = email.split('@')[-1].lower()
         public_domains = {
             'gmail.com',

@@ -1,5 +1,8 @@
+from functools import wraps
+
 from django.contrib import messages
 from django.db.models import Q
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
 
 from apps.projects.models import Project
@@ -7,11 +10,51 @@ from apps.users.models import User
 
 
 def is_teacher(user):
-    return user.is_authenticated and user.role == User.Roles.TEACHER
+    return bool(getattr(user, 'is_authenticated', False)) and getattr(user, 'role', None) == User.Roles.TEACHER
+
+
+def is_admin(user):
+    return bool(getattr(user, 'is_authenticated', False)) and getattr(user, 'role', None) == User.Roles.ADMIN
+
+
+def is_student(user):
+    return bool(getattr(user, 'is_authenticated', False)) and getattr(user, 'role', None) == User.Roles.STUDENT
+
+
+def has_role(user, *roles):
+    """Return whether an authenticated user has one of the supplied roles."""
+    return bool(getattr(user, 'is_authenticated', False)) and getattr(user, 'role', None) in roles
 
 
 def can_manage_artifacts(user):
-    return not is_teacher(user)
+    return is_admin(user) or is_student(user)
+
+
+def can_manage_users(user):
+    """Only application administrators may manage user accounts."""
+    return is_admin(user)
+
+
+def role_required(*roles):
+    """Protect a view with authentication plus an explicit application role."""
+    allowed_roles = set(roles)
+
+    def decorator(view_func):
+        @wraps(view_func)
+        @login_required
+        def wrapped(request, *args, **kwargs):
+            if not has_role(request.user, *allowed_roles):
+                messages.error(request, 'No tienes permisos para acceder a esta sección.')
+                return redirect('dashboard')
+            return view_func(request, *args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
+def admin_required(view_func):
+    return role_required(User.Roles.ADMIN)(view_func)
 
 
 def teacher_project_filter(user):
