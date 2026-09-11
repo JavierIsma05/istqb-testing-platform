@@ -604,6 +604,12 @@ def execution_delete_view(request, pk):
     if not request.user.is_superuser and execution.executed_by_id != request.user.id:
         messages.error(request, 'Solo puedes eliminar tus propias ejecuciones.')
         return redirect(f'{reverse("executions:index")}?case={execution.test_case_id}')
+    if execution.review_status != TestExecution.ReviewStatus.PENDING:
+        messages.error(
+            request,
+            'Una ejecución revisada no puede eliminarse. Registra una nueva ejecución para conservar el historial ISTQB.',
+        )
+        return redirect(f'{reverse("executions:index")}?case={execution.test_case_id}')
     test_case = execution.test_case
     log_action(
         request.user,
@@ -756,7 +762,7 @@ def teacher_api_students(request, project_id):
     if not is_teacher(request.user):
         return JsonResponse({'error': 'No autorizado'}, status=403)
     project = get_object_or_404(
-        Project.objects.prefetch_related('members'),
+        visible_projects_for(request.user).prefetch_related('members'),
         pk=project_id,
     )
     students = project.members.filter(role=User.Roles.STUDENT).order_by('email')
@@ -776,7 +782,7 @@ def teacher_api_cases(request, project_id, student_id):
     if not is_teacher(request.user):
         return JsonResponse({'error': 'No autorizado'}, status=403)
     project = get_object_or_404(
-        Project.objects.all(),
+        visible_projects_for(request.user),
         pk=project_id,
     )
     student = get_object_or_404(User.objects.all(), pk=student_id, role=User.Roles.STUDENT)

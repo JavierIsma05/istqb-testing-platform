@@ -16,6 +16,7 @@ from apps.executions.services.automated_runner import (
     run_automated_execution,
 )
 from apps.requirements.models import Requirement
+from apps.projects.models import Project
 from apps.traceability.models import TraceabilityLink
 from apps.users.models import User
 
@@ -424,7 +425,7 @@ def test_historial_separa_ejecuciones_manuales_y_automatizadas(client, test_case
 
 
 @pytest.mark.django_db
-def test_vista_elimina_ejecucion_automatizada_revisada_del_historial(client, test_case, user):
+def test_vista_no_elimina_ejecucion_automatizada_revisada_del_historial(client, test_case, user):
     rule = AutomatedValidationRule.objects.create(
         test_case=test_case,
         requirement=test_case.requirement,
@@ -457,10 +458,10 @@ def test_vista_elimina_ejecucion_automatizada_revisada_del_historial(client, tes
     response = client.post(reverse('executions:delete', args=[execution.pk]), follow=True)
 
     assert response.status_code == 200
-    assert not ExecutionModel.objects.filter(pk=execution.pk).exists()
-    assert not AutomatedExecutionResult.objects.filter(pk=result.pk).exists()
+    assert ExecutionModel.objects.filter(pk=execution.pk).exists()
+    assert AutomatedExecutionResult.objects.filter(pk=result.pk).exists()
     assert AutomatedValidationRule.objects.filter(pk=rule.pk).exists()
-    assert 'Ejecución eliminada correctamente.'.encode() in response.content
+    assert 'Una ejecución revisada no puede eliminarse.'.encode() in response.content
 
 
 @pytest.mark.django_db
@@ -920,3 +921,38 @@ def test_ejecucion_automatizada_bloqueada_sin_requisito_aprobado(client, test_ca
 
     assert not ExecutionModel.objects.filter(test_case=test_case).exists()
     assert 'ningún requisito aprobado'.encode() in response.content
+
+
+@pytest.mark.django_db
+def test_api_docente_no_expone_proyectos_ajenos(client, project, user):
+    teacher = User.objects.create_user(
+        email='teacher-api@example.com',
+        password='StrongPass123',
+        role=User.Roles.TEACHER,
+    )
+    foreign_project = Project.objects.create(
+        code='PRJ-FOREIGN',
+        name='Proyecto fuera del alcance',
+        created_by=user,
+    )
+    client.force_login(teacher)
+
+    response = client.get(reverse('executions:api-students', args=[foreign_project.pk]))
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_api_docente_consulta_solo_proyecto_visible(client, project):
+    teacher = User.objects.create_user(
+        email='teacher-visible@example.com',
+        password='StrongPass123',
+        role=User.Roles.TEACHER,
+    )
+    project.members.add(teacher)
+    client.force_login(teacher)
+
+    response = client.get(reverse('executions:api-students', args=[project.pk]))
+
+    assert response.status_code == 200
+    assert response.json() == []

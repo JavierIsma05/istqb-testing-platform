@@ -690,7 +690,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var templates = {
             'login': {
                 'action_type': 'OPEN_URL',
-                'target_url': 'http://localhost:8000/login/',
+                'target_url': window.location.origin + '/login/',
                 'selector_value': '',
                 'input_value': '',
                 'expected_value': '',
@@ -868,14 +868,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
             function saveToLocal(data) {
                 try {
-                    localStorage.setItem(getLocalStorageKey(), JSON.stringify(data));
+                    localStorage.setItem(getLocalStorageKey(), JSON.stringify({
+                        data: data,
+                        updated_at: new Date().toISOString()
+                    }));
                 } catch (error) {}
             }
 
             function readLocal() {
                 try {
                     var raw = localStorage.getItem(getLocalStorageKey());
-                    return raw ? JSON.parse(raw) : null;
+                    if (!raw) {
+                        return null;
+                    }
+                    var parsed = JSON.parse(raw);
+                    return parsed && parsed.data ? parsed : {data: parsed, updated_at: null};
                 } catch (error) {
                     return null;
                 }
@@ -948,16 +955,23 @@ document.addEventListener('DOMContentLoaded', function () {
                 }, 5000);
             }
 
-            var pendingSave = false;
+            var saveInFlight = false;
+            var queuedData = null;
+            var queuedProject = null;
 
-            function doSave() {
-                var data = serialize();
+            function doSave(data) {
+                data = data || serialize();
                 saveToLocal(data);
-                if (pendingSave) {
+                queuedData = data;
+                queuedProject = currentProject();
+                if (saveInFlight) {
                     return;
                 }
-                pendingSave = true;
+                saveInFlight = true;
                 setStatus('Guardando...', 'saving');
+
+                var payload = queuedData;
+                var projectId = queuedProject;
 
                 fetch(saveUrl, {
                     method: 'POST',
@@ -968,9 +982,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     credentials: 'same-origin',
                     body: JSON.stringify({
                         module: module,
-                        project_id: currentProject(),
+                        project_id: projectId,
                         object_id: objectId,
-                        data: data
+                        data: payload
                     })
                 }).then(function (response) {
                     if (!response.ok) {
@@ -982,7 +996,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 }).catch(function () {
                     setStatus('Sin conexión — guardado localmente', 'offline');
                 }).then(function () {
-                    pendingSave = false;
+                    saveInFlight = false;
+                    if (queuedData && JSON.stringify(queuedData) !== JSON.stringify(payload)) {
+                        doSave(queuedData);
+                    }
                 });
             }
 
@@ -1073,19 +1090,22 @@ document.addEventListener('DOMContentLoaded', function () {
                         return response.json();
                     })
                     .then(function (payload) {
-                        if (payload.found && hasContent(payload.data)) {
-                            showDraftBanner(payload.data, false);
-                        } else if (!payload.found) {
-                            var local = readLocal();
-                            if (local && hasContent(local)) {
-                                showDraftBanner(local, true);
-                            }
+                        var local = readLocal();
+                        var serverData = payload.found ? payload.data : null;
+                        var serverDate = payload.updated_at ? new Date(payload.updated_at).getTime() : 0;
+                        var localDate = local && local.updated_at ? new Date(local.updated_at).getTime() : 0;
+                        if (serverData && hasContent(serverData) && local && hasContent(local.data) && localDate > serverDate) {
+                            showDraftBanner(local.data, true);
+                        } else if (serverData && hasContent(serverData)) {
+                            showDraftBanner(serverData, false);
+                        } else if (local && hasContent(local.data)) {
+                            showDraftBanner(local.data, true);
                         }
                     })
                     .catch(function () {
                         var local = readLocal();
-                        if (local && hasContent(local)) {
-                            showDraftBanner(local, true);
+                        if (local && hasContent(local.data)) {
+                            showDraftBanner(local.data, true);
                         }
                     });
             }
