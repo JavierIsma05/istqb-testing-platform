@@ -219,3 +219,23 @@ def test_metric_cards_cuentan_elementos_de_la_matriz(client, user, requirement, 
     assert response.context['total_test_cases'] == 1
     assert response.context['total_executions'] == 1
     assert response.context['total_results'] == 1
+
+
+@pytest.mark.django_db
+def test_matriz_ofrece_enlaces_contextuales(client, user, requirement, test_plan, test_case, execution):
+    TraceabilityLink.objects.create(
+        requirement=requirement,
+        test_case=test_case,
+        rationale='Cubre el acceso válido.',
+    )
+    client.force_login(user)
+
+    response = client.get(reverse('traceability:index'))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert reverse('requirements:edit', args=[requirement.pk]) in content
+    assert reverse('testplans:edit', args=[test_plan.pk]) in content
+    assert reverse('testcases:detail', args=[test_case.pk]) in content
+    assert reverse('executions:history', args=[test_case.pk]) in content
+    assert 'Cubre el acceso válido.' in content

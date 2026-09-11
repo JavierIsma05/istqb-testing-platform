@@ -54,7 +54,7 @@
                     </div>
                     <div class="row g-3">
                         {% for field in form %}
-                            {% if field.name in 'priority technique' %}
+                            {% if field.name in 'level execution_type version priority technique' %}
                                 <div class="col-md-4">
                                     <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
                                     {{ field }}
@@ -67,6 +67,12 @@
                             <label class="form-label" for="{{ form.custom_technique.id_for_label }}">{{ form.custom_technique.label }}</label>
                             {{ form.custom_technique }}
                             {% if form.custom_technique.errors %}<div class="form-error">{{ form.custom_technique.errors|striptags }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label" for="{{ form.covered_risks.id_for_label }}">{{ form.covered_risks.label }}</label>
+                            {{ form.covered_risks }}
+                            <div class="form-text">{{ form.covered_risks.help_text }}</div>
+                            {% if form.covered_risks.errors %}<div class="form-error">{{ form.covered_risks.errors|striptags }}</div>{% endif %}
                         </div>
                         {% for field in form %}
                             {% if field.name in 'status' %}

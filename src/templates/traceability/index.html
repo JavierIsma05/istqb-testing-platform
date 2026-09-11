@@ -67,17 +67,18 @@
                     <th>Ejecución</th>
                     <th>Resultado</th>
                     <th>Defecto</th>
+                    <th>Justificación</th>
                 </tr>
             </thead>
             <tbody>
                 {% for row in rows %}
                     <tr>
                         <td>
-                            <span class="trace-pill requirement-pill">{{ row.requirement.code }}</span>
+                            <a class="trace-pill requirement-pill" href="{% url 'requirements:edit' row.requirement.pk %}">{{ row.requirement.code }}</a>
                         </td>
                         <td>
                             {% if row.plan %}
-                                <span class="trace-pill plan-pill">{{ row.plan.name }}</span>
+                                <a class="trace-pill plan-pill" href="{% url 'testplans:edit' row.plan.pk %}">{{ row.plan.name }}</a>
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endif %}
@@ -85,10 +86,10 @@
                         <td>
                             {% if row.case %}
                                 <div class="trace-pill-list">
-                                    <span class="trace-pill testcase-pill">
+                                    <a class="trace-pill testcase-pill" href="{% url 'testcases:detail' row.case.pk %}">
                                         <i class="bi bi-test-tube"></i>
                                         {{ row.case.code }}
-                                    </span>
+                                    </a>
                                 </div>
                             {% else %}
                                 <span class="text-muted">—</span>
@@ -96,10 +97,10 @@
                         </td>
                         <td>
                             {% if row.execution %}
-                                <span class="trace-pill execution-pill">
+                                <a class="trace-pill execution-pill" href="{% url 'executions:history' row.case.pk %}">
                                     <i class="bi bi-play-circle"></i>
                                     Ejecución #{{ row.execution.id }}
-                                </span>
+                                </a>
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endif %}
@@ -117,20 +118,23 @@
                             {% if row.defects %}
                                 <div class="trace-pill-list">
                                     {% for defect in row.defects %}
-                                        <span class="trace-pill defect-pill">
+                                        <a class="trace-pill defect-pill" href="{% url 'defects:edit' defect.pk %}">
                                             <i class="bi bi-bug"></i>
                                             {{ defect.code }}
-                                        </span>
+                                        </a>
                                     {% endfor %}
                                 </div>
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endif %}
                         </td>
+                        <td>
+                            {% if row.rationale %}{{ row.rationale }}{% else %}<span class="text-muted">Sin justificación</span>{% endif %}
+                        </td>
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-5">
+                        <td colspan="7" class="text-center text-muted py-5">
                             No hay requisitos para mostrar en la matriz.
                         </td>
                     </tr>
