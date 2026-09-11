@@ -2,10 +2,11 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from apps.core.views import landing_view
+from apps.core.views import health_view, landing_view
 
 urlpatterns = [
     path('', landing_view, name='landing'),
+    path('health/', health_view, name='health'),
 
     path(
         'admin/',
