@@ -202,6 +202,21 @@
                                         {{ form.priority }}
                                         {% if form.priority.errors %}<div class="form-error">{{ form.priority.errors|striptags }}</div>{% endif %}
                                     </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="{{ form.level.id_for_label }}">{{ form.level.label }}</label>
+                                        {{ form.level }}
+                                        {% if form.level.errors %}<div class="form-error">{{ form.level.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="{{ form.execution_type.id_for_label }}">{{ form.execution_type.label }}</label>
+                                        {{ form.execution_type }}
+                                        {% if form.execution_type.errors %}<div class="form-error">{{ form.execution_type.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="{{ form.version.id_for_label }}">{{ form.version.label }}</label>
+                                        {{ form.version }}
+                                        {% if form.version.errors %}<div class="form-error">{{ form.version.errors|striptags }}</div>{% endif %}
+                                    </div>
                                     <div class="col-md-4 technique-field-group">
                                         <label class="form-label" for="{{ form.technique.id_for_label }}">{{ form.technique.label }}</label>
                                         {{ form.technique }}
@@ -216,6 +231,12 @@
                                         <label class="form-label" for="{{ form.status.id_for_label }}">{{ form.status.label }}</label>
                                         {{ form.status }}
                                         {% if form.status.errors %}<div class="form-error">{{ form.status.errors|striptags }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-md-8">
+                                        <label class="form-label" for="{{ form.covered_risks.id_for_label }}">{{ form.covered_risks.label }}</label>
+                                        {{ form.covered_risks }}
+                                        <div class="form-text">{{ form.covered_risks.help_text }}</div>
+                                        {% if form.covered_risks.errors %}<div class="form-error">{{ form.covered_risks.errors|striptags }}</div>{% endif %}
                                     </div>
                                 </div>
                             </div>

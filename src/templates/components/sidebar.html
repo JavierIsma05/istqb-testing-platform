@@ -30,6 +30,7 @@
         <a class="{% if request.resolver_match.namespace == 'defects' %}active{% endif %}" href="{% url 'defects:index' %}" title="Defectos"><i class="bi bi-bug"></i><span>Defectos</span></a>
         <a class="{% if request.resolver_match.namespace == 'traceability' %}active{% endif %}" href="{% url 'traceability:index' %}" title="Trazabilidad"><i class="bi bi-diagram-2"></i><span>Trazabilidad</span></a>
         <a class="{% if request.resolver_match.namespace == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}" title="Informes"><i class="bi bi-bar-chart"></i><span>Informes</span></a>
+        <a class="{% if request.resolver_match.url_name == 'quality-metrics' %}active{% endif %}" href="{% url 'reports:quality-metrics' %}" title="Métricas de calidad"><i class="bi bi-speedometer2"></i><span>Métricas</span></a>
         {% if request.user.role == 'ADMIN' %}
         <a class="{% if request.resolver_match.namespace == 'audit' %}active{% endif %}" href="{% url 'audit:index' %}" title="Auditoría"><i class="bi bi-shield-check"></i><span>Auditoría</span></a>
         {% endif %}

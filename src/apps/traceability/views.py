@@ -53,6 +53,7 @@ def traceability_matrix_view(request):
     for requirement in requirements:
         direct_cases = list(requirement.test_cases.all())
         linked_cases = [link.test_case for link in requirement.traceability_links.all()]
+        link_by_case = {link.test_case_id: link for link in requirement.traceability_links.all()}
         test_cases_by_id = {test_case.id: test_case for test_case in direct_cases + linked_cases}
         test_cases = list(test_cases_by_id.values())
 
@@ -81,6 +82,7 @@ def traceability_matrix_view(request):
                     'case': None,
                     'execution': None,
                     'defects': [],
+                    'rationale': '',
                 }
             )
             continue
@@ -103,6 +105,7 @@ def traceability_matrix_view(request):
                     'case': test_case,
                     'execution': execution,
                     'defects': row_defects,
+                    'rationale': getattr(link_by_case.get(test_case.pk), 'rationale', '') or '',
                 }
             )
 

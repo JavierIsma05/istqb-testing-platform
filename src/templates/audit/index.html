@@ -5,6 +5,7 @@
     <div>
         <h2>Bitácora de auditoría</h2>
         <p>Registro inmutable de acciones relevantes realizadas en la plataforma.</p>
+        <a class="btn btn-outline-brand" href="{% url 'audit:export-csv' %}?action={{ selected_action }}&entity={{ selected_entity }}&actor={{ selected_actor }}&project={{ selected_project }}&q={{ query }}"><i class="bi bi-filetype-csv"></i> Exportar CSV</a>
     </div>
 </div>
 <section class="reports-list-card">

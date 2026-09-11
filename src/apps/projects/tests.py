@@ -343,3 +343,46 @@ def test_eliminar_proyecto_con_automatizaciones_no_lanza_protected_error(client,
     assert response.status_code == 302
     assert not Project.objects.filter(pk=project.pk).exists()
     assert not AutomatedExecutionResult.objects.filter(validation_rule=rule).exists()
+
+
+@pytest.mark.django_db
+def test_lista_expone_menu_bootstrap_con_editar_y_eliminar_para_propietario(client, project, user):
+    client.force_login(user)
+
+    response = client.get(reverse('projects:index'))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert 'data-bs-toggle="dropdown"' in content
+    assert reverse('projects:edit', args=[project.pk]) in content
+    assert reverse('projects:delete', args=[project.pk]) in content
+
+
+@pytest.mark.django_db
+def test_lista_no_expone_acciones_de_edicion_a_un_miembro_no_propietario(client, project):
+    member = get_user_model().objects.create_user(
+        email='miembro-sin-edicion@example.edu',
+        password='StrongPass123',
+    )
+    project.members.add(member)
+    client.force_login(member)
+
+    response = client.get(reverse('projects:index'))
+
+    assert response.status_code == 200
+    assert reverse('projects:edit', args=[project.pk]) not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_administrador_puede_acceder_a_editar_proyecto_visible(client, project):
+    admin = get_user_model().objects.create_user(
+        email='admin-proyectos@example.edu',
+        password='StrongPass123',
+        role=get_user_model().Roles.ADMIN,
+    )
+    client.force_login(admin)
+
+    response = client.get(reverse('projects:edit', args=[project.pk]))
+
+    assert response.status_code == 200
+    assert response.context['project'] == project

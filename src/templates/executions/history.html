@@ -76,7 +76,7 @@
                 {% for item in manual_history %}
                     <tr>
                         <td>{{ item.execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}</td>
-                        <td>{{ item.execution.get_result_display }}</td>
+                        <td><a href="{% url 'executions:detail' item.execution.pk %}">{{ item.execution.get_result_display }}</a></td>
                         <td>{{ item.execution.get_execution_type_display }}</td>
                         <td>{{ item.execution.executed_by.get_full_name|default:item.execution.executed_by.email|default:'Sin asignar' }}</td>
                         <td>{{ item.execution.get_review_status_display }}</td>
@@ -151,7 +151,7 @@
                 {% for item in automated_history %}
                     <tr>
                         <td>{{ item.execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}</td>
-                        <td>{{ item.execution.get_result_display }}</td>
+                        <td><a href="{% url 'executions:detail' item.execution.pk %}">{{ item.execution.get_result_display }}</a></td>
                         <td>{{ item.execution.executed_by.get_full_name|default:item.execution.executed_by.email|default:'Sin asignar' }}</td>
                         <td>{{ item.execution.get_review_status_display }}</td>
                         <td>

@@ -243,3 +243,43 @@ def test_tecnica_existente_no_exige_tecnica_personalizada(test_plan, requirement
 
     assert form.is_valid(), form.errors
     assert form.save().custom_technique == ''
+
+
+@pytest.mark.django_db
+def test_caso_guarda_campos_istqb_y_riesgos_desde_formulario(project, requirement, test_plan, user):
+    from apps.incidents.models import Incident
+
+    risk = Incident.objects.create(
+        project=project,
+        test_plan=test_plan,
+        code='INC-101',
+        title='Riesgo de acceso',
+        description='El acceso puede fallar.',
+        reported_by=user,
+    )
+    form = CaseForm(
+        data={
+            'test_plan': test_plan.pk,
+            'requirement': requirement.pk,
+            'title': 'Caso ISTQB completo',
+            'description': 'Caso con metadatos completos.',
+            'level': CaseModel.Level.INTEGRATION,
+            'execution_type': CaseModel.ExecutionType.AUTOMATED,
+            'version': '2.1',
+            'priority': CaseModel.Priority.HIGH,
+            'technique': CaseModel.Technique.BOUNDARY,
+            'preconditions': 'Usuario válido',
+            'test_data': 'Entrada límite',
+            'steps': 'Abrir formulario => Se muestra correctamente',
+            'expected_result': 'La validación funciona.',
+            'status': CaseModel.Status.READY,
+            'covered_risks': [risk.pk],
+        },
+        user=user,
+    )
+    assert form.is_valid(), form.errors
+    case = form.save()
+    assert case.level == CaseModel.Level.INTEGRATION
+    assert case.execution_type == CaseModel.ExecutionType.AUTOMATED
+    assert case.version == '2.1'
+    assert list(case.covered_risks.values_list('pk', flat=True)) == [risk.pk]

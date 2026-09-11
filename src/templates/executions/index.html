@@ -1321,18 +1321,18 @@
             const templates = {
                 'login': [
                     { field: 'action_type', value: 'OPEN_URL' },
-                    { field: 'target_url', value: 'http://localhost:8000/login/' },
+                    { field: 'target_url', value: window.location.origin + '/login/' },
                     { field: 'step_number', value: '1' },
                     { field: 'name', value: 'Abrir login' },
                 ],
                 'search': [
                     { field: 'action_type', value: 'OPEN_URL' },
-                    { field: 'target_url', value: 'http://localhost:8000/' },
+                    { field: 'target_url', value: window.location.origin + '/' },
                     { field: 'step_number', value: '1' },
                 ],
                 'form_submit': [
                     { field: 'action_type', value: 'OPEN_URL' },
-                    { field: 'target_url', value: 'http://localhost:8000/form/' },
+                    { field: 'target_url', value: window.location.origin + '/form/' },
                     { field: 'step_number', value: '1' },
                 ],
             };
