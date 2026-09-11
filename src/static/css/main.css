@@ -676,6 +676,25 @@ a {
     gap: 4px;
 }
 
+.sidebar-section-label {
+    align-items: center;
+    color: var(--muted);
+    display: flex;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    margin: 14px 12px 4px;
+    text-transform: uppercase;
+}
+
+.sidebar-section-label::before {
+    color: var(--brand);
+    content: '/';
+    font-size: 16px;
+    line-height: 1;
+    margin-right: 7px;
+}
+
 .sidebar-nav a {
     align-items: center;
     border-radius: 8px;
@@ -772,6 +791,18 @@ a {
 .sidebar-group-menu a i {
     font-size: 15px;
     width: 18px;
+}
+
+.sidebar-collapsed .sidebar-section-label {
+    font-size: 0;
+    justify-content: center;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.sidebar-collapsed .sidebar-section-label::before {
+    font-size: 16px;
+    margin-right: 0;
 }
 
 .sidebar-mobile-toggle {
