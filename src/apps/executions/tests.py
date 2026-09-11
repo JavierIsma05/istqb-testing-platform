@@ -15,7 +15,9 @@ from apps.executions.services.automated_runner import (
     evaluate,
     run_automated_execution,
 )
+from apps.executions.services.review import recalculate_execution_from_steps
 from apps.requirements.models import Requirement
+from apps.projects.models import Project
 from apps.traceability.models import TraceabilityLink
 from apps.users.models import User
 
@@ -424,7 +426,7 @@ def test_historial_separa_ejecuciones_manuales_y_automatizadas(client, test_case
 
 
 @pytest.mark.django_db
-def test_vista_elimina_ejecucion_automatizada_revisada_del_historial(client, test_case, user):
+def test_vista_no_elimina_ejecucion_automatizada_revisada_del_historial(client, test_case, user):
     rule = AutomatedValidationRule.objects.create(
         test_case=test_case,
         requirement=test_case.requirement,
@@ -457,10 +459,10 @@ def test_vista_elimina_ejecucion_automatizada_revisada_del_historial(client, tes
     response = client.post(reverse('executions:delete', args=[execution.pk]), follow=True)
 
     assert response.status_code == 200
-    assert not ExecutionModel.objects.filter(pk=execution.pk).exists()
-    assert not AutomatedExecutionResult.objects.filter(pk=result.pk).exists()
+    assert ExecutionModel.objects.filter(pk=execution.pk).exists()
+    assert AutomatedExecutionResult.objects.filter(pk=result.pk).exists()
     assert AutomatedValidationRule.objects.filter(pk=rule.pk).exists()
-    assert 'Ejecución eliminada correctamente.'.encode() in response.content
+    assert 'Una ejecución revisada no puede eliminarse.'.encode() in response.content
 
 
 @pytest.mark.django_db
@@ -920,3 +922,232 @@ def test_ejecucion_automatizada_bloqueada_sin_requisito_aprobado(client, test_ca
 
     assert not ExecutionModel.objects.filter(test_case=test_case).exists()
     assert 'ningún requisito aprobado'.encode() in response.content
+
+
+@pytest.mark.django_db
+def test_api_docente_no_expone_proyectos_ajenos(client, project, user):
+    teacher = User.objects.create_user(
+        email='teacher-api@example.com',
+        password='StrongPass123',
+        role=User.Roles.TEACHER,
+    )
+    foreign_project = Project.objects.create(
+        code='PRJ-FOREIGN',
+        name='Proyecto fuera del alcance',
+        created_by=user,
+    )
+    client.force_login(teacher)
+
+    response = client.get(reverse('executions:api-students', args=[foreign_project.pk]))
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_api_docente_consulta_solo_proyecto_visible(client, project):
+    teacher = User.objects.create_user(
+        email='teacher-visible@example.com',
+        password='StrongPass123',
+        role=User.Roles.TEACHER,
+    )
+    project.members.add(teacher)
+    client.force_login(teacher)
+
+    response = client.get(reverse('executions:api-students', args=[project.pk]))
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.django_db
+def test_detalle_de_ejecucion_muestra_pasoso_evidencia_y_defectos(client, execution, test_case, user):
+    from apps.executions.models import TestStepExecution
+
+    step = TestStepExecution.objects.create(
+        test_execution=execution,
+        step_number=1,
+        action='Abrir login',
+        expected_result='Se muestra el formulario',
+        obtained_result='Se muestra el formulario',
+        status=ExecutionModel.Result.PASSED,
+    )
+    defect = Defect.objects.create(
+        project=test_case.test_plan.project,
+        test_case=test_case,
+        execution=execution,
+        code='DEF-DETAIL-01',
+        title='Defecto visible',
+        description='Detalle del defecto',
+        reported_by=user,
+    )
+    client.force_login(user)
+
+    response = client.get(reverse('executions:detail', args=[execution.pk]))
+
+    assert response.status_code == 200
+    assert response.context['step_executions'][0].pk == step.pk
+    assert defect.title in response.content.decode()
+    assert reverse('executions:step-evidence', args=[step.pk]) in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_usuario_que_ejecuto_puede_guardar_evidencia_por_paso(client, execution, test_case, user):
+    from apps.executions.models import TestStepExecution
+
+    step = TestStepExecution.objects.create(
+        test_execution=execution,
+        step_number=1,
+        action='Enviar formulario',
+        expected_result='Se procesa',
+        status=ExecutionModel.Result.FAILED,
+    )
+    client.force_login(user)
+
+    response = client.post(
+        reverse('executions:step-evidence', args=[step.pk]),
+        {'evidence_file': evidence_file('paso-1.png')},
+    )
+
+    step.refresh_from_db()
+    assert response.status_code == 302
+    assert response.url == reverse('executions:detail', args=[execution.pk])
+    assert step.evidence_file.name.startswith('step_evidence/paso-1')
+    assert step.evidence_file.name.endswith('.png')
+
+
+@pytest.mark.django_db
+def test_no_se_puede_cambiar_evidencia_de_ejecucion_revisada(client, execution, user):
+    from apps.executions.models import TestStepExecution
+
+    execution.review_status = ExecutionModel.ReviewStatus.VALIDATED
+    execution.save(update_fields=['review_status'])
+    step = TestStepExecution.objects.create(
+        test_execution=execution,
+        step_number=1,
+        action='Paso revisado',
+        expected_result='OK',
+        status=ExecutionModel.Result.PASSED,
+    )
+    client.force_login(user)
+
+    client.post(reverse('executions:step-evidence', args=[step.pk]), {'evidence_file': evidence_file()})
+
+    step.refresh_from_db()
+    assert not step.evidence_file
+
+
+@pytest.mark.django_db
+def test_docente_puede_revisar_ejecucion_desde_detalle(client, execution, test_case, user):
+    from apps.executions.models import TestStepExecution
+
+    teacher = User.objects.create_user(email='reviewer@example.com', password='StrongPass123', role=User.Roles.TEACHER)
+    test_case.test_plan.project.members.add(teacher)
+    TestStepExecution.objects.create(
+        test_execution=execution,
+        step_number=1,
+        action='Validar pantalla',
+        expected_result='La pantalla aparece',
+        obtained_result='La pantalla aparece',
+        status=ExecutionModel.Result.PASSED,
+    )
+    client.force_login(teacher)
+
+    response = client.post(
+        reverse('executions:detail-review', args=[execution.pk]),
+        {'review_status': ExecutionModel.ReviewStatus.VALIDATED, 'review_notes': 'Evidencia suficiente.'},
+    )
+
+    execution.refresh_from_db()
+    assert response.status_code == 302
+    assert execution.review_status == ExecutionModel.ReviewStatus.VALIDATED
+    assert execution.reviewed_by == teacher
+    assert execution.review_notes == 'Evidencia suficiente.'
+
+
+@pytest.mark.django_db
+def test_docente_puede_revisar_un_paso_desde_detalle(client, execution, test_case, user):
+    from apps.executions.models import TestStepExecution
+
+    teacher = User.objects.create_user(email='step-reviewer@example.com', password='StrongPass123', role=User.Roles.TEACHER)
+    test_case.test_plan.project.members.add(teacher)
+    step = TestStepExecution.objects.create(
+        test_execution=execution,
+        step_number=1,
+        action='Enviar datos',
+        expected_result='Se acepta la entrada',
+        obtained_result='Se muestra error',
+        status=ExecutionModel.Result.FAILED,
+    )
+    client.force_login(teacher)
+
+    response = client.post(
+        reverse('executions:step-review', args=[step.pk]),
+        {'status': ExecutionModel.Result.FAILED, 'comment': 'El resultado no coincide con lo esperado.'},
+    )
+
+    step.refresh_from_db()
+    assert response.status_code == 302
+    assert step.comment == 'El resultado no coincide con lo esperado.'
+    assert step.status == ExecutionModel.Result.FAILED
+
+
+@pytest.mark.django_db
+def test_revision_de_paso_recalcula_resultado_porcentaje_y_estado_del_caso(client, execution, test_case, user):
+    from apps.executions.models import TestStepExecution
+
+    teacher = User.objects.create_user(email='recalc-reviewer@example.com', password='StrongPass123', role=User.Roles.TEACHER)
+    test_case.test_plan.project.members.add(teacher)
+    steps = [
+        TestStepExecution.objects.create(
+            test_execution=execution,
+            step_number=number,
+            action=f'Paso {number}',
+            expected_result='OK',
+            obtained_result='OK',
+            status=ExecutionModel.Result.PENDING if hasattr(ExecutionModel.Result, 'PENDING') else ExecutionModel.Result.NOT_RUN,
+        )
+        for number in range(1, 4)
+    ]
+    client.force_login(teacher)
+
+    for step in steps:
+        response = client.post(
+            reverse('executions:step-review', args=[step.pk]),
+            {'status': ExecutionModel.Result.PASSED, 'comment': 'Validado por el docente.'},
+        )
+        assert response.status_code == 302
+
+    execution.refresh_from_db()
+    test_case.refresh_from_db()
+    assert execution.result == ExecutionModel.Result.PASSED
+    assert execution.approval_percentage == 100
+    assert test_case.status == test_case.Status.PASSED
+
+
+@pytest.mark.django_db
+def test_recalculo_marca_fallo_y_calcula_porcentaje_parcial(execution, test_case, user):
+    from apps.executions.models import TestStepExecution
+
+    steps = [
+        TestStepExecution.objects.create(
+            test_execution=execution,
+            step_number=1,
+            action='Paso aprobado',
+            expected_result='OK',
+            status=ExecutionModel.Result.PASSED,
+        ),
+        TestStepExecution.objects.create(
+            test_execution=execution,
+            step_number=2,
+            action='Paso fallido',
+            expected_result='OK',
+            status=ExecutionModel.Result.FAILED,
+        ),
+    ]
+
+    recalculate_execution_from_steps(execution)
+    execution.refresh_from_db()
+    test_case.refresh_from_db()
+    assert execution.result == ExecutionModel.Result.FAILED
+    assert execution.approval_percentage == 50
+    assert test_case.status == test_case.Status.FAILED

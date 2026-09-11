@@ -17,7 +17,8 @@ from apps.projects.models import Project
 from apps.testcases.models import TestCase
 from apps.users.models import User
 
-from .forms import AutomatedStepForm, ExecutionResultForm, ExecutionReviewForm, TestDataForm
+from .forms import AutomatedStepForm, ExecutionResultForm, ExecutionReviewForm, StepEvidenceForm, StepReviewForm, TestDataForm
+from .services.review import recalculate_execution_from_steps
 from .services.automated_runner import run_automated_execution
 
 
@@ -569,6 +570,127 @@ def execution_history_view(request, case_id):
 
 
 @login_required
+def execution_detail_view(request, pk):
+    execution = get_object_or_404(
+        TestExecution.objects.select_related(
+            'test_case', 'test_case__test_plan', 'test_case__test_plan__project',
+            'executed_by', 'reviewed_by', 'related_defect',
+        ).prefetch_related('step_executions', 'automated_results__validation_rule', 'defects'),
+        pk=pk,
+        test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
+    )
+    step_executions = list(execution.step_executions.all())
+    step_rows = [
+        {'step': step, 'review_form': StepReviewForm(instance=step)}
+        for step in step_executions
+    ]
+    return render(request, 'executions/detail.html', {
+        'execution': execution,
+        'step_executions': step_executions,
+        'step_rows': step_rows,
+        'automated_results': execution.automated_results.all(),
+        'defects': execution.defects.all(),
+        'can_upload_step_evidence': (
+            not is_teacher(request.user)
+            and execution.review_status == TestExecution.ReviewStatus.PENDING
+            and (request.user.is_superuser or execution.executed_by_id == request.user.id)
+        ),
+        'can_manage': can_manage_artifacts(request.user),
+        'is_teacher': is_teacher(request.user),
+        'execution_review_form': ExecutionReviewForm(instance=execution) if is_teacher(request.user) else None,
+    })
+
+
+@login_required
+def execution_review_detail_view(request, pk):
+    execution = get_object_or_404(
+        TestExecution.objects.select_related('test_case', 'test_case__test_plan__project'),
+        pk=pk,
+        test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
+    )
+    if not is_teacher(request.user) or request.method != 'POST':
+        return redirect('executions:detail', pk=execution.pk)
+    if execution.review_status != TestExecution.ReviewStatus.PENDING:
+        messages.error(request, 'Esta ejecución ya fue revisada y no admite otra modificación.')
+        return redirect('executions:detail', pk=execution.pk)
+    form = ExecutionReviewForm(request.POST, instance=execution)
+    if form.is_valid():
+        reviewed = form.save(commit=False)
+        reviewed.reviewed_by = request.user
+        reviewed.reviewed_at = timezone.now()
+        reviewed.save()
+        log_action(request.user, 'REVIEW', 'TestExecution', reviewed.pk, {
+            'project_id': reviewed.test_case.test_plan.project_id,
+            'test_case_id': reviewed.test_case_id,
+            'review_status': reviewed.review_status,
+        })
+        messages.success(request, 'Revisión docente registrada correctamente.')
+    else:
+        messages.error(request, ' '.join(form.errors.as_text().splitlines()))
+    return redirect('executions:detail', pk=execution.pk)
+
+
+@login_required
+def step_review_detail_view(request, pk):
+    step = get_object_or_404(
+        TestStepExecution.objects.select_related(
+            'test_execution', 'test_execution__test_case',
+            'test_execution__test_case__test_plan__project',
+        ),
+        pk=pk,
+        test_execution__test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
+    )
+    execution = step.test_execution
+    if not is_teacher(request.user) or request.method != 'POST':
+        return redirect('executions:detail', pk=execution.pk)
+    if execution.review_status != TestExecution.ReviewStatus.PENDING:
+        messages.error(request, 'La ejecución ya fue revisada y no admite cambios por paso.')
+        return redirect('executions:detail', pk=execution.pk)
+    form = StepReviewForm(request.POST, instance=step)
+    if form.is_valid():
+        form.save()
+        recalculate_execution_from_steps(execution)
+        log_action(request.user, 'REVIEW', 'TestStepExecution', step.pk, {
+            'execution_id': execution.pk, 'step_number': step.step_number, 'status': step.status,
+        })
+        messages.success(request, f'Revisión del paso {step.step_number} registrada.')
+    else:
+        messages.error(request, ' '.join(form.errors.as_text().splitlines()))
+    return redirect('executions:detail', pk=execution.pk)
+
+
+@login_required
+def step_evidence_upload_view(request, pk):
+    step = get_object_or_404(
+        TestStepExecution.objects.select_related(
+            'test_execution', 'test_execution__test_case',
+            'test_execution__test_case__test_plan__project',
+        ),
+        pk=pk,
+        test_execution__test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
+    )
+    execution = step.test_execution
+    if request.method != 'POST' or is_teacher(request.user):
+        return redirect('executions:detail', pk=execution.pk)
+    if not request.user.is_superuser and execution.executed_by_id != request.user.id:
+        messages.error(request, 'Solo quien registró la ejecución puede adjuntar evidencia por paso.')
+        return redirect('executions:detail', pk=execution.pk)
+    if execution.review_status != TestExecution.ReviewStatus.PENDING:
+        messages.error(request, 'La ejecución ya fue revisada y no admite cambios de evidencia.')
+        return redirect('executions:detail', pk=execution.pk)
+    form = StepEvidenceForm(request.POST, request.FILES, instance=step)
+    if form.is_valid():
+        form.save()
+        log_action(request.user, 'UPDATE', 'TestStepExecution', step.pk, {
+            'execution_id': execution.pk, 'step_number': step.step_number, 'evidence': True,
+        })
+        messages.success(request, f'Evidencia del paso {step.step_number} guardada correctamente.')
+    else:
+        messages.error(request, ' '.join(form.errors.as_text().splitlines()))
+    return redirect('executions:detail', pk=execution.pk)
+
+
+@login_required
 def execution_calendar_view(request):
     projects = visible_projects_for(request.user, request=request).order_by('name')
     selected_project_id = request.GET.get('project', '').strip()
@@ -603,6 +725,12 @@ def execution_delete_view(request, pk):
     )
     if not request.user.is_superuser and execution.executed_by_id != request.user.id:
         messages.error(request, 'Solo puedes eliminar tus propias ejecuciones.')
+        return redirect(f'{reverse("executions:index")}?case={execution.test_case_id}')
+    if execution.review_status != TestExecution.ReviewStatus.PENDING:
+        messages.error(
+            request,
+            'Una ejecución revisada no puede eliminarse. Registra una nueva ejecución para conservar el historial ISTQB.',
+        )
         return redirect(f'{reverse("executions:index")}?case={execution.test_case_id}')
     test_case = execution.test_case
     log_action(
@@ -756,7 +884,7 @@ def teacher_api_students(request, project_id):
     if not is_teacher(request.user):
         return JsonResponse({'error': 'No autorizado'}, status=403)
     project = get_object_or_404(
-        Project.objects.prefetch_related('members'),
+        visible_projects_for(request.user).prefetch_related('members'),
         pk=project_id,
     )
     students = project.members.filter(role=User.Roles.STUDENT).order_by('email')
@@ -776,7 +904,7 @@ def teacher_api_cases(request, project_id, student_id):
     if not is_teacher(request.user):
         return JsonResponse({'error': 'No autorizado'}, status=403)
     project = get_object_or_404(
-        Project.objects.all(),
+        visible_projects_for(request.user),
         pk=project_id,
     )
     student = get_object_or_404(User.objects.all(), pk=student_id, role=User.Roles.STUDENT)
