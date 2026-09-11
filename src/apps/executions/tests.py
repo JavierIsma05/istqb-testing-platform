@@ -171,6 +171,27 @@ def test_vista_de_ejecucion_manual_guarda_resultado_global_sin_pasos(client, tes
     assert execution.environment == ''
 
 
+@pytest.mark.django_db
+def test_vista_de_ejecucion_manual_persiste_resultados_por_paso(client, test_case, user):
+    approve_requirement(test_case)
+    client.force_login(user)
+    response = client.post(
+        f'{reverse("executions:index")}?case={test_case.id}',
+        data={
+            **manual_payload(result=ExecutionModel.Result.PASSED),
+            **step_payload(ExecutionModel.Result.PASSED, ExecutionModel.Result.FAILED, ExecutionModel.Result.PASSED),
+        },
+    )
+
+    execution = ExecutionModel.objects.get(test_case=test_case)
+    assert response.status_code == 302
+    assert execution.result == ExecutionModel.Result.FAILED
+    assert len(execution.step_results) == 3
+    assert execution.step_results[1]['status'] == ExecutionModel.Result.FAILED
+    assert execution.step_executions.count() == 3
+    assert execution.step_executions.filter(status=ExecutionModel.Result.FAILED).count() == 1
+
+
 def test_formulario_de_resultado_bloquea_comentario_para_estudiante():
     form = ExecutionResultForm(user=User(role=User.Roles.STUDENT))
 
