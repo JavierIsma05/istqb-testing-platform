@@ -30,6 +30,7 @@ urlpatterns = [
     path('traceability/', include('apps.traceability.urls')),
     path('reports/', include('apps.reports.urls')),
     path('notifications/', include('apps.notifications.urls')),
+    path('audit/', include('apps.audit.urls')),
     path('phases/', include('apps.phases.urls')),
     path('drafts/', include('apps.drafts.urls')),
     path('', include('apps.users.urls.user_urls')),
