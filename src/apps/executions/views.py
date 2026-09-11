@@ -13,7 +13,7 @@ from apps.core.permissions import can_manage_artifacts, is_teacher, visible_proj
 from apps.core.lifecycle import validate_execution_repeat
 from apps.defects.history import record_defect_history
 from apps.defects.models import Defect
-from apps.executions.models import AutomatedValidationRule, TestData, TestExecution, TestStepExecution
+from apps.executions.models import AutomatedValidationRule, TestData, TestExecution, TestRun, TestStepExecution
 from apps.projects.models import Project
 from apps.testcases.models import TestCase
 from apps.users.models import User
@@ -296,6 +296,12 @@ def build_execution_calendar(projects):
 def execution_workspace_view(request):
     is_teacher_user = is_teacher(request.user)
     case_id = request.GET.get('case')
+    test_run_id = request.GET.get('run')
+    selected_run = get_object_or_404(
+        TestRun,
+        pk=test_run_id,
+        project__in=visible_projects_for(request.user, request=request),
+    ) if test_run_id else None
 
     if is_teacher_user:
         projects = visible_projects_for(request.user, request=request).order_by('name')
@@ -381,6 +387,12 @@ def execution_workspace_view(request):
             return redirect(f'{request.path}?case={selected_case.id}')
         execution = form.save(commit=False)
         execution.test_case = selected_case
+        if selected_run:
+            if not selected_run.test_cases.filter(pk=selected_case.pk).exists():
+                messages.error(request, 'El caso no pertenece a la campaña seleccionada.')
+                return redirect(f'{request.path}?case={selected_case.id}')
+            execution.test_run = selected_run
+            execution.build = selected_run.build
         execution.execution_mode = TestExecution.ExecutionMode.MANUAL
         execution.executed_by = request.user
         execution.executed_at = timezone.now()
@@ -492,6 +504,7 @@ def execution_workspace_view(request):
         {
             'form': form,
             'selected_case': selected_case,
+            'selected_run': selected_run,
             'case_blocked': bool(selected_case and not selected_case.has_approved_requirement),
             'case_block_reason': selected_case.execution_block_reason if selected_case else '',
             'test_cases': test_cases if not is_teacher_user else TestCase.objects.none(),
