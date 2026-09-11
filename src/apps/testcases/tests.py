@@ -3,6 +3,7 @@ from django.urls import reverse
 
 from apps.testcases.forms import TestCaseModalForm as CaseForm
 from apps.testcases.models import TestCase as CaseModel
+from apps.testcases.models import TestCaseVersion
 
 
 @pytest.mark.django_db
@@ -36,6 +37,53 @@ def test_formulario_de_caso_de_prueba_es_valido_con_pasos_y_resultado(test_plan,
     assert form.is_valid()
     test_case = form.save(commit=False)
     assert len(test_case.steps_data) == 3
+
+
+@pytest.mark.django_db
+def test_caso_creado_desde_la_web_registra_version_inicial(client, test_plan, requirement, user):
+    client.force_login(user)
+    response = client.post(
+        reverse('testcases:index'),
+        {
+            'test_plan': test_plan.pk,
+            'requirement': requirement.pk,
+            'title': 'Caso con historial',
+            'description': 'Verificar versionado.',
+            'priority': CaseModel.Priority.HIGH,
+            'technique': CaseModel.Technique.BLACK_BOX,
+            'level': CaseModel.Level.SYSTEM,
+            'steps': 'Abrir pantalla => Se muestra correctamente',
+            'expected_result': 'La pantalla se muestra correctamente.',
+            'status': CaseModel.Status.READY,
+        },
+    )
+    case = CaseModel.objects.get(title='Caso con historial')
+    assert response.status_code == 302
+    version = case.versions.get()
+    assert version.version_number == 1
+    assert version.version_label == case.version
+    assert version.changed_by == user
+
+
+@pytest.mark.django_db
+def test_formulario_genera_codigo_siguiente_dentro_del_plan(test_plan, requirement, user):
+    other_plan = test_plan.__class__.objects.create(
+        project=test_plan.project,
+        name='Segundo plan',
+        objective='Probar numeración independiente.',
+        created_by=user,
+    )
+    CaseModel.objects.create(
+        test_plan=test_plan,
+        requirement=requirement,
+        code='TC-001',
+        title='Caso existente',
+        steps='Paso => Resultado',
+        expected_result='Resultado',
+        created_by=user,
+    )
+    form = CaseForm(user=user, data={'test_plan': other_plan.pk})
+    assert form.fields['code'].initial == 'TC-001'
 
 
 @pytest.mark.django_db
