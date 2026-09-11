@@ -1,0 +1,76 @@
+{% extends 'layouts/dashboard_base.html' %}
+{% block title %}Bitácora de auditoría{% endblock %}
+{% block dashboard_content %}
+<div class="page-heading">
+    <div>
+        <h2>Bitácora de auditoría</h2>
+        <p>Registro inmutable de acciones relevantes realizadas en la plataforma.</p>
+    </div>
+</div>
+<section class="reports-list-card">
+    <form method="get" class="row g-3 align-items-end mb-4">
+        <div class="col-md-2">
+            <label class="form-label" for="audit-action">Acción</label>
+            <select class="form-select" id="audit-action" name="action">
+                <option value="">Todas</option>
+                {% for value in actions %}<option value="{{ value }}" {% if selected_action == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" for="audit-entity">Entidad</label>
+            <select class="form-select" id="audit-entity" name="entity">
+                <option value="">Todas</option>
+                {% for value in entities %}<option value="{{ value }}" {% if selected_entity == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="audit-actor">Actor</label>
+            <select class="form-select" id="audit-actor" name="actor">
+                <option value="">Todos</option>
+                {% for actor in actors %}<option value="{{ actor.pk }}" {% if selected_actor == actor.pk|stringformat:'s' %}selected{% endif %}>{{ actor.email }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label" for="audit-project">Proyecto</label>
+            <select class="form-select" id="audit-project" name="project">
+                <option value="">Todos</option>
+                {% for project in projects %}<option value="{{ project.pk }}" {% if selected_project == project.pk|stringformat:'s' %}selected{% endif %}>{{ project.code }} - {{ project.name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" for="audit-query">Buscar</label>
+            <input class="form-control" id="audit-query" name="q" value="{{ query }}" placeholder="ID o metadato">
+        </div>
+        <div class="col-12 d-flex gap-2">
+            <button class="btn btn-brand" type="submit"><i class="bi bi-funnel"></i> Filtrar</button>
+            <a class="btn btn-outline-brand" href="{% url 'audit:index' %}">Limpiar</a>
+        </div>
+    </form>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>Fecha</th><th>Actor</th><th>Acción</th><th>Entidad</th><th>ID</th><th>Metadatos</th></tr></thead>
+            <tbody>
+            {% for log in logs %}
+                <tr>
+                    <td>{{ log.created_at|date:'d/m/Y H:i' }}</td>
+                    <td>{{ log.actor.email|default:'Sistema' }}</td>
+                    <td><span class="badge text-bg-light">{{ log.action }}</span></td>
+                    <td>{{ log.entity }}</td>
+                    <td>{{ log.entity_id|default:'—' }}</td>
+                    <td><code>{{ log.metadata|default:'{}' }}</code></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="text-center py-4">No hay eventos de auditoría para los filtros seleccionados.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if logs.paginator.num_pages > 1 %}
+    <nav aria-label="Paginación de auditoría"><ul class="pagination">
+        {% if logs.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ logs.previous_page_number }}&action={{ selected_action }}&entity={{ selected_entity }}&actor={{ selected_actor }}&project={{ selected_project }}&q={{ query }}">Anterior</a></li>{% endif %}
+        <li class="page-item disabled"><span class="page-link">Página {{ logs.number }} de {{ logs.paginator.num_pages }}</span></li>
+        {% if logs.has_next %}<li class="page-item"><a class="page-link" href="?page={{ logs.next_page_number }}&action={{ selected_action }}&entity={{ selected_entity }}&actor={{ selected_actor }}&project={{ selected_project }}&q={{ query }}">Siguiente</a></li>{% endif %}
+    </ul></nav>
+    {% endif %}
+</section>
+{% endblock %}

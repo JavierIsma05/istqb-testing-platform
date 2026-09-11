@@ -25,6 +25,7 @@ from apps.executions.models import TestExecution
 from apps.audit.services import log_action
 from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
 from apps.incidents.models import Incident
+from apps.notifications.services import notify_project_tutor
 from apps.phases.models import TestingPhase
 from apps.requirements.models import Requirement
 from apps.testcases.models import TestCase
@@ -2245,6 +2246,13 @@ def plan_report_pdf_view(request, pk, section):
         _plan_report_context(plan),
     )
     filename = f'plan-pruebas-{section}-{plan.pk}.pdf'
+    log_action(
+        request.user,
+        'DOWNLOAD',
+        'PlanReport',
+        plan.pk,
+        {'project_id': plan.project_id, 'section': section, 'filename': filename},
+    )
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     build_unl_pdf(
@@ -2281,6 +2289,17 @@ def report_list_view(request):
             'Report',
             report.pk,
             {'project_id': report.project_id, 'report_type': report.report_type, 'title': report.title},
+        )
+        notify_project_tutor(
+            report.project,
+            sender=request.user,
+            title=f'Nuevo reporte: {report.title}',
+            message=(
+                f'{request.user.get_full_name() or request.user.email} generó un reporte '
+                f'de tipo {report.get_report_type_display()} para el proyecto {report.project.name}.'
+            ),
+            url_name='reports:detail',
+            url_args=[report.pk],
         )
         return redirect('reports:index')
 
