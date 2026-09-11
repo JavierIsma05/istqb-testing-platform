@@ -11,6 +11,7 @@ from apps.core.permissions import (
     visible_projects_for,
 )
 from apps.core.codes import next_code
+from apps.core.lifecycle import defect_transition_allowed
 from apps.projects.models import Project
 
 from .forms import DefectForm
@@ -20,10 +21,14 @@ from .models import Defect
 
 STATUS_BADGES = {
     Defect.Status.OPEN: 'open',
+    Defect.Status.ANALYSIS: 'info',
     Defect.Status.IN_PROGRESS: 'warning',
     Defect.Status.RESOLVED: 'info',
+    Defect.Status.PENDING_CONFIRMATION: 'warning',
     Defect.Status.CLOSED: 'success',
     Defect.Status.REOPENED: 'warning',
+    Defect.Status.REJECTED: 'muted',
+    Defect.Status.DUPLICATED: 'muted',
 }
 
 
@@ -44,8 +49,10 @@ PRIORITY_BADGES = {
 
 TRANSITIONS = {
     Defect.Status.OPEN: Defect.Status.IN_PROGRESS,
+    Defect.Status.ANALYSIS: Defect.Status.IN_PROGRESS,
     Defect.Status.IN_PROGRESS: Defect.Status.RESOLVED,
-    Defect.Status.RESOLVED: Defect.Status.CLOSED,
+    Defect.Status.RESOLVED: Defect.Status.PENDING_CONFIRMATION,
+    Defect.Status.PENDING_CONFIRMATION: Defect.Status.CLOSED,
     Defect.Status.CLOSED: Defect.Status.REOPENED,
     Defect.Status.REOPENED: Defect.Status.IN_PROGRESS,
 }
@@ -237,8 +244,15 @@ def defect_transition_view(request, pk):
     if request.method == 'POST':
         target = TRANSITIONS.get(defect.status)
         if target:
+            if target == Defect.Status.IN_PROGRESS and not defect.assigned_to:
+                defect.assigned_to = request.user
+            try:
+                defect_transition_allowed(defect, target)
+            except Exception as exc:
+                messages.error(request, str(exc))
+                return redirect('defects:index')
             defect.status = target
-            defect.save()
+            defect.save(update_fields=['status', 'assigned_to', 'updated_at'])
             reason = {
                 Defect.Status.OPEN: 'Transición a En progreso',
                 Defect.Status.IN_PROGRESS: 'Transición a Resuelto',

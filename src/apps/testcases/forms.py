@@ -7,6 +7,7 @@ from apps.core.permissions import visible_projects_for
 from apps.incidents.models import Incident
 from apps.requirements.models import Requirement
 from apps.testplans.models import TestPlan
+from apps.core.lifecycle import case_changed_after_execution
 
 from .models import TestCase
 
@@ -56,6 +57,8 @@ class TestCaseModalForm(forms.ModelForm):
         plan_queryset = TestPlan.objects.filter(project__in=visible_projects).order_by('project__name', 'name') if visible_projects is not None else TestPlan.objects.all().order_by('project__name', 'name')
         self.fields['test_plan'].queryset = plan_queryset
         self.fields['requirement'].required = True
+        self.fields['status'].disabled = True
+        self.fields['status'].help_text = 'El estado se calcula desde la revisión y ejecución del caso.'
         for field_name in ('level', 'execution_type', 'version'):
             self.fields[field_name].required = False
         test_plan_id = self.data.get('test_plan') if self.is_bound else self.instance.test_plan_id
@@ -141,6 +144,8 @@ class TestCaseModalForm(forms.ModelForm):
     def save(self, commit=True):
         instance = super().save(commit=False)
         instance.steps_data = getattr(self, 'parsed_steps', [])
+        if instance.pk and case_changed_after_execution(instance, self.cleaned_data):
+            instance.status = TestCase.Status.PENDING
         if commit:
             instance.save()
             self.save_m2m()

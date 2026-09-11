@@ -17,6 +17,9 @@ class DefectForm(forms.ModelForm):
             'execution',
             'title',
             'description',
+            'assigned_to',
+            'resolution',
+            'verification_execution',
             'severity',
         )
         labels = {
@@ -24,6 +27,9 @@ class DefectForm(forms.ModelForm):
             'execution': 'Ejecución relacionada (opcional)',
             'title': 'Título del defecto',
             'description': 'Descripción',
+            'assigned_to': 'Responsable',
+            'resolution': 'Resolución',
+            'verification_execution': 'Ejecución de confirmación',
             'severity': 'Severidad',
         }
         widgets = {
@@ -37,6 +43,9 @@ class DefectForm(forms.ModelForm):
                     'rows': 4,
                 }
             ),
+            'assigned_to': forms.Select(attrs={'class': 'form-select'}),
+            'resolution': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'verification_execution': forms.Select(attrs={'class': 'form-select'}),
             'severity': forms.Select(attrs={'class': 'form-select'}),
         }
 
@@ -57,6 +66,15 @@ class DefectForm(forms.ModelForm):
         self.fields['execution'].required = False
         self.fields['execution'].queryset = execution_queryset.select_related('test_case', 'test_case__test_plan')
         self.fields['execution'].empty_label = 'Sin ejecución relacionada'
+        self.fields['verification_execution'].queryset = TestExecution.objects.filter(
+            test_case__test_plan__project__in=visible_projects,
+            execution_type=TestExecution.ExecutionType.CONFIRMATION,
+        ).select_related('test_case').order_by('-executed_at')
+        self.fields['verification_execution'].required = False
+        self.fields['verification_execution'].empty_label = 'Sin confirmación todavía'
+        from apps.users.models import User
+        self.fields['assigned_to'].queryset = User.objects.filter(projects__id__in=visible_projects.values('id')).distinct() if visible_projects.exists() else User.objects.none()
+        self.fields['assigned_to'].required = False
 
         help_texts = {
             'test_case': 'Caso de prueba que reveló el defecto.',
@@ -77,6 +95,11 @@ class DefectForm(forms.ModelForm):
             self.add_error('test_case', 'Todo defecto debe asociarse a un caso de prueba.')
         if execution and test_case and execution.test_case_id != test_case.pk:
             self.add_error('execution', 'La ejecución debe corresponder al caso de prueba seleccionado.')
+        verification = cleaned_data.get('verification_execution')
+        if verification and test_case and verification.test_case_id != test_case.pk:
+            self.add_error('verification_execution', 'La confirmación debe corresponder al caso de prueba del defecto.')
+        if verification and verification.result != TestExecution.Result.PASSED:
+            self.add_error('verification_execution', 'La ejecución de confirmación debe estar aprobada.')
         return cleaned_data
 
     def save(self, commit=True):

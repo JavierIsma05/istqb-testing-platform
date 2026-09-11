@@ -6,7 +6,8 @@ from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.audit.services import log_action
-from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
+from apps.core.permissions import can_manage_artifacts, is_teacher, redirect_if_teacher_readonly, visible_projects_for
+from apps.core.lifecycle import status_transition_for_plan
 from apps.drafts.services import clear_draft
 from apps.incidents.views import MATRIX_ROWS
 
@@ -143,4 +144,40 @@ def testplan_delete_view(request, pk):
     else:
         messages.error(request, 'La eliminacion debe confirmarse desde el listado.')
 
+    return redirect('testplans:index')
+
+
+@login_required
+def testplan_transition_view(request, pk):
+    plan = get_object_or_404(
+        TestPlan,
+        pk=pk,
+        project__in=visible_projects_for(request.user, request=request),
+    )
+    if request.method != 'POST':
+        messages.error(request, 'La transición debe confirmarse desde el listado.')
+        return redirect('testplans:index')
+    target = request.POST.get('target')
+    if target == TestPlan.Status.APPROVED and not is_teacher(request.user):
+        messages.error(request, 'Solo un docente puede aprobar un plan de pruebas.')
+        return redirect('testplans:index')
+    if target == TestPlan.Status.REVIEW and is_teacher(request.user):
+        messages.error(request, 'Los docentes revisan y aprueban; el envío a revisión lo realiza el responsable del plan.')
+        return redirect('testplans:index')
+    try:
+        status_transition_for_plan(plan, target)
+    except Exception as exc:
+        messages.error(request, str(exc))
+        return redirect('testplans:index')
+    plan.status = target
+    plan.save(update_fields=['status', 'updated_at'])
+    record_test_plan_version(plan, request.user, f'Transición de estado a {plan.get_status_display()}')
+    log_action(
+        request.user,
+        'STATUS_CHANGE',
+        'TestPlan',
+        plan.pk,
+        {'project_id': plan.project_id, 'status': plan.status, 'target': target},
+    )
+    messages.success(request, f'Plan actualizado a {plan.get_status_display()}.')
     return redirect('testplans:index')

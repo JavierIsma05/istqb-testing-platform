@@ -52,6 +52,13 @@
                                 <i class="bi bi-pencil"></i>
                                 Editar
                             </a>
+                            {% if item.plan.status == 'DRAFT' %}
+                                <form method="POST" action="{% url 'testplans:transition' item.plan.pk %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="target" value="REVIEW">
+                                    <button class="btn btn-outline-brand btn-sm" type="submit">Enviar a revisión</button>
+                                </form>
+                            {% endif %}
                             <form method="POST" action="{% url 'testplans:delete' item.plan.pk %}">
                                 {% csrf_token %}
                                 <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar este plan tambien eliminara sus casos de prueba y ejecuciones asociadas. Deseas continuar?">
@@ -60,6 +67,13 @@
                                 </button>
                             </form>
                         </div>
+                    {% endif %}
+                    {% if user.role == 'TEACHER' and item.plan.status == 'REVIEW' %}
+                        <form method="POST" action="{% url 'testplans:transition' item.plan.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="target" value="APPROVED">
+                            <button class="btn btn-brand btn-sm" type="submit">Aprobar plan</button>
+                        </form>
                     {% endif %}
                 </div>
             </article>

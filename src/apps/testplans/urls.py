@@ -5,6 +5,7 @@ from apps.testplans.views import (
     testplan_delete_view,
     testplan_list_view,
     testplan_update_view,
+    testplan_transition_view,
 )
 
 app_name = 'testplans'
@@ -14,4 +15,5 @@ urlpatterns = [
     path('new/', testplan_create_view, name='create'),
     path('<int:pk>/edit/', testplan_update_view, name='edit'),
     path('<int:pk>/delete/', testplan_delete_view, name='delete'),
+    path('<int:pk>/transition/', testplan_transition_view, name='transition'),
 ]

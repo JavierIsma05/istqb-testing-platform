@@ -135,6 +135,8 @@ class TestPlanWizardForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
         self.fields['start_date'].input_formats = ['%Y-%m-%d']
         self.fields['end_date'].input_formats = ['%Y-%m-%d']
         self.fields['test_types'].initial = self.instance.test_types or [TestPlan.TestType.FUNCTIONAL]
+        self.fields['status'].disabled = True
+        self.fields['status'].help_text = 'El estado se modifica mediante el flujo de revisión y aprobación del plan.'
         for field_name, default in {
             'minimum_pass_percentage': 80,
             'maximum_critical_defects': 0,

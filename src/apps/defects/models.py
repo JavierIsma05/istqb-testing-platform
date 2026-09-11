@@ -21,10 +21,14 @@ class Defect(TimeStampedModel):
 
     class Status(models.TextChoices):
         OPEN = 'OPEN', 'Abierto'
+        ANALYSIS = 'ANALYSIS', 'En análisis'
         IN_PROGRESS = 'IN_PROGRESS', 'En progreso'
         RESOLVED = 'RESOLVED', 'Resuelto'
+        PENDING_CONFIRMATION = 'PENDING_CONFIRMATION', 'Pendiente de confirmación'
         CLOSED = 'CLOSED', 'Cerrado'
         REOPENED = 'REOPENED', 'Reabierto'
+        REJECTED = 'REJECTED', 'Rechazado'
+        DUPLICATED = 'DUPLICATED', 'Duplicado'
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='defects')
     test_case = models.ForeignKey(TestCase, on_delete=models.CASCADE, related_name='defects', null=True, blank=True)
@@ -35,9 +39,17 @@ class Defect(TimeStampedModel):
     steps_to_reproduce = models.TextField(blank=True)
     severity = models.CharField(max_length=20, choices=Severity.choices, default=Severity.MEDIUM)
     priority = models.CharField(max_length=20, choices=Priority.choices, default=Priority.MEDIUM)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
+    status = models.CharField(max_length=30, choices=Status.choices, default=Status.OPEN)
     reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reported_defects')
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_defects')
+    resolution = models.TextField(blank=True)
+    verification_execution = models.ForeignKey(
+        'executions.TestExecution',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='verified_defects',
+    )
 
     class Meta:
         ordering = ['-created_at']

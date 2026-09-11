@@ -38,6 +38,21 @@
                 {{ form.description }}
                 {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
             </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.assigned_to.id_for_label }}">{{ form.assigned_to.label }}</label>
+                {{ form.assigned_to }}
+                {% if form.assigned_to.errors %}<div class="form-error">{{ form.assigned_to.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.verification_execution.id_for_label }}">{{ form.verification_execution.label }}</label>
+                {{ form.verification_execution }}
+                {% if form.verification_execution.errors %}<div class="form-error">{{ form.verification_execution.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="col-12">
+                <label class="form-label" for="{{ form.resolution.id_for_label }}">{{ form.resolution.label }}</label>
+                {{ form.resolution }}
+                {% if form.resolution.errors %}<div class="form-error">{{ form.resolution.errors|striptags }}</div>{% endif %}
+            </div>
             <div class="col-md-4">
                 <label class="form-label" for="{{ form.severity.id_for_label }}">{{ form.severity.label }}</label>
                 {{ form.severity }}

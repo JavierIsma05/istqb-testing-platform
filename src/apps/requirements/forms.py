@@ -61,6 +61,8 @@ class RequirementForm(forms.ModelForm):
             'readonly': 'readonly',
             'data-default-code': 'REQ-001',
         })
+        self.fields['status'].disabled = True
+        self.fields['status'].help_text = 'El estado lo controla el flujo de revisión docente; no se puede cambiar desde el formulario.'
         self.fields['project'].widget.attrs.update({
             'data-code-target': self.fields['code'].widget.attrs.get('id', 'id_code'),
             'data-next-codes': json.dumps({

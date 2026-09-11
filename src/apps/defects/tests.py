@@ -170,6 +170,8 @@ def test_actualizacion_de_defecto_agrega_historial(client, project, test_case, e
 
 @pytest.mark.django_db
 def test_transicion_de_estado_avanza_por_el_ciclo(client, project, test_case, user):
+    from apps.executions.models import TestExecution
+
     defect = Defect.objects.create(
         project=project,
         test_case=test_case,
@@ -181,16 +183,33 @@ def test_transicion_de_estado_avanza_por_el_ciclo(client, project, test_case, us
     )
     client.force_login(user)
 
-    for expected in (
-        Defect.Status.IN_PROGRESS,
-        Defect.Status.RESOLVED,
-        Defect.Status.CLOSED,
-        Defect.Status.REOPENED,
-        Defect.Status.IN_PROGRESS,
-    ):
+    for expected in (Defect.Status.IN_PROGRESS, Defect.Status.RESOLVED):
         response = client.post(reverse('defects:transition', args=[defect.pk]))
         defect.refresh_from_db()
         assert response.status_code == 302
         assert defect.status == expected
 
-    assert defect.history.count() == 5
+    defect.assigned_to = user
+    defect.resolution = 'Se corrigió la validación y se preparó confirmación.'
+    defect.save(update_fields=['assigned_to', 'resolution', 'updated_at'])
+    response = client.post(reverse('defects:transition', args=[defect.pk]))
+    defect.refresh_from_db()
+    assert response.status_code == 302
+    assert defect.status == Defect.Status.PENDING_CONFIRMATION
+
+    confirmation = TestExecution.objects.create(
+        test_case=test_case,
+        execution_type=TestExecution.ExecutionType.CONFIRMATION,
+        related_defect=defect,
+        executed_by=user,
+        result=TestExecution.Result.PASSED,
+    )
+    defect.verification_execution = confirmation
+    defect.save(update_fields=['verification_execution', 'updated_at'])
+    for expected in (Defect.Status.CLOSED, Defect.Status.REOPENED, Defect.Status.IN_PROGRESS):
+        response = client.post(reverse('defects:transition', args=[defect.pk]))
+        defect.refresh_from_db()
+        assert response.status_code == 302
+        assert defect.status == expected
+
+    assert defect.history.count() == 6

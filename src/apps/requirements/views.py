@@ -13,6 +13,7 @@ from apps.core.permissions import (
     visible_projects_for,
 )
 from apps.core.codes import next_code
+from apps.core.lifecycle import requirement_can_be_approved
 from apps.projects.models import Project
 
 from .forms import RequirementForm, RequirementImportForm
@@ -245,7 +246,14 @@ def requirement_update_view(request, pk):
     form = RequirementForm(request.POST or None, instance=requirement, user=request.user)
 
     if request.method == 'POST' and form.is_valid():
+        original = {
+            field: getattr(requirement, field)
+            for field in ('title', 'description', 'requirement_type', 'priority')
+        }
         requirement = form.save()
+        if any(getattr(requirement, field) != value for field, value in original.items()) and requirement.status == Requirement.Status.APPROVED:
+            requirement.status = Requirement.Status.REVIEW
+            requirement.save(update_fields=['status', 'updated_at'])
         record_requirement_version(requirement, request.user, 'Actualización del requisito')
         log_action(
             request.user,
@@ -316,6 +324,11 @@ def requirement_mark_reviewed_view(request, pk):
         messages.info(request, f'{requirement.code} no requiere revision docente.')
         return redirect('requirements:index')
 
+    validation = requirement_can_be_approved(requirement)
+    if not validation.ok:
+        messages.error(request, 'No se puede aprobar el requisito: ' + ' '.join(validation.errors))
+        return redirect('requirements:index')
+
     requirement.status = Requirement.Status.APPROVED
     requirement.save(update_fields=['status'])
     record_requirement_version(requirement, request.user, 'Revision docente')
@@ -365,6 +378,9 @@ def requirement_bulk_mark_reviewed_view(request):
 
     with transaction.atomic():
         for requirement in requirements:
+            validation = requirement_can_be_approved(requirement)
+            if not validation.ok:
+                continue
             requirement.status = Requirement.Status.APPROVED
             requirement.save(update_fields=['status'])
             record_requirement_version(requirement, request.user, 'Revision docente masiva')

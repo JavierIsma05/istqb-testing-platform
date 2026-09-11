@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from apps.audit.services import log_action
 from apps.core.permissions import can_manage_artifacts, is_teacher, visible_projects_for
+from apps.core.lifecycle import validate_execution_repeat
 from apps.defects.history import record_defect_history
 from apps.defects.models import Defect
 from apps.executions.models import AutomatedValidationRule, TestData, TestExecution, TestStepExecution
@@ -164,6 +165,7 @@ def sync_defect_from_confirmation(execution):
     if not defect or execution.execution_type != TestExecution.ExecutionType.CONFIRMATION:
         return
 
+    defect.verification_execution = execution
     if execution.result == TestExecution.Result.PASSED:
         defect.status = Defect.Status.CLOSED
     elif execution.result == TestExecution.Result.FAILED:
@@ -171,7 +173,7 @@ def sync_defect_from_confirmation(execution):
     else:
         defect.status = Defect.Status.REOPENED
 
-    defect.save(update_fields=['status', 'updated_at'])
+    defect.save(update_fields=['status', 'verification_execution', 'updated_at'])
     record_defect_history(defect, execution.executed_by, 'Actualizacion desde prueba de confirmacion')
     log_action(
         execution.executed_by,
@@ -367,6 +369,16 @@ def execution_workspace_view(request):
         return redirect(f'{request.path}?case={execution.test_case.id}')
 
     if request.method == 'POST' and selected_case and form.is_valid():
+        repeat_validation = validate_execution_repeat(
+            selected_case,
+            form.cleaned_data.get('execution_type') or TestExecution.ExecutionType.NORMAL,
+            form.cleaned_data.get('environment') or '',
+        )
+        if not repeat_validation.ok:
+            for error in repeat_validation.errors:
+                form.add_error(None, error)
+            messages.error(request, 'La ejecución no se registró porque ya existe una ejecución normal equivalente. Usa regresión o confirmación.')
+            return redirect(f'{request.path}?case={selected_case.id}')
         execution = form.save(commit=False)
         execution.test_case = selected_case
         execution.execution_mode = TestExecution.ExecutionMode.MANUAL
