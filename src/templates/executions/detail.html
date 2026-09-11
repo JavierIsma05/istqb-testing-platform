@@ -1,0 +1,42 @@
+{% extends 'layouts/dashboard_base.html' %}
+{% block title %}Detalle de ejecución #{{ execution.pk }}{% endblock %}
+{% block dashboard_content %}
+<div class="page-heading executions-heading">
+    <div><span class="text-muted">{{ execution.test_case.code }} · {{ execution.test_case.test_plan.name }}</span><h2>Detalle de ejecución #{{ execution.pk }}</h2><p>{{ execution.test_case.title }}</p></div>
+    <div class="page-heading-actions"><a class="btn btn-outline-brand" href="{% url 'executions:history' execution.test_case.pk %}"><i class="bi bi-arrow-left"></i> Volver al historial</a></div>
+</div>
+{% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}{% endif %}
+<section class="execution-history-card">
+    <div class="card-heading"><div><h3>Resumen de la ejecución</h3><p>Registro auditable del resultado, ambiente y revisión docente.</p></div><span class="badge execution-case-status-{{ execution.result|lower }}">{{ execution.get_result_display }}</span></div>
+    <div class="detail-summary-list">
+        <div><span>Modo</span><strong>{{ execution.get_execution_mode_display }}</strong></div><div><span>Tipo</span><strong>{{ execution.get_execution_type_display }}</strong></div>
+        <div><span>Ejecutada por</span><strong>{{ execution.executed_by.get_full_name|default:execution.executed_by.email|default:'Sin asignar' }}</strong></div><div><span>Fecha</span><strong>{{ execution.executed_at|date:'d/m/Y H:i'|default:'Sin fecha' }}</strong></div>
+        <div><span>Revisión</span><strong>{{ execution.get_review_status_display }}</strong></div><div><span>Ambiente</span><strong>{{ execution.environment|default:'No registrado' }}</strong></div>
+    </div>
+    <div class="execution-section"><h4>Resultado obtenido</h4><p>{{ execution.actual_result|linebreaksbr|default:'Sin resultado registrado.' }}</p></div>
+    {% if execution.notes %}<div class="execution-section"><h4>Observaciones</h4><p>{{ execution.notes|linebreaksbr }}</p></div>{% endif %}
+    {% if execution.evidence %}<div class="execution-evidence-preview"><strong>Evidencia general:</strong> <a href="{{ execution.evidence.url }}" target="_blank" rel="noopener">Abrir archivo</a></div>{% endif %}
+</section>
+<section class="execution-history-card mt-4">
+    <div class="card-heading"><div><h3>Comparación y evidencia por paso</h3><p>Compara lo esperado con lo observado y conserva el respaldo verificable.</p></div></div>
+    <div class="table-responsive"><table class="table align-middle mb-0">
+        <thead><tr><th>Paso</th><th>Acción</th><th>Resultado esperado</th><th>Resultado obtenido</th><th>Estado</th><th>Evidencia</th>{% if can_upload_step_evidence %}<th>Adjuntar</th>{% endif %}{% if is_teacher %}<th>Revisar</th>{% endif %}</tr></thead>
+        <tbody>
+        {% for row in step_rows %}
+            <tr>
+                <td><strong>{{ row.step.step_number }}</strong></td><td>{{ row.step.action }}</td>
+                <td><div class="small">{{ row.step.expected_result|default:'—' }}</div></td>
+                <td><div class="small {% if row.step.obtained_result and row.step.obtained_result != row.step.expected_result %}text-danger{% else %}text-success{% endif %}">{{ row.step.obtained_result|default:'Sin resultado' }}</div></td>
+                <td><span class="badge execution-case-status-{{ row.step.status|lower }}">{{ row.step.get_status_display }}</span></td>
+                <td>{% if row.step.evidence_file %}<a href="{{ row.step.evidence_file.url }}" target="_blank" rel="noopener">Archivo</a>{% endif %}{% if row.step.screenshot %}{% if row.step.evidence_file %} · {% endif %}<a href="{{ row.step.screenshot.url }}" target="_blank" rel="noopener">Captura</a>{% endif %}{% if not row.step.evidence_file and not row.step.screenshot %}<span class="text-muted">Sin evidencia</span>{% endif %}</td>
+                {% if can_upload_step_evidence %}<td><form method="POST" enctype="multipart/form-data" action="{% url 'executions:step-evidence' row.step.pk %}">{% csrf_token %}<input class="form-control form-control-sm mb-1" type="file" name="evidence_file" accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.log,.csv"><input class="form-control form-control-sm mb-1" type="file" name="screenshot" accept="image/*"><button class="btn btn-sm btn-brand" type="submit"><i class="bi bi-upload"></i> Guardar</button></form></td>{% endif %}
+                {% if is_teacher %}<td><form method="POST" action="{% url 'executions:step-review' row.step.pk %}">{% csrf_token %}{{ row.review_form.status }}{{ row.review_form.comment }}<button class="btn btn-sm btn-outline-brand mt-1" type="submit">Guardar revisión</button></form></td>{% endif %}
+            </tr>
+        {% empty %}<tr><td colspan="8" class="text-center text-muted py-4">Esta ejecución no tiene pasos registrados.</td></tr>{% endfor %}
+        </tbody>
+    </table></div>
+</section>
+{% if execution_review_form %}<section class="execution-history-card mt-4"><div class="card-heading"><div><h3>Revisión docente de la ejecución</h3><p>Valida la suficiencia de la evidencia y deja una decisión auditable.</p></div></div><form method="POST" action="{% url 'executions:detail-review' execution.pk %}">{% csrf_token %}<div class="row g-3"><div class="col-md-4"><label class="form-label">{{ execution_review_form.review_status.label }}</label>{{ execution_review_form.review_status }}</div><div class="col-md-8"><label class="form-label">{{ execution_review_form.review_notes.label }}</label>{{ execution_review_form.review_notes }}</div></div><button class="btn btn-brand mt-3" type="submit"><i class="bi bi-check2-circle"></i> Registrar revisión de ejecución</button></form></section>{% endif %}
+{% if automated_results %}<section class="execution-history-card mt-4"><div class="card-heading"><div><h3>Resultados automatizados</h3><p>Detalle técnico generado por las reglas de automatización.</p></div></div>{% for result in automated_results %}<article class="border rounded p-3 mb-2"><strong>{{ result.validation_rule.name }} · {{ result.get_status_display }}</strong><p class="mb-1">Esperado: {{ result.expected_behavior|default:'—' }}</p><p class="mb-1">Obtenido: {{ result.actual_behavior|default:'—' }}</p>{% if result.screenshot %}<a href="{{ result.screenshot.url }}" target="_blank" rel="noopener">Ver captura</a>{% endif %}{% if result.error_message %}<pre class="small mt-2">{{ result.error_message }}</pre>{% endif %}</article>{% endfor %}</section>{% endif %}
+<section class="execution-history-card mt-4"><div class="card-heading"><div><h3>Defectos asociados</h3><p>Incidencias originadas o vinculadas a esta ejecución.</p></div></div>{% for defect in defects %}<div class="defect-row"><div class="defect-main"><a href="{% url 'defects:edit' defect.pk %}"><strong>{{ defect.code }} · {{ defect.title }}</strong></a><p>{{ defect.get_severity_display }} · {{ defect.get_status_display }}</p></div></div>{% empty %}<p class="text-muted mb-0">No hay defectos asociados.</p>{% endfor %}</section>
+{% endblock %}
