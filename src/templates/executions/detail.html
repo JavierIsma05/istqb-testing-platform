@@ -11,7 +11,7 @@
     <div class="detail-summary-list">
         <div><span>Modo</span><strong>{{ execution.get_execution_mode_display }}</strong></div><div><span>Tipo</span><strong>{{ execution.get_execution_type_display }}</strong></div>
         <div><span>Ejecutada por</span><strong>{{ execution.executed_by.get_full_name|default:execution.executed_by.email|default:'Sin asignar' }}</strong></div><div><span>Fecha</span><strong>{{ execution.executed_at|date:'d/m/Y H:i'|default:'Sin fecha' }}</strong></div>
-        <div><span>Revisión</span><strong>{{ execution.get_review_status_display }}</strong></div><div><span>Ambiente</span><strong>{{ execution.environment|default:'No registrado' }}</strong></div>
+        <div><span>Revisión</span><strong>{{ execution.get_review_status_display }}</strong></div><div><span>Aprobación por pasos</span><strong>{% if execution.approval_percentage is not None %}{{ execution.approval_percentage }}%{% else %}No calculada{% endif %}</strong></div><div><span>Ambiente</span><strong>{{ execution.environment|default:'No registrado' }}</strong></div>
     </div>
     <div class="execution-section"><h4>Resultado obtenido</h4><p>{{ execution.actual_result|linebreaksbr|default:'Sin resultado registrado.' }}</p></div>
     {% if execution.notes %}<div class="execution-section"><h4>Observaciones</h4><p>{{ execution.notes|linebreaksbr }}</p></div>{% endif %}

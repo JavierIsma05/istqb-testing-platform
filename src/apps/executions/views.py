@@ -18,6 +18,7 @@ from apps.testcases.models import TestCase
 from apps.users.models import User
 
 from .forms import AutomatedStepForm, ExecutionResultForm, ExecutionReviewForm, StepEvidenceForm, StepReviewForm, TestDataForm
+from .services.review import recalculate_execution_from_steps
 from .services.automated_runner import run_automated_execution
 
 
@@ -648,6 +649,7 @@ def step_review_detail_view(request, pk):
     form = StepReviewForm(request.POST, instance=step)
     if form.is_valid():
         form.save()
+        recalculate_execution_from_steps(execution)
         log_action(request.user, 'REVIEW', 'TestStepExecution', step.pk, {
             'execution_id': execution.pk, 'step_number': step.step_number, 'status': step.status,
         })
