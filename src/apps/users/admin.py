@@ -69,6 +69,27 @@ class CustomUserAdmin(UserAdmin):
         }),
     )
 
+    def _is_application_admin(self, request):
+        return bool(
+            getattr(request.user, 'is_authenticated', False)
+            and getattr(request.user, 'role', None) == User.Roles.ADMIN
+        )
+
+    def has_module_permission(self, request):
+        return self._is_application_admin(request)
+
+    def has_view_permission(self, request, obj=None):
+        return self._is_application_admin(request)
+
+    def has_add_permission(self, request):
+        return self._is_application_admin(request)
+
+    def has_change_permission(self, request, obj=None):
+        return self._is_application_admin(request)
+
+    def has_delete_permission(self, request, obj=None):
+        return self._is_application_admin(request)
+
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):

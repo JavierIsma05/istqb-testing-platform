@@ -23,11 +23,13 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
-
-        extra_fields.setdefault('role', User.Roles.ADMIN)
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('is_active', True)
+        # A Django superuser must also be an application administrator. Do not
+        # allow callers or scripts to create a privileged account with a
+        # student/teacher role or with staff flags disabled.
+        extra_fields['role'] = User.Roles.ADMIN
+        extra_fields['is_staff'] = True
+        extra_fields['is_superuser'] = True
+        extra_fields['is_active'] = True
 
         return self.create_user(
             email,
