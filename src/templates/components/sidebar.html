@@ -27,7 +27,6 @@
         </div>
         <a class="{% if request.resolver_match.namespace == 'testcases' %}active{% endif %}" href="{% url 'testcases:index' %}" title="Casos de Prueba"><i class="bi bi-file-check"></i><span>Casos de Prueba</span></a>
         <a class="{% if request.resolver_match.namespace == 'executions' %}active{% endif %}" href="{% url 'executions:index' %}" title="Ejecución"><i class="bi bi-play"></i><span>Ejecución</span></a>
-        <a class="{% if request.resolver_match.url_name == 'campaigns' %}active{% endif %}" href="{% url 'executions:campaigns' %}" title="Campañas"><i class="bi bi-collection-play"></i><span>Campañas</span></a>
         <a class="{% if request.resolver_match.namespace == 'defects' %}active{% endif %}" href="{% url 'defects:index' %}" title="Defectos"><i class="bi bi-bug"></i><span>Defectos</span></a>
         <a class="{% if request.resolver_match.namespace == 'traceability' %}active{% endif %}" href="{% url 'traceability:index' %}" title="Trazabilidad"><i class="bi bi-diagram-2"></i><span>Trazabilidad</span></a>
         <a class="{% if request.resolver_match.namespace == 'reports' %}active{% endif %}" href="{% url 'reports:index' %}" title="Informes"><i class="bi bi-bar-chart"></i><span>Informes</span></a>

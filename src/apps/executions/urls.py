@@ -18,23 +18,11 @@ from apps.executions.views import (
     test_data_create_view,
     test_data_delete_view,
 )
-from apps.executions.campaign_views import (
-    build_create_view,
-    campaign_complete_view,
-    campaign_create_view,
-    campaign_index_view,
-    campaign_start_view,
-)
 
 app_name = 'executions'
 
 urlpatterns = [
     path('', execution_workspace_view, name='index'),
-    path('campaigns/', campaign_index_view, name='campaigns'),
-    path('campaigns/new/', campaign_create_view, name='campaign-create'),
-    path('campaigns/builds/new/', build_create_view, name='build-create'),
-    path('campaigns/<int:pk>/start/', campaign_start_view, name='campaign-start'),
-    path('campaigns/<int:pk>/complete/', campaign_complete_view, name='campaign-complete'),
     path('calendar/', execution_calendar_view, name='calendar'),
     path('cases/<int:case_id>/history/', execution_history_view, name='history'),
     path('<int:pk>/', execution_detail_view, name='detail'),
