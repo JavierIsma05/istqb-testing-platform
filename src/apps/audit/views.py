@@ -1,6 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import render
 
 from apps.core.permissions import admin_required
@@ -56,3 +57,33 @@ def audit_list_view(request):
             'query': query,
         },
     )
+
+
+@login_required
+@admin_required
+def audit_export_csv_view(request):
+    logs = AuditLog.objects.select_related('actor')
+    action = request.GET.get('action', '').strip()
+    entity = request.GET.get('entity', '').strip()
+    actor_id = request.GET.get('actor', '').strip()
+    project_id = request.GET.get('project', '').strip()
+    query = request.GET.get('q', '').strip()
+    if action:
+        logs = logs.filter(action=action)
+    if entity:
+        logs = logs.filter(entity=entity)
+    if actor_id.isdigit():
+        logs = logs.filter(actor_id=actor_id)
+    if project_id.isdigit():
+        logs = logs.filter(Q(metadata__project_id=int(project_id)) | Q(metadata__project_id=str(project_id)))
+    if query:
+        logs = logs.filter(Q(entity_id__icontains=query) | Q(actor__email__icontains=query) | Q(metadata__icontains=query))
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="istqb-auditoria.csv"'
+    response.write('\ufeff')
+    import csv
+    writer = csv.writer(response)
+    writer.writerow(['Fecha', 'Actor', 'Acción', 'Entidad', 'ID', 'Metadatos'])
+    for log in logs.iterator():
+        writer.writerow([log.created_at.isoformat(), log.actor.email if log.actor else 'Sistema', log.action, log.entity, log.entity_id, log.metadata])
+    return response

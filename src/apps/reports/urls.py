@@ -9,6 +9,9 @@ from apps.reports.views import (
     plan_report_selector_view,
     plan_report_view,
     plan_testcases_report_view,
+    quality_metrics_csv_view,
+    quality_metrics_pdf_view,
+    quality_metrics_view,
     report_delete_view,
     report_detail_view,
     report_download_view,
@@ -19,6 +22,9 @@ app_name = 'reports'
 
 urlpatterns = [
     path('', report_list_view, name='index'),
+    path('quality-metrics/', quality_metrics_view, name='quality-metrics'),
+    path('quality-metrics.csv', quality_metrics_csv_view, name='quality-metrics-csv'),
+    path('quality-metrics.pdf', quality_metrics_pdf_view, name='quality-metrics-pdf'),
     path('plan-report/', plan_report_selector_view, name='plan-report'),
     path('plan-report/<int:pk>/', plan_report_view, name='plan-report-detail'),
     path('plan/<int:pk>/', plan_report_dashboard_view, name='plan-dashboard'),

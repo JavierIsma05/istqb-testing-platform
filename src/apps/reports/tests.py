@@ -692,3 +692,43 @@ def test_selector_redirige_al_informe_del_plan(client, project, user, test_plan)
 
     assert response.status_code == 302
     assert response.url == reverse('reports:plan-casos', args=[test_plan.pk])
+
+
+@pytest.mark.django_db
+def test_metricas_istqb_calculan_cobertura_ejecucion_y_defectos(project, test_case, execution, user):
+    from apps.reports.quality_metrics import quality_metrics_for_project
+
+    execution.result = ExecutionModel.Result.PASSED
+    execution.save(update_fields=['result'])
+    Defect.objects.create(
+        project=project,
+        test_case=test_case,
+        execution=execution,
+        code='DEF-MET-01',
+        title='Defecto métrico',
+        description='Defecto para medir trazabilidad.',
+        reported_by=user,
+    )
+    metrics = quality_metrics_for_project(project)
+    assert metrics['requirements_total'] == 1
+    assert metrics['requirements_covered'] == 1
+    assert metrics['requirements_coverage'] == 100
+    assert metrics['executions_total'] == 1
+    assert metrics['executions_passed'] == 1
+    assert metrics['pass_rate'] == 100
+    assert metrics['defects_traceable'] == 1
+    assert metrics['defect_traceability_rate'] == 100
+
+
+@pytest.mark.django_db
+def test_exportaciones_de_metricas_respetan_proyecto(client, project, user):
+    client.force_login(user)
+    csv_response = client.get(reverse('reports:quality-metrics-csv'), {'project': project.pk})
+    pdf_response = client.get(reverse('reports:quality-metrics-pdf'), {'project': project.pk})
+    assert csv_response.status_code == 200
+    assert csv_response['Content-Type'].startswith('text/csv')
+    assert 'istqb-metricas-' in csv_response['Content-Disposition']
+    assert b'Cobertura de requisitos' in csv_response.content
+    assert pdf_response.status_code == 200
+    assert pdf_response['Content-Type'] == 'application/pdf'
+    assert pdf_response.content.startswith(b'%PDF')

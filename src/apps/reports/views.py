@@ -1,3 +1,4 @@
+import csv
 import json
 
 from django.conf import settings
@@ -34,6 +35,7 @@ from apps.traceability.models import TraceabilityLink
 
 from .forms import ReportForm
 from .models import Report, ReportDownload
+from .quality_metrics import metric_rows, quality_metrics_for_project
 
 
 PLAN_REPORT_TYPES = {
@@ -2268,6 +2270,68 @@ def plan_report_pdf_view(request, pk, section):
 
 
 @login_required
+@login_required
+def quality_metrics_view(request):
+    projects = visible_projects_for(request.user, request=request).order_by('name')
+    selected_id = request.GET.get('project') or request.session.get('active_project_id')
+    project = projects.filter(pk=selected_id).first() if selected_id else projects.first()
+    metrics = quality_metrics_for_project(project) if project else None
+    return render(request, 'reports/quality_metrics.html', {
+        'projects': projects,
+        'selected_project': project,
+        'metrics': metrics,
+        'metric_rows': metric_rows(metrics) if metrics else [],
+    })
+
+
+@login_required
+def quality_metrics_csv_view(request):
+    project = get_object_or_404(
+        visible_projects_for(request.user, request=request),
+        pk=request.GET.get('project'),
+    )
+    metrics = quality_metrics_for_project(project)
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="istqb-metricas-{project.code}.csv"'
+    response.write('\ufeff')
+    writer = csv.writer(response)
+    writer.writerow(['Proyecto', project.name])
+    writer.writerow(['Métrica', 'Valor', 'Definición'])
+    writer.writerows(metric_rows(metrics))
+    log_action(request.user, 'DOWNLOAD', 'QualityMetrics', project.pk, {'format': 'CSV'})
+    return response
+
+
+@login_required
+def quality_metrics_pdf_view(request):
+    project = get_object_or_404(
+        visible_projects_for(request.user, request=request),
+        pk=request.GET.get('project'),
+    )
+    metrics = quality_metrics_for_project(project)
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="istqb-metricas-{project.code}.pdf"'
+    doc = SimpleDocTemplate(response, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    styles = getSampleStyleSheet()
+    story = [Paragraph('Reporte de métricas de calidad ISTQB', styles['Title']), Spacer(1, 12), Paragraph(f'Proyecto: {escape(project.name)} ({escape(project.code)})', styles['Normal']), Spacer(1, 18)]
+    table = Table([['Métrica', 'Valor', 'Definición'], *metric_rows(metrics)], colWidths=[150, 70, 290])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0b315f')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cbd5e1')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f1f5f9')]),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 16))
+    story.append(Paragraph('Criterios de referencia', styles['Heading2']))
+    story.append(Paragraph(f"Cobertura mínima: {metrics['thresholds']['coverage']}% · Aprobación mínima: {metrics['thresholds']['pass_rate']}% · Defectos críticos máximos: {metrics['thresholds']['critical_defects']}", styles['Normal']))
+    doc.build(story)
+    log_action(request.user, 'DOWNLOAD', 'QualityMetrics', project.pk, {'format': 'PDF'})
+    return response
+
+
 def report_list_view(request):
     visible_projects = visible_projects_for(request.user, request=request)
     form = ReportForm(request.POST or None)
