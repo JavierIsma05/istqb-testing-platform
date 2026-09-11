@@ -15,6 +15,7 @@ from apps.executions.services.automated_runner import (
     evaluate,
     run_automated_execution,
 )
+from apps.executions.services.review import recalculate_execution_from_steps
 from apps.requirements.models import Requirement
 from apps.projects.models import Project
 from apps.traceability.models import TraceabilityLink
@@ -1088,3 +1089,65 @@ def test_docente_puede_revisar_un_paso_desde_detalle(client, execution, test_cas
     assert response.status_code == 302
     assert step.comment == 'El resultado no coincide con lo esperado.'
     assert step.status == ExecutionModel.Result.FAILED
+
+
+@pytest.mark.django_db
+def test_revision_de_paso_recalcula_resultado_porcentaje_y_estado_del_caso(client, execution, test_case, user):
+    from apps.executions.models import TestStepExecution
+
+    teacher = User.objects.create_user(email='recalc-reviewer@example.com', password='StrongPass123', role=User.Roles.TEACHER)
+    test_case.test_plan.project.members.add(teacher)
+    steps = [
+        TestStepExecution.objects.create(
+            test_execution=execution,
+            step_number=number,
+            action=f'Paso {number}',
+            expected_result='OK',
+            obtained_result='OK',
+            status=ExecutionModel.Result.PENDING if hasattr(ExecutionModel.Result, 'PENDING') else ExecutionModel.Result.NOT_RUN,
+        )
+        for number in range(1, 4)
+    ]
+    client.force_login(teacher)
+
+    for step in steps:
+        response = client.post(
+            reverse('executions:step-review', args=[step.pk]),
+            {'status': ExecutionModel.Result.PASSED, 'comment': 'Validado por el docente.'},
+        )
+        assert response.status_code == 302
+
+    execution.refresh_from_db()
+    test_case.refresh_from_db()
+    assert execution.result == ExecutionModel.Result.PASSED
+    assert execution.approval_percentage == 100
+    assert test_case.status == test_case.Status.PASSED
+
+
+@pytest.mark.django_db
+def test_recalculo_marca_fallo_y_calcula_porcentaje_parcial(execution, test_case, user):
+    from apps.executions.models import TestStepExecution
+
+    steps = [
+        TestStepExecution.objects.create(
+            test_execution=execution,
+            step_number=1,
+            action='Paso aprobado',
+            expected_result='OK',
+            status=ExecutionModel.Result.PASSED,
+        ),
+        TestStepExecution.objects.create(
+            test_execution=execution,
+            step_number=2,
+            action='Paso fallido',
+            expected_result='OK',
+            status=ExecutionModel.Result.FAILED,
+        ),
+    ]
+
+    recalculate_execution_from_steps(execution)
+    execution.refresh_from_db()
+    test_case.refresh_from_db()
+    assert execution.result == ExecutionModel.Result.FAILED
+    assert execution.approval_percentage == 50
+    assert test_case.status == test_case.Status.FAILED
