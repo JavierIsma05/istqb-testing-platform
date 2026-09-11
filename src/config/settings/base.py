@@ -15,7 +15,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # =========================
 # SECURITY
 # =========================
-SECRET_KEY = config('SECRET_KEY')
+# A local-only fallback keeps SQLite checks and first-run setup usable without
+# committing secrets. Production deployments must provide SECRET_KEY through
+# the environment (see production.py).
+SECRET_KEY = config(
+    'SECRET_KEY',
+    default='django-insecure-local-development-only-change-me',
+)
 
 DEBUG = False
 
