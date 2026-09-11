@@ -149,6 +149,7 @@ def project_create_view(request):
         else:
             project.created_by = request.user
             project.save()
+            project.members.set(form.cleaned_data.get('members', []))
             project.members.add(request.user)
             tutor = form.cleaned_data.get('tutor')
             if tutor:
@@ -196,6 +197,8 @@ def project_edit_view(request, pk):
         tutor = form.cleaned_data.get('tutor')
         updated.tutor = tutor
         updated.save()
+        updated.members.set(form.cleaned_data.get('members', []))
+        updated.members.add(updated.created_by)
         if tutor and tutor not in updated.members.all():
             updated.members.add(tutor)
         if previous_tutor_id and previous_tutor_id != (tutor.pk if tutor else None):
