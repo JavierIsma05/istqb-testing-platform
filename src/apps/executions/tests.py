@@ -1010,7 +1010,8 @@ def test_usuario_que_ejecuto_puede_guardar_evidencia_por_paso(client, execution,
     step.refresh_from_db()
     assert response.status_code == 302
     assert response.url == reverse('executions:detail', args=[execution.pk])
-    assert step.evidence_file.name.endswith('paso-1.png')
+    assert step.evidence_file.name.startswith('step_evidence/paso-1')
+    assert step.evidence_file.name.endswith('.png')
 
 
 @pytest.mark.django_db
@@ -1032,3 +1033,58 @@ def test_no_se_puede_cambiar_evidencia_de_ejecucion_revisada(client, execution, 
 
     step.refresh_from_db()
     assert not step.evidence_file
+
+
+@pytest.mark.django_db
+def test_docente_puede_revisar_ejecucion_desde_detalle(client, execution, test_case, user):
+    from apps.executions.models import TestStepExecution
+
+    teacher = User.objects.create_user(email='reviewer@example.com', password='StrongPass123', role=User.Roles.TEACHER)
+    test_case.test_plan.project.members.add(teacher)
+    TestStepExecution.objects.create(
+        test_execution=execution,
+        step_number=1,
+        action='Validar pantalla',
+        expected_result='La pantalla aparece',
+        obtained_result='La pantalla aparece',
+        status=ExecutionModel.Result.PASSED,
+    )
+    client.force_login(teacher)
+
+    response = client.post(
+        reverse('executions:detail-review', args=[execution.pk]),
+        {'review_status': ExecutionModel.ReviewStatus.VALIDATED, 'review_notes': 'Evidencia suficiente.'},
+    )
+
+    execution.refresh_from_db()
+    assert response.status_code == 302
+    assert execution.review_status == ExecutionModel.ReviewStatus.VALIDATED
+    assert execution.reviewed_by == teacher
+    assert execution.review_notes == 'Evidencia suficiente.'
+
+
+@pytest.mark.django_db
+def test_docente_puede_revisar_un_paso_desde_detalle(client, execution, test_case, user):
+    from apps.executions.models import TestStepExecution
+
+    teacher = User.objects.create_user(email='step-reviewer@example.com', password='StrongPass123', role=User.Roles.TEACHER)
+    test_case.test_plan.project.members.add(teacher)
+    step = TestStepExecution.objects.create(
+        test_execution=execution,
+        step_number=1,
+        action='Enviar datos',
+        expected_result='Se acepta la entrada',
+        obtained_result='Se muestra error',
+        status=ExecutionModel.Result.FAILED,
+    )
+    client.force_login(teacher)
+
+    response = client.post(
+        reverse('executions:step-review', args=[step.pk]),
+        {'status': ExecutionModel.Result.FAILED, 'comment': 'El resultado no coincide con lo esperado.'},
+    )
+
+    step.refresh_from_db()
+    assert response.status_code == 302
+    assert step.comment == 'El resultado no coincide con lo esperado.'
+    assert step.status == ExecutionModel.Result.FAILED

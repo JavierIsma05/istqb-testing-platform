@@ -213,6 +213,20 @@ class StepEvidenceForm(forms.ModelForm):
         return cleaned_data
 
 
+class StepReviewForm(forms.ModelForm):
+    class Meta:
+        model = TestStepExecution
+        fields = ('status', 'comment')
+        labels = {
+            'status': 'Estado revisado',
+            'comment': 'Comentario docente',
+        }
+        widgets = {
+            'status': forms.Select(attrs={'class': 'form-select form-select-sm'}),
+            'comment': forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 2, 'placeholder': 'Observación sobre este paso...'}),
+        }
+
+
 class TestDataForm(forms.ModelForm):
     class Meta:
         model = TestData

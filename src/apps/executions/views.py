@@ -17,7 +17,7 @@ from apps.projects.models import Project
 from apps.testcases.models import TestCase
 from apps.users.models import User
 
-from .forms import AutomatedStepForm, ExecutionResultForm, ExecutionReviewForm, StepEvidenceForm, TestDataForm
+from .forms import AutomatedStepForm, ExecutionResultForm, ExecutionReviewForm, StepEvidenceForm, StepReviewForm, TestDataForm
 from .services.automated_runner import run_automated_execution
 
 
@@ -578,9 +578,15 @@ def execution_detail_view(request, pk):
         pk=pk,
         test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
     )
+    step_executions = list(execution.step_executions.all())
+    step_rows = [
+        {'step': step, 'review_form': StepReviewForm(instance=step)}
+        for step in step_executions
+    ]
     return render(request, 'executions/detail.html', {
         'execution': execution,
-        'step_executions': execution.step_executions.all(),
+        'step_executions': step_executions,
+        'step_rows': step_rows,
         'automated_results': execution.automated_results.all(),
         'defects': execution.defects.all(),
         'can_upload_step_evidence': (
@@ -589,7 +595,66 @@ def execution_detail_view(request, pk):
             and (request.user.is_superuser or execution.executed_by_id == request.user.id)
         ),
         'can_manage': can_manage_artifacts(request.user),
+        'is_teacher': is_teacher(request.user),
+        'execution_review_form': ExecutionReviewForm(instance=execution) if is_teacher(request.user) else None,
     })
+
+
+@login_required
+def execution_review_detail_view(request, pk):
+    execution = get_object_or_404(
+        TestExecution.objects.select_related('test_case', 'test_case__test_plan__project'),
+        pk=pk,
+        test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
+    )
+    if not is_teacher(request.user) or request.method != 'POST':
+        return redirect('executions:detail', pk=execution.pk)
+    if execution.review_status != TestExecution.ReviewStatus.PENDING:
+        messages.error(request, 'Esta ejecución ya fue revisada y no admite otra modificación.')
+        return redirect('executions:detail', pk=execution.pk)
+    form = ExecutionReviewForm(request.POST, instance=execution)
+    if form.is_valid():
+        reviewed = form.save(commit=False)
+        reviewed.reviewed_by = request.user
+        reviewed.reviewed_at = timezone.now()
+        reviewed.save()
+        log_action(request.user, 'REVIEW', 'TestExecution', reviewed.pk, {
+            'project_id': reviewed.test_case.test_plan.project_id,
+            'test_case_id': reviewed.test_case_id,
+            'review_status': reviewed.review_status,
+        })
+        messages.success(request, 'Revisión docente registrada correctamente.')
+    else:
+        messages.error(request, ' '.join(form.errors.as_text().splitlines()))
+    return redirect('executions:detail', pk=execution.pk)
+
+
+@login_required
+def step_review_detail_view(request, pk):
+    step = get_object_or_404(
+        TestStepExecution.objects.select_related(
+            'test_execution', 'test_execution__test_case',
+            'test_execution__test_case__test_plan__project',
+        ),
+        pk=pk,
+        test_execution__test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
+    )
+    execution = step.test_execution
+    if not is_teacher(request.user) or request.method != 'POST':
+        return redirect('executions:detail', pk=execution.pk)
+    if execution.review_status != TestExecution.ReviewStatus.PENDING:
+        messages.error(request, 'La ejecución ya fue revisada y no admite cambios por paso.')
+        return redirect('executions:detail', pk=execution.pk)
+    form = StepReviewForm(request.POST, instance=step)
+    if form.is_valid():
+        form.save()
+        log_action(request.user, 'REVIEW', 'TestStepExecution', step.pk, {
+            'execution_id': execution.pk, 'step_number': step.step_number, 'status': step.status,
+        })
+        messages.success(request, f'Revisión del paso {step.step_number} registrada.')
+    else:
+        messages.error(request, ' '.join(form.errors.as_text().splitlines()))
+    return redirect('executions:detail', pk=execution.pk)
 
 
 @login_required
