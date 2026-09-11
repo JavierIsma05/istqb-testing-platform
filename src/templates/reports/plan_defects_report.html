@@ -101,7 +101,13 @@
                     <td>{{ defect.title }}</td>
                     <td>{{ defect.get_severity_display }}</td>
                     <td>{{ defect.get_priority_display }}</td>
-                    <td>{{ defect.assigned_to.get_full_name|default:defect.assigned_to.username|default:'—' }}</td>
+                    <td>
+                        {% if defect.assigned_to %}
+                            {{ defect.assigned_to.get_full_name|default:defect.assigned_to.username }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
                     <td>{{ defect.get_status_display }}</td>
                 </tr>
             {% empty %}
