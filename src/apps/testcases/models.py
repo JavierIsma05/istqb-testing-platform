@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -110,3 +111,20 @@ class TestCase(OwnedModel):
             errors['steps'] = 'Registra al menos un paso de ejecucion.'
         if errors:
             raise ValidationError(errors)
+
+
+class TestCaseVersion(models.Model):
+    test_case = models.ForeignKey(TestCase, on_delete=models.CASCADE, related_name='versions')
+    version_number = models.PositiveIntegerField(default=1)
+    version_label = models.CharField(max_length=20, default='1.0')
+    title = models.CharField(max_length=180)
+    status = models.CharField(max_length=20, choices=TestCase.Status.choices)
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    change_reason = models.CharField(max_length=180, blank=True)
+    snapshot = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['test_case', '-version_number']
+        unique_together = ('test_case', 'version_number')

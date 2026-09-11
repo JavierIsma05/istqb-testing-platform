@@ -15,6 +15,7 @@ from apps.core.permissions import (
 from apps.drafts.services import clear_draft
 
 from .forms import TestCaseModalForm
+from .history import record_test_case_version
 from .models import TestCase
 
 
@@ -42,11 +43,12 @@ def testcase_list_view(request):
     if request.method == 'POST' and form.is_valid():
         test_case = form.save(commit=False)
         test_case.code = next_code(
-            TestCase.objects.filter(test_plan__project=test_case.test_plan.project),
+            TestCase.objects.filter(test_plan=test_case.test_plan),
             'TC',
         )
         test_case.created_by = request.user
         test_case.save()
+        record_test_case_version(test_case, request.user, 'Creación del caso de prueba')
         clear_draft(request.user, 'testcase', test_case.test_plan.project_id, 0)
         clear_draft(request.user, 'testcase', 0, 0)
         messages.success(request, 'Caso de prueba creado correctamente.')
@@ -181,6 +183,7 @@ def testcase_update_view(request, pk):
 
     if request.method == 'POST' and form.is_valid():
         test_case = form.save()
+        record_test_case_version(test_case, request.user, 'Actualización del caso de prueba')
         clear_draft(request.user, 'testcase', test_case.test_plan.project_id, test_case.pk)
         log_action(
             request.user,

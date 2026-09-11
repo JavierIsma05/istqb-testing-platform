@@ -100,7 +100,7 @@ class TestCaseModalForm(forms.ModelForm):
             else self.fields['requirement'].queryset.none()
         )
         self.fields['requirement'].label_from_instance = lambda obj: obj.display_label
-        queryset = TestCase.objects.filter(test_plan__project_id=project_id) if project_id else TestCase.objects.none()
+        queryset = TestCase.objects.filter(test_plan_id=test_plan_id) if test_plan_id else TestCase.objects.none()
         self.fields['code'].required = False
         self.fields['code'].disabled = True
         self.fields['code'].initial = self.instance.code or next_code(queryset, 'TC')
@@ -125,7 +125,7 @@ class TestCaseModalForm(forms.ModelForm):
             }),
             'data-next-codes': json.dumps({
                 str(test_plan.pk): next_code(
-                    TestCase.objects.filter(test_plan__project_id=test_plan.project_id),
+                    TestCase.objects.filter(test_plan_id=test_plan.pk),
                     'TC',
                 )
                 for test_plan in available_plans
