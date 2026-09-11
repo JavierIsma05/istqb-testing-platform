@@ -145,21 +145,19 @@
                         </h3>
                         <p>{{ item.project.description|default:'Proyecto de pruebas de software' }}</p>
                     </div>
-                    {% if can_manage %}
-                        <div class="project-actions">
-                            <button class="kebab-button" type="button" title="Opciones" aria-expanded="false" data-project-menu-toggle>
+                    {% if can_manage and request.user == item.project.created_by or request.user.is_admin_role %}
+                        <div class="project-actions dropdown">
+                            <button class="kebab-button dropdown-toggle" type="button" title="Opciones" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-three-dots-vertical"></i>
                             </button>
-                            <div class="project-actions-menu" data-project-menu>
-                                {% if request.user == item.project.created_by or request.user.is_admin_role %}
-                                    <a class="project-action-item" href="{% url 'projects:edit' item.project.pk %}">
-                                        <i class="bi bi-pencil"></i>
-                                        Editar
-                                    </a>
-                                {% endif %}
+                            <div class="project-actions-menu dropdown-menu dropdown-menu-end">
+                                <a class="project-action-item dropdown-item" href="{% url 'projects:edit' item.project.pk %}">
+                                    <i class="bi bi-pencil"></i>
+                                    Editar
+                                </a>
                                 <form method="POST" action="{% url 'projects:delete' item.project.pk %}">
                                     {% csrf_token %}
-                                    <button type="submit" class="project-action-item danger" data-confirm-message="Eliminar este proyecto borrar&aacute; tambi&eacute;n su informaci&oacute;n asociada. &iquest;Deseas continuar?">
+                                    <button type="submit" class="project-action-item dropdown-item danger" data-confirm-message="Eliminar este proyecto borrar&aacute; tambi&eacute;n su informaci&oacute;n asociada. &iquest;Deseas continuar?">
                                         <i class="bi bi-trash"></i>
                                         Eliminar
                                     </button>
