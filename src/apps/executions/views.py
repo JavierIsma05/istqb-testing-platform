@@ -17,7 +17,7 @@ from apps.projects.models import Project
 from apps.testcases.models import TestCase
 from apps.users.models import User
 
-from .forms import AutomatedStepForm, ExecutionResultForm, ExecutionReviewForm, TestDataForm
+from .forms import AutomatedStepForm, ExecutionResultForm, ExecutionReviewForm, StepEvidenceForm, TestDataForm
 from .services.automated_runner import run_automated_execution
 
 
@@ -566,6 +566,61 @@ def execution_history_view(request, case_id):
             'can_manage': can_manage_artifacts(request.user),
         },
     )
+
+
+@login_required
+def execution_detail_view(request, pk):
+    execution = get_object_or_404(
+        TestExecution.objects.select_related(
+            'test_case', 'test_case__test_plan', 'test_case__test_plan__project',
+            'executed_by', 'reviewed_by', 'related_defect',
+        ).prefetch_related('step_executions', 'automated_results__validation_rule', 'defects'),
+        pk=pk,
+        test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
+    )
+    return render(request, 'executions/detail.html', {
+        'execution': execution,
+        'step_executions': execution.step_executions.all(),
+        'automated_results': execution.automated_results.all(),
+        'defects': execution.defects.all(),
+        'can_upload_step_evidence': (
+            not is_teacher(request.user)
+            and execution.review_status == TestExecution.ReviewStatus.PENDING
+            and (request.user.is_superuser or execution.executed_by_id == request.user.id)
+        ),
+        'can_manage': can_manage_artifacts(request.user),
+    })
+
+
+@login_required
+def step_evidence_upload_view(request, pk):
+    step = get_object_or_404(
+        TestStepExecution.objects.select_related(
+            'test_execution', 'test_execution__test_case',
+            'test_execution__test_case__test_plan__project',
+        ),
+        pk=pk,
+        test_execution__test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
+    )
+    execution = step.test_execution
+    if request.method != 'POST' or is_teacher(request.user):
+        return redirect('executions:detail', pk=execution.pk)
+    if not request.user.is_superuser and execution.executed_by_id != request.user.id:
+        messages.error(request, 'Solo quien registró la ejecución puede adjuntar evidencia por paso.')
+        return redirect('executions:detail', pk=execution.pk)
+    if execution.review_status != TestExecution.ReviewStatus.PENDING:
+        messages.error(request, 'La ejecución ya fue revisada y no admite cambios de evidencia.')
+        return redirect('executions:detail', pk=execution.pk)
+    form = StepEvidenceForm(request.POST, request.FILES, instance=step)
+    if form.is_valid():
+        form.save()
+        log_action(request.user, 'UPDATE', 'TestStepExecution', step.pk, {
+            'execution_id': execution.pk, 'step_number': step.step_number, 'evidence': True,
+        })
+        messages.success(request, f'Evidencia del paso {step.step_number} guardada correctamente.')
+    else:
+        messages.error(request, ' '.join(form.errors.as_text().splitlines()))
+    return redirect('executions:detail', pk=execution.pk)
 
 
 @login_required

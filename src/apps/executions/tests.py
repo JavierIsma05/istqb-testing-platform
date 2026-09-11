@@ -956,3 +956,79 @@ def test_api_docente_consulta_solo_proyecto_visible(client, project):
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+@pytest.mark.django_db
+def test_detalle_de_ejecucion_muestra_pasoso_evidencia_y_defectos(client, execution, test_case, user):
+    from apps.executions.models import TestStepExecution
+
+    step = TestStepExecution.objects.create(
+        test_execution=execution,
+        step_number=1,
+        action='Abrir login',
+        expected_result='Se muestra el formulario',
+        obtained_result='Se muestra el formulario',
+        status=ExecutionModel.Result.PASSED,
+    )
+    defect = Defect.objects.create(
+        project=test_case.test_plan.project,
+        test_case=test_case,
+        execution=execution,
+        code='DEF-DETAIL-01',
+        title='Defecto visible',
+        description='Detalle del defecto',
+        reported_by=user,
+    )
+    client.force_login(user)
+
+    response = client.get(reverse('executions:detail', args=[execution.pk]))
+
+    assert response.status_code == 200
+    assert response.context['step_executions'][0].pk == step.pk
+    assert defect.title in response.content.decode()
+    assert reverse('executions:step-evidence', args=[step.pk]) in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_usuario_que_ejecuto_puede_guardar_evidencia_por_paso(client, execution, test_case, user):
+    from apps.executions.models import TestStepExecution
+
+    step = TestStepExecution.objects.create(
+        test_execution=execution,
+        step_number=1,
+        action='Enviar formulario',
+        expected_result='Se procesa',
+        status=ExecutionModel.Result.FAILED,
+    )
+    client.force_login(user)
+
+    response = client.post(
+        reverse('executions:step-evidence', args=[step.pk]),
+        {'evidence_file': evidence_file('paso-1.png')},
+    )
+
+    step.refresh_from_db()
+    assert response.status_code == 302
+    assert response.url == reverse('executions:detail', args=[execution.pk])
+    assert step.evidence_file.name.endswith('paso-1.png')
+
+
+@pytest.mark.django_db
+def test_no_se_puede_cambiar_evidencia_de_ejecucion_revisada(client, execution, user):
+    from apps.executions.models import TestStepExecution
+
+    execution.review_status = ExecutionModel.ReviewStatus.VALIDATED
+    execution.save(update_fields=['review_status'])
+    step = TestStepExecution.objects.create(
+        test_execution=execution,
+        step_number=1,
+        action='Paso revisado',
+        expected_result='OK',
+        status=ExecutionModel.Result.PASSED,
+    )
+    client.force_login(user)
+
+    client.post(reverse('executions:step-evidence', args=[step.pk]), {'evidence_file': evidence_file()})
+
+    step.refresh_from_db()
+    assert not step.evidence_file

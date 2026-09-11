@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 
 from apps.core.forms import CurrentAcademicYearValidationMixin, current_year_date_attrs
 
-from .models import AutomatedValidationRule, TestData, TestExecution
+from .models import AutomatedValidationRule, TestData, TestExecution, TestStepExecution
 
 EVIDENCE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf', '.txt', '.log', '.csv')
 MAX_EVIDENCE_SIZE = 10 * 1024 * 1024
@@ -186,6 +186,31 @@ class ExecutionReviewForm(forms.ModelForm):
                 }
             ),
         }
+
+
+class StepEvidenceForm(forms.ModelForm):
+    class Meta:
+        model = TestStepExecution
+        fields = ('evidence_file', 'screenshot')
+        labels = {
+            'evidence_file': 'Archivo de evidencia',
+            'screenshot': 'Captura de pantalla',
+        }
+        widgets = {
+            'evidence_file': forms.FileInput(attrs={'class': 'form-control', 'accept': '.png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.log,.csv'}),
+            'screenshot': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        evidence = cleaned_data.get('evidence_file')
+        screenshot = cleaned_data.get('screenshot')
+        if not evidence and not screenshot:
+            raise forms.ValidationError('Adjunta un archivo o una captura para respaldar este paso.')
+        for uploaded in (evidence, screenshot):
+            if uploaded and uploaded.size > MAX_EVIDENCE_SIZE:
+                raise forms.ValidationError('Cada evidencia no debe superar 10 MB.')
+        return cleaned_data
 
 
 class TestDataForm(forms.ModelForm):
