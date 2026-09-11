@@ -2332,6 +2332,7 @@ def quality_metrics_pdf_view(request):
     return response
 
 
+@login_required
 def report_list_view(request):
     visible_projects = visible_projects_for(request.user, request=request)
     form = ReportForm(request.POST or None)
