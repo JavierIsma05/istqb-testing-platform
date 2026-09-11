@@ -784,18 +784,30 @@
             <div>
                 <span class="execution-mode-kicker">Ejecución automatizada</span>
                 <h3>Ejecución automatizada por pasos</h3>
-                <p>Configura una secuencia de pasos (Abrir URL, clic, escribir, esperar y verificar) que ejecuta Chromium mediante Playwright, sin permitir código libre.</p>
+                <p>Construye una secuencia de acciones del navegador y comprueba el resultado sin escribir código.</p>
             </div>
             {% if can_manage %}
                 <form method="POST" action="{% url 'executions:run-automated' selected_case.pk %}">
                     {% csrf_token %}
                     <button class="btn btn-brand" type="submit" {% if not automated_rules or case_blocked %}disabled{% endif %}>
                         <i class="bi bi-play-circle"></i>
-                        Ejecutar pasos
+                        Ejecutar automatización
                     </button>
                 </form>
             {% endif %}
         </div>
+
+        <div class="automation-guide mb-4">
+            <div class="automation-guide-title"><i class="bi bi-info-circle"></i><strong>¿Cómo funciona?</strong></div>
+            <p class="mb-2">Configura los pasos en el orden en que una persona usaría la pantalla. Después ejecuta la secuencia y revisa el resultado de cada paso.</p>
+            <ol class="automation-guide-steps mb-0">
+                <li><strong>Datos:</strong> crea variables reutilizables solo si las necesitas.</li>
+                <li><strong>Pasos:</strong> agrega abrir URL, escribir, hacer clic, esperar o verificar.</li>
+                <li><strong>Revisión:</strong> confirma el orden y marca como crítico el paso que debe detener la prueba.</li>
+                <li><strong>Ejecución:</strong> pulsa <strong>Ejecutar automatización</strong> y revisa evidencias y logs.</li>
+            </ol>
+        </div>
+        {% if case_blocked %}<div class="alert alert-warning"><i class="bi bi-lock"></i> <strong>Automatización bloqueada.</strong> {{ case_block_reason }} Aprueba primero el requisito asociado al caso.</div>{% elif not automated_rules %}<div class="alert alert-info"><i class="bi bi-list-check"></i> Aún no hay pasos automatizados. Agrega el primer paso en la sección de configuración.</div>{% endif %}
 
         {% if can_manage %}
         <div class="mb-4">
@@ -859,6 +871,22 @@
                 </div>
             </details>
         </div>
+        {% endif %}
+
+        {% if can_manage and step_form %}
+            <details class="automation-step-builder mb-4" open>
+                <summary class="btn btn-brand"><i class="bi bi-plus-circle"></i> Configurar pasos automatizados</summary>
+                <p class="form-text mt-2">Empieza con el paso 1 y agrega los siguientes en el orden real de uso. Para campos o botones escribe un selector CSS, por ejemplo <code>#usuario</code> o <code>button[type="submit"]</code>.</p>
+                <form class="mt-3" method="POST" action="{% url 'executions:rule-create' selected_case.pk %}" novalidate data-step-form>
+                    {% csrf_token %}
+                    <div class="automation-rule-help mb-3" data-step-action-help><strong>Selecciona una acción</strong><span>Verás solo los campos que necesita esa acción.</span></div>
+                    <div class="row g-3">
+                        <div class="col-md-6" data-step-field="template"><label class="form-label" for="{{ step_form.template.id_for_label }}">{{ step_form.template.label }}</label>{{ step_form.template }}<div class="form-text">Opcional: usa una plantilla para empezar más rápido.</div></div>
+                        {% for field in step_form %}{% if field.name != 'template' %}<div class="col-md-6" data-step-field="{{ field.name }}" data-step-action="{{ field.field.widget.attrs|get_item:'data-action'|default:'' }}">{% if field.field.widget.input_type == 'checkbox' %}<div class="form-check mt-4">{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>{% else %}<label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% endif %}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}</div>{% endif %}{% endfor %}
+                    </div>
+                    <button class="btn btn-brand mt-3" type="submit"><i class="bi bi-save"></i> Guardar paso</button>
+                </form>
+            </details>
         {% endif %}
 
         <div class="table-responsive mb-4">
@@ -1043,42 +1071,6 @@
             </div>
         </div>
 
-        {% if can_manage and step_form %}
-            <details>
-                <summary class="btn btn-brand">Agregar paso automatizado</summary>
-                <form class="mt-3" method="POST" action="{% url 'executions:rule-create' selected_case.pk %}" novalidate data-step-form>
-                    {% csrf_token %}
-                    <div class="automation-rule-help mb-3" data-step-action-help>
-                        <strong>Selecciona una acción</strong>
-                        <span>El formulario mostrará solo los campos necesarios para ese paso.</span>
-                    </div>
-                    
-                    <div class="row g-3">
-                        <div class="col-md-6" data-step-field="template">
-                            <label class="form-label" for="{{ step_form.template.id_for_label }}">{{ step_form.template.label }}</label>
-                            {{ step_form.template }}
-                            <div class="form-text">Opcional: pre-llena el formulario con una plantilla común</div>
-                        </div>
-                        {% for field in step_form %}
-                            {% if field.name != 'template' %}
-                            <div class="col-md-6" data-step-field="{{ field.name }}" data-step-action="{{ field.field.widget.attrs|get_item:'data-action'|default:'' }}">
-                                {% if field.field.widget.input_type == 'checkbox' %}
-                                    <div class="form-check mt-4">{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
-                                {% else %}
-                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                                    {{ field }}
-                                {% endif %}
-                                {% if field.help_text %}
-                                    <div class="form-text">{{ field.help_text }}</div>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                    <button class="btn btn-brand mt-3" type="submit">Guardar paso</button>
-                </form>
-            </details>
-        {% endif %}
     </section>
     </div>
 

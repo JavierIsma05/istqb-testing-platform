@@ -3227,6 +3227,48 @@ textarea.form-control {
     line-height: 1.4;
 }
 
+.automation-guide {
+    background: linear-gradient(135deg, rgba(231, 244, 255, 0.9), rgba(248, 251, 255, 0.95));
+    border: 1px solid rgba(74, 144, 226, 0.22);
+    border-radius: 12px;
+    padding: 16px 18px;
+}
+
+.automation-guide-title {
+    align-items: center;
+    color: var(--ink);
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.automation-guide-title i {
+    color: var(--brand);
+}
+
+.automation-guide-steps {
+    color: var(--muted);
+    display: grid;
+    gap: 5px;
+    padding-left: 22px;
+}
+
+.automation-step-builder {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+}
+
+.automation-step-builder summary {
+    cursor: pointer;
+    display: inline-flex;
+    list-style: none;
+}
+
+.automation-step-builder summary::-webkit-details-marker {
+    display: none;
+}
+
 .execution-result-options {
     display: grid;
     gap: 12px;

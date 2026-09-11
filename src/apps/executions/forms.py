@@ -282,7 +282,7 @@ class AutomatedStepForm(forms.ModelForm):
             'step_number': 'Paso',
             'action_type': 'Acción',
             'target_url': 'URL a abrir',
-            'selector_value': 'Elemento',
+            'selector_value': 'Selector CSS del elemento',
             'input_value': 'Dato',
             'expected_value': 'Resultado esperado',
             'comparison_type': 'Tipo de comparación',
