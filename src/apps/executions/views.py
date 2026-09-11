@@ -325,6 +325,7 @@ def execution_workspace_view(request):
     step_results = []
     step_errors = []
     form_data = request.POST or None
+    step_payload_present = any(key.startswith('step_') for key in request.POST)
     if request.method == 'POST' and selected_case and not is_teacher_user:
         if not selected_case.has_approved_requirement:
             messages.error(request, selected_case.execution_block_reason)
@@ -332,6 +333,11 @@ def execution_workspace_view(request):
         form_data = request.POST.copy()
 
     form = ExecutionResultForm(form_data, request.FILES or None, test_case=selected_case, user=request.user)
+
+    if request.method == 'POST' and selected_case and not is_teacher_user and step_payload_present:
+        step_results, step_errors = build_step_results(selected_case, request.POST)
+        for error in step_errors:
+            form.add_error(None, error)
 
     if request.method == 'POST' and is_teacher_user:
         execution = get_object_or_404(
@@ -365,8 +371,21 @@ def execution_workspace_view(request):
         execution.execution_mode = TestExecution.ExecutionMode.MANUAL
         execution.executed_by = request.user
         execution.executed_at = timezone.now()
-        execution.step_results = []
+        execution.step_results = step_results if step_payload_present else []
+        if step_payload_present:
+            execution.result = aggregate_step_result(step_results)
         execution.save()
+        if step_payload_present:
+            for step in step_results:
+                TestStepExecution.objects.create(
+                    test_execution=execution,
+                    step_number=step['number'],
+                    action=step['action'],
+                    expected_result=step['expected_result'],
+                    obtained_result=step['actual_result'],
+                    status=step['status'],
+                    comment=step['comment'],
+                )
         log_action(
             request.user,
             'CREATE',
