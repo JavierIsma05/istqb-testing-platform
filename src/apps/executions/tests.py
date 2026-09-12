@@ -1151,3 +1151,52 @@ def test_recalculo_marca_fallo_y_calcula_porcentaje_parcial(execution, test_case
     assert execution.result == ExecutionModel.Result.FAILED
     assert execution.approval_percentage == 50
     assert test_case.status == test_case.Status.FAILED
+
+
+@pytest.mark.django_db
+def test_usuario_no_puede_ver_ni_eliminar_ejecucion_de_proyecto_ajeno(client, user):
+    other_user = User.objects.create_user(
+        email='foreign-execution@example.com',
+        password='StrongPass123',
+    )
+    foreign_project = Project.objects.create(
+        code='PRJ-FOREIGN-EXEC',
+        name='Proyecto ajeno para ejecucion',
+        created_by=other_user,
+    )
+    foreign_plan = test_case.__class__._meta.get_field('test_plan').related_model.objects.create(
+        project=foreign_project,
+        name='Plan ajeno',
+        objective='Privado.',
+        created_by=other_user,
+    )
+    foreign_requirement = Requirement.objects.create(
+        project=foreign_project,
+        code='REQ-EXEC-999',
+        title='Requisito privado',
+        description='Privado.',
+        status=Requirement.Status.APPROVED,
+        created_by=other_user,
+    )
+    foreign_case = test_case.__class__.objects.create(
+        test_plan=foreign_plan,
+        requirement=foreign_requirement,
+        code='TC-EXEC-999',
+        title='Caso privado',
+        steps='Paso 1',
+        expected_result='OK',
+        created_by=other_user,
+    )
+    foreign_execution = ExecutionModel.objects.create(
+        test_case=foreign_case,
+        executed_by=other_user,
+        result=ExecutionModel.Result.PASSED,
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('executions:detail', args=[foreign_execution.pk]))
+    assert response.status_code == 404
+
+    response = client.post(reverse('executions:delete', args=[foreign_execution.pk]))
+    assert response.status_code == 404
+    assert ExecutionModel.objects.filter(pk=foreign_execution.pk).exists()
