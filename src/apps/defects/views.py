@@ -47,14 +47,14 @@ PRIORITY_BADGES = {
 }
 
 
-TRANSITIONS = {
-    Defect.Status.OPEN: Defect.Status.IN_PROGRESS,
-    Defect.Status.ANALYSIS: Defect.Status.IN_PROGRESS,
-    Defect.Status.IN_PROGRESS: Defect.Status.RESOLVED,
-    Defect.Status.RESOLVED: Defect.Status.PENDING_CONFIRMATION,
-    Defect.Status.PENDING_CONFIRMATION: Defect.Status.CLOSED,
-    Defect.Status.CLOSED: Defect.Status.REOPENED,
-    Defect.Status.REOPENED: Defect.Status.IN_PROGRESS,
+TRANSITION_OPTIONS = {
+    Defect.Status.OPEN: (Defect.Status.ANALYSIS, Defect.Status.IN_PROGRESS, Defect.Status.REJECTED, Defect.Status.DUPLICATED),
+    Defect.Status.ANALYSIS: (Defect.Status.IN_PROGRESS, Defect.Status.OPEN),
+    Defect.Status.IN_PROGRESS: (Defect.Status.RESOLVED, Defect.Status.OPEN),
+    Defect.Status.RESOLVED: (Defect.Status.PENDING_CONFIRMATION, Defect.Status.IN_PROGRESS),
+    Defect.Status.PENDING_CONFIRMATION: (Defect.Status.CLOSED, Defect.Status.REOPENED),
+    Defect.Status.CLOSED: (Defect.Status.REOPENED,),
+    Defect.Status.REOPENED: (Defect.Status.IN_PROGRESS, Defect.Status.REJECTED),
 }
 
 
@@ -109,7 +109,7 @@ def defect_list_view(request):
                     'badge': STATUS_BADGES.get(defect.status, 'muted'),
                     'severity_badge': SEVERITY_BADGES.get(defect.severity, 'muted'),
                     'priority_badge': PRIORITY_BADGES.get(defect.priority, 'muted'),
-                    'next_status': TRANSITIONS.get(defect.status),
+                    'next_statuses': TRANSITION_OPTIONS.get(defect.status, ()),
                 }
                 for defect in defects
             ],
@@ -230,7 +230,7 @@ def defect_delete_view(request, pk):
 
 
 @login_required
-def defect_transition_view(request, pk):
+def defect_transition_view(request, pk, status=None):
     readonly_redirect = redirect_if_teacher_readonly(request, 'defects:index', 'defectos')
     if readonly_redirect:
         return readonly_redirect
@@ -242,7 +242,7 @@ def defect_transition_view(request, pk):
     )
 
     if request.method == 'POST':
-        target = TRANSITIONS.get(defect.status)
+        target = status
         if target:
             if target == Defect.Status.IN_PROGRESS and not defect.assigned_to:
                 defect.assigned_to = request.user
@@ -270,7 +270,7 @@ def defect_transition_view(request, pk):
             )
             messages.success(request, f'Estado actualizado a {defect.get_status_display()}.')
         else:
-            messages.error(request, 'No hay una transición válida para este estado.')
+            messages.error(request, 'Debes seleccionar un estado de destino para la transición.')
     else:
         messages.error(request, 'La transición debe confirmarse desde el listado.')
 
