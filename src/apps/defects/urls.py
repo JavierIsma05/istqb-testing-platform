@@ -15,5 +15,5 @@ urlpatterns = [
     path('new/', defect_create_view, name='create'),
     path('<int:pk>/edit/', defect_update_view, name='edit'),
     path('<int:pk>/delete/', defect_delete_view, name='delete'),
-    path('<int:pk>/transition/', defect_transition_view, name='transition'),
+    path('<int:pk>/transition/<str:status>/', defect_transition_view, name='transition'),
 ]
