@@ -11,7 +11,7 @@ from apps.core.permissions import (
     visible_projects_for,
 )
 from apps.core.codes import next_code
-from apps.core.lifecycle import defect_transition_allowed
+from apps.core.lifecycle import defect_transition_allowed, defect_transition_options
 from apps.projects.models import Project
 
 from .forms import DefectForm
@@ -44,17 +44,6 @@ PRIORITY_BADGES = {
     Defect.Priority.HIGH: 'high',
     Defect.Priority.MEDIUM: 'medium',
     Defect.Priority.LOW: 'low',
-}
-
-
-TRANSITION_OPTIONS = {
-    Defect.Status.OPEN: (Defect.Status.ANALYSIS, Defect.Status.IN_PROGRESS, Defect.Status.REJECTED, Defect.Status.DUPLICATED),
-    Defect.Status.ANALYSIS: (Defect.Status.IN_PROGRESS, Defect.Status.OPEN),
-    Defect.Status.IN_PROGRESS: (Defect.Status.RESOLVED, Defect.Status.OPEN),
-    Defect.Status.RESOLVED: (Defect.Status.PENDING_CONFIRMATION, Defect.Status.IN_PROGRESS),
-    Defect.Status.PENDING_CONFIRMATION: (Defect.Status.CLOSED, Defect.Status.REOPENED),
-    Defect.Status.CLOSED: (Defect.Status.REOPENED,),
-    Defect.Status.REOPENED: (Defect.Status.IN_PROGRESS, Defect.Status.REJECTED),
 }
 
 
@@ -109,7 +98,7 @@ def defect_list_view(request):
                     'badge': STATUS_BADGES.get(defect.status, 'muted'),
                     'severity_badge': SEVERITY_BADGES.get(defect.severity, 'muted'),
                     'priority_badge': PRIORITY_BADGES.get(defect.priority, 'muted'),
-                    'next_statuses': TRANSITION_OPTIONS.get(defect.status, ()),
+                    'next_statuses': defect_transition_options(defect.status),
                 }
                 for defect in defects
             ],
