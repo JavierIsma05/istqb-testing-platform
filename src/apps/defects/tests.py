@@ -207,7 +207,7 @@ def test_transicion_de_estado_avanza_por_el_ciclo(client, project, test_case, us
     defect.verification_execution = confirmation
     defect.save(update_fields=['verification_execution', 'updated_at'])
     for expected in (Defect.Status.CLOSED, Defect.Status.REOPENED, Defect.Status.IN_PROGRESS):
-        response = client.post(reverse('defects:transition', args=[defect.pk, Defect.Status.IN_PROGRESS]))
+        response = client.post(reverse('defects:transition', args=[defect.pk, expected]))
         defect.refresh_from_db()
         assert response.status_code == 302
         assert defect.status == expected
@@ -238,7 +238,7 @@ def test_usuario_no_puede_transicionar_defecto_de_proyecto_ajeno(client, user):
     project = Project.objects.create(code='PRJ-FOREIGN-TRANS', name='Proyecto ajeno', created_by=other_user)
     defect = Defect.objects.create(project=project, code='DEF-998', title='Defecto protegido', description='Privado.', reported_by=other_user)
     client.force_login(user)
-    response = client.post(reverse('defects:transition', args=[defect.pk]))
+    response = client.post(reverse('defects:transition', args=[defect.pk, Defect.Status.IN_PROGRESS]))
     assert response.status_code == 404
     defect.refresh_from_db()
     assert defect.status == Defect.Status.OPEN
