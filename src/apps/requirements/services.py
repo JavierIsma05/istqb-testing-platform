@@ -1,4 +1,10 @@
+import csv
+import io
+import os
 import re
+import shutil
+import subprocess
+import tempfile
 from dataclasses import dataclass
 
 from .models import Requirement
@@ -8,10 +14,15 @@ class RequirementPdfImportError(Exception):
     pass
 
 
+class RequirementSourceImportError(RequirementPdfImportError):
+    pass
+
+
 @dataclass
 class ParsedRequirement:
     title: str
     description: str
+    acceptance_criteria: str = ''
     requirement_type: str = Requirement.RequirementType.FUNCTIONAL
     priority: str = Requirement.Priority.MEDIUM
     status: str = Requirement.Status.PENDING
@@ -63,6 +74,71 @@ def extract_text_from_pdf(pdf_file):
         )
 
     return text
+
+
+def extract_text_from_source(source_file):
+    """Extract plain text from a supported requirements document."""
+    name = (getattr(source_file, 'name', '') or '').lower()
+    extension = '.' + name.rsplit('.', 1)[-1] if '.' in name else ''
+    try:
+        source_file.seek(0)
+        if extension == '.pdf':
+            return extract_text_from_pdf(source_file)
+        if extension in {'.txt', '.csv'}:
+            raw = source_file.read()
+            if isinstance(raw, str):
+                return raw
+            decoded = raw.decode('utf-8-sig', errors='replace')
+            if extension == '.csv':
+                rows = csv.reader(io.StringIO(decoded))
+                return '\n'.join(' | '.join(cell.strip() for cell in row) for row in rows)
+            return decoded.strip()
+        if extension == '.docx':
+            try:
+                from docx import Document
+            except ImportError as exc:
+                raise RequirementSourceImportError('Instala python-docx para leer archivos Word (.docx).') from exc
+            document = Document(source_file)
+            return '\n'.join(p.text.strip() for p in document.paragraphs if p.text.strip())
+        if extension in {'.xlsx', '.xls'}:
+            try:
+                from openpyxl import load_workbook
+            except ImportError as exc:
+                raise RequirementSourceImportError('Instala openpyxl para leer archivos Excel.') from exc
+            if extension == '.xls':
+                raise RequirementSourceImportError('El formato .xls requiere guardarse como .xlsx antes de importarlo.')
+            workbook = load_workbook(source_file, read_only=True, data_only=True)
+            lines = []
+            for sheet in workbook.worksheets:
+                for row in sheet.iter_rows(values_only=True):
+                    values = [str(value).strip() for value in row if value is not None and str(value).strip()]
+                    if values:
+                        lines.append(' | '.join(values))
+            return '\n'.join(lines).strip()
+        if extension == '.doc':
+            if not shutil.which('libreoffice'):
+                raise RequirementSourceImportError('El formato .doc requiere LibreOffice o convertirse a .docx.')
+            with tempfile.TemporaryDirectory() as directory:
+                input_path = f'{directory}/requirements.doc'
+                with open(input_path, 'wb') as handle:
+                    handle.write(source_file.read())
+                result = subprocess.run(
+                    ['libreoffice', '--headless', '--convert-to', 'txt:Text', '--outdir', directory, input_path],
+                    capture_output=True,
+                    timeout=30,
+                    check=False,
+                )
+                output_path = f'{directory}/requirements.txt'
+                if result.returncode != 0 or not os.path.exists(output_path):
+                    raise RequirementSourceImportError('No se pudo leer el archivo Word .doc.')
+                with open(output_path, encoding='utf-8', errors='replace') as handle:
+                    return handle.read().strip()
+    except RequirementSourceImportError:
+        raise
+    except Exception as exc:
+        raise RequirementSourceImportError('No se pudo leer el documento. Verifica que no esté protegido o dañado.') from exc
+
+    raise RequirementSourceImportError('Formato no soportado. Usa PDF, Word, Excel, CSV o TXT.')
 
 
 def parse_requirements_from_text(text, defaults=None, limit=100):

@@ -19,7 +19,7 @@ from apps.projects.models import Project
 from .forms import RequirementForm, RequirementImportForm
 from .history import record_requirement_version
 from .models import Requirement
-from .services import RequirementPdfImportError, extract_text_from_pdf, parse_requirements_from_text
+from .services import RequirementSourceImportError, extract_text_from_source, parse_requirements_from_text
 
 
 STATUS_BADGES = {
@@ -162,14 +162,14 @@ def requirement_import_view(request):
         selected_project = form.cleaned_data['project']
 
         try:
-            text = extract_text_from_pdf(form.cleaned_data['pdf_file'])
+            text = extract_text_from_source(form.cleaned_data['source_file'])
             preview_items = parse_requirements_from_text(text)
-        except RequirementPdfImportError as exc:
+        except RequirementSourceImportError as exc:
             import_error = True
             messages.error(request, str(exc))
 
         if not preview_items and not import_error:
-            messages.warning(request, 'No se detectaron requisitos en el PDF. Revisa el formato del documento.')
+            messages.warning(request, 'No se detectaron requisitos en el documento. Revisa que tenga una fila o línea por requisito.')
 
     return render(
         request,
@@ -188,6 +188,7 @@ def _confirm_requirement_import(request, visible_projects):
     project = get_object_or_404(visible_projects, pk=request.POST.get('project'))
     titles = request.POST.getlist('title')
     descriptions = request.POST.getlist('description')
+    acceptance_criteria = request.POST.getlist('acceptance_criteria')
     requirement_types = request.POST.getlist('requirement_type')
     priorities = request.POST.getlist('priority')
     allowed_types = {value for value, _label in Requirement.RequirementType.choices}
@@ -198,6 +199,7 @@ def _confirm_requirement_import(request, visible_projects):
         for index, title in enumerate(titles):
             title = title.strip()
             description = descriptions[index].strip() if index < len(descriptions) else ''
+            criteria = acceptance_criteria[index].strip() if index < len(acceptance_criteria) else ''
             if not title or not description:
                 continue
 
@@ -209,6 +211,7 @@ def _confirm_requirement_import(request, visible_projects):
                 code=next_code(Requirement.objects.filter(project=project), 'REQ'),
                 title=title[:180],
                 description=description,
+                acceptance_criteria=criteria,
                 requirement_type=requirement_type if requirement_type in allowed_types else Requirement.RequirementType.FUNCTIONAL,
                 priority=priority if priority in allowed_priorities else Requirement.Priority.MEDIUM,
                 status=Requirement.Status.PENDING,
@@ -247,8 +250,8 @@ def requirement_update_view(request, pk):
 
     if request.method == 'POST' and form.is_valid():
         original = {
-            field: getattr(requirement, field)
-            for field in ('title', 'description', 'requirement_type', 'priority')
+                field: getattr(requirement, field)
+            for field in ('title', 'description', 'acceptance_criteria', 'requirement_type', 'priority')
         }
         requirement = form.save()
         if any(getattr(requirement, field) != value for field, value in original.items()) and requirement.status == Requirement.Status.APPROVED:

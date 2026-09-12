@@ -6,7 +6,7 @@
 <div class="page-heading">
     <div>
         <h2>Cargar Requisitos</h2>
-        <p>Importa requisitos desde un PDF y revisa la deteccion automatica antes de guardarlos.</p>
+        <p>Importa requisitos desde PDF, Word, Excel, CSV o TXT y revisa la detección antes de guardarlos.</p>
     </div>
     <a class="btn btn-outline-brand" href="{% url 'requirements:index' %}">
         <i class="bi bi-arrow-left"></i>
@@ -25,13 +25,13 @@
                 {% if form.project.errors %}<div class="form-error">{{ form.project.errors|striptags }}</div>{% endif %}
             </div>
             <div class="col-md-6">
-                <label class="form-label" for="{{ form.pdf_file.id_for_label }}">{{ form.pdf_file.label }}</label>
-                {{ form.pdf_file }}
-                {% if form.pdf_file.errors %}<div class="form-error">{{ form.pdf_file.errors|striptags }}</div>{% endif %}
+                <label class="form-label" for="{{ form.source_file.id_for_label }}">{{ form.source_file.label }}</label>
+                {{ form.source_file }}
+                {% if form.source_file.errors %}<div class="form-error">{{ form.source_file.errors|striptags }}</div>{% endif %}
             </div>
             <div class="col-12">
                 <p class="requirement-import-note">
-                    El sistema detectara si cada requisito es funcional o no funcional y asignara prioridad segun el contenido del PDF.
+                    El sistema detectará si cada requisito es funcional o no funcional y asignará prioridad según el contenido del documento.
                     El estado inicial se guardara como Pendiente.
                 </p>
             </div>
@@ -41,7 +41,7 @@
             <a class="btn btn-outline-brand" href="{% url 'requirements:index' %}">Cancelar</a>
             <button class="btn btn-brand" type="submit">
                 <i class="bi bi-search"></i>
-                Analizar PDF
+                Analizar documento
             </button>
         </div>
     </form>
@@ -77,6 +77,9 @@
 
                             <label class="form-label mt-3" for="description_{{ forloop.counter }}">Descripcion</label>
                             <textarea class="form-control" id="description_{{ forloop.counter }}" name="description" rows="3">{{ item.description }}</textarea>
+
+                            <label class="form-label mt-3" for="acceptance_criteria_{{ forloop.counter }}">Criterios de aceptación</label>
+                            <textarea class="form-control" id="acceptance_criteria_{{ forloop.counter }}" name="acceptance_criteria" rows="2" placeholder="Una condición verificable por línea"></textarea>
 
                             <div class="requirement-import-options requirement-import-options-compact">
                                 <div>

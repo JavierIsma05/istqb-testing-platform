@@ -97,7 +97,7 @@ def test_formulario_de_importacion_no_pide_valores_por_defecto(project):
     form = RequirementImportForm(projects=project.__class__.objects.filter(pk=project.pk))
 
     assert 'project' in form.fields
-    assert 'pdf_file' in form.fields
+    assert 'source_file' in form.fields
     assert 'requirement_type' not in form.fields
     assert 'priority' not in form.fields
     assert 'status' not in form.fields

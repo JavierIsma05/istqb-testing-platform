@@ -43,6 +43,12 @@
                 {{ form.description }}
                 {% if form.description.errors %}<div class="form-error">{{ form.description.errors|striptags }}</div>{% endif %}
             </div>
+            <div class="col-12">
+                <label class="form-label" for="{{ form.acceptance_criteria.id_for_label }}">{{ form.acceptance_criteria.label }}</label>
+                {{ form.acceptance_criteria }}
+                <div class="form-text">Escribe una condición verificable por línea. Estos criterios sirven como base para diseñar los casos de prueba.</div>
+                {% if form.acceptance_criteria.errors %}<div class="form-error">{{ form.acceptance_criteria.errors|striptags }}</div>{% endif %}
+            </div>
             <div class="col-md-6">
                 <label class="form-label" for="{{ form.priority.id_for_label }}">{{ form.priority.label }}</label>
                 {{ form.priority }}

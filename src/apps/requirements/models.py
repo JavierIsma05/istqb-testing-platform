@@ -28,6 +28,10 @@ class Requirement(OwnedModel):
     code = models.CharField(max_length=40)
     title = models.CharField(max_length=180)
     description = models.TextField()
+    acceptance_criteria = models.TextField(
+        blank=True,
+        help_text='Condiciones verificables que deben cumplirse para aceptar el requisito.',
+    )
     requirement_type = models.CharField(
         max_length=20,
         choices=RequirementType.choices,
@@ -63,6 +67,7 @@ class RequirementVersion(TimeStampedModel):
     version_number = models.PositiveIntegerField(default=1)
     title = models.CharField(max_length=180)
     description = models.TextField()
+    acceptance_criteria = models.TextField(blank=True)
     requirement_type = models.CharField(max_length=20, choices=Requirement.RequirementType.choices)
     priority = models.CharField(max_length=20, choices=Requirement.Priority.choices)
     status = models.CharField(max_length=20, choices=Requirement.Status.choices)

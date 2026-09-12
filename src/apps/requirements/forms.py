@@ -17,6 +17,7 @@ class RequirementForm(forms.ModelForm):
             'code',
             'title',
             'description',
+            'acceptance_criteria',
             'requirement_type',
             'priority',
             'status',
@@ -26,6 +27,7 @@ class RequirementForm(forms.ModelForm):
             'code': 'Código',
             'title': 'Nombre del requisito',
             'description': 'Descripción',
+            'acceptance_criteria': 'Criterios de aceptación',
             'requirement_type': 'Tipo',
             'priority': 'Prioridad',
             'status': 'Estado',
@@ -38,6 +40,13 @@ class RequirementForm(forms.ModelForm):
                 attrs={
                     'class': 'form-control',
                     'placeholder': 'Describe el comportamiento, regla o restricción del requisito',
+                    'rows': 5,
+                }
+            ),
+            'acceptance_criteria': forms.Textarea(
+                attrs={
+                    'class': 'form-control',
+                    'placeholder': 'Ej. 1. El usuario recibe un correo.\n2. El enlace expira en 30 minutos.',
                     'rows': 5,
                 }
             ),
@@ -75,6 +84,7 @@ class RequirementForm(forms.ModelForm):
             'code': 'Identificador unico del requisito, por ejemplo REQ-001.',
             'title': 'Nombre corto del comportamiento, regla o restriccion esperada.',
             'description': 'Describe con claridad que debe hacer el sistema y bajo que condiciones.',
+            'acceptance_criteria': 'Escribe condiciones concretas y verificables. Usa una línea por criterio para derivar casos de prueba.',
             'requirement_type': 'Clasifica si el requisito es funcional, no funcional u otro tipo definido.',
             'priority': 'Indica la importancia del requisito para planificar pruebas y entregas.',
             'status': 'Pendiente: recien creado y aun no revisado. En revision: el responsable lo esta revisando. Aprobado: validado y listo para usarse en pruebas.',
@@ -90,9 +100,14 @@ class RequirementImportForm(forms.Form):
         label='Proyecto',
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
-    pdf_file = forms.FileField(
-        label='Archivo PDF',
-        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'application/pdf,.pdf'}),
+    source_file = forms.FileField(
+        label='Documento de requisitos',
+        widget=forms.ClearableFileInput(
+            attrs={
+                'class': 'form-control',
+                'accept': '.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt',
+            }
+        ),
     )
 
     def __init__(self, *args, **kwargs):
@@ -100,18 +115,20 @@ class RequirementImportForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.fields['project'].queryset = projects
         self.fields['project'].help_text = 'Proyecto donde se cargaran los requisitos detectados.'
-        self.fields['pdf_file'].help_text = (
-            'Usa un PDF con texto seleccionable. Puede incluir requisitos funcionales y no funcionales en el mismo archivo.'
+        self.fields['source_file'].help_text = (
+            'Formatos admitidos: PDF, Word, Excel, CSV y TXT. Máximo 10 MB. Se recomienda una fila por requisito.'
         )
 
-    def clean_pdf_file(self):
-        pdf_file = self.cleaned_data['pdf_file']
-        name = pdf_file.name.lower()
+    def clean_source_file(self):
+        source_file = self.cleaned_data['source_file']
+        name = source_file.name.lower()
+        allowed_extensions = {'.pdf', '.doc', '.docx', '.xls', '.xlsx', '.csv', '.txt'}
+        extension = '.' + name.rsplit('.', 1)[-1] if '.' in name else ''
 
-        if not name.endswith('.pdf'):
-            raise forms.ValidationError('Sube un archivo PDF valido.')
+        if extension not in allowed_extensions:
+            raise forms.ValidationError('Usa un archivo PDF, Word, Excel, CSV o TXT.')
 
-        if pdf_file.size > 10 * 1024 * 1024:
-            raise forms.ValidationError('El PDF no debe superar 10 MB.')
+        if source_file.size > 10 * 1024 * 1024:
+            raise forms.ValidationError('El documento no debe superar 10 MB.')
 
-        return pdf_file
+        return source_file
