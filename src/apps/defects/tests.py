@@ -184,7 +184,7 @@ def test_transicion_de_estado_avanza_por_el_ciclo(client, project, test_case, us
     client.force_login(user)
 
     for expected in (Defect.Status.IN_PROGRESS, Defect.Status.RESOLVED):
-        response = client.post(reverse('defects:transition', args=[defect.pk]))
+        response = client.post(reverse('defects:transition', args=[defect.pk, expected]))
         defect.refresh_from_db()
         assert response.status_code == 302
         assert defect.status == expected
