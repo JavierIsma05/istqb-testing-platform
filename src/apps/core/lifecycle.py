@@ -188,6 +188,8 @@ def incident_transition_allowed(incident, target):
         raise ValidationError('La transición del riesgo no está permitida desde el estado actual.')
     if target == Incident.Status.MITIGATED and not (incident.mitigation_strategy or '').strip():
         raise ValidationError('Registra la estrategia de mitigación antes de marcar el riesgo como mitigado.')
+    if target == Incident.Status.CLOSED and not (incident.mitigation_strategy or '').strip():
+        raise ValidationError('Un riesgo debe tener una estrategia de mitigación antes de cerrarse.')
     return True
 
 
