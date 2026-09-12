@@ -1,5 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import ValidationError
+from django.views.decorators.http import require_POST
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -11,6 +13,7 @@ from apps.core.permissions import (
     visible_projects_for,
 )
 from apps.core.codes import next_code
+from apps.core.lifecycle import incident_transition_allowed
 from apps.projects.models import Project
 
 from .forms import IncidentForm
@@ -142,6 +145,48 @@ def incident_update_view(request, pk):
             'subtitle': 'Actualiza probabilidad, impacto, mitigacion y relacion con el plan.',
         },
     )
+
+
+@login_required
+@require_POST
+def incident_transition_view(request, pk, status):
+    readonly_redirect = redirect_if_teacher_readonly(request, 'incidents:index', 'riesgos')
+    if readonly_redirect:
+        return readonly_redirect
+
+    incident = get_object_or_404(
+        Incident,
+        pk=pk,
+        project__in=visible_projects_for(request.user, request=request),
+    )
+    valid_statuses = {choice[0] for choice in Incident.Status.choices}
+    if status not in valid_statuses:
+        messages.error(request, 'El estado solicitado no es válido.')
+        return redirect('incidents:index')
+
+    try:
+        incident_transition_allowed(incident, status)
+    except ValidationError as exc:
+        messages.error(request, '; '.join(exc.messages))
+        return redirect('incidents:index')
+
+    previous_status = incident.status
+    incident.status = status
+    incident.save(update_fields=['status', 'updated_at'])
+    log_action(
+        request.user,
+        'STATUS_TRANSITION',
+        'Incident',
+        incident.pk,
+        {
+            'project_id': incident.project_id,
+            'code': incident.code,
+            'from_status': previous_status,
+            'to_status': status,
+        },
+    )
+    messages.success(request, 'Estado del riesgo actualizado correctamente.')
+    return redirect('incidents:index')
 
 
 @login_required
