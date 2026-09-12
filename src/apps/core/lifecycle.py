@@ -69,6 +69,20 @@ def validate_test_plan_approval(plan):
     return ValidationResult(not errors, tuple(errors))
 
 
+def defect_transition_options(status):
+    """Return the available defect targets from the central lifecycle definition."""
+    transitions = {
+        Defect.Status.OPEN: (Defect.Status.ANALYSIS, Defect.Status.IN_PROGRESS, Defect.Status.REJECTED, Defect.Status.DUPLICATED),
+        Defect.Status.ANALYSIS: (Defect.Status.IN_PROGRESS, Defect.Status.OPEN),
+        Defect.Status.IN_PROGRESS: (Defect.Status.RESOLVED, Defect.Status.OPEN),
+        Defect.Status.RESOLVED: (Defect.Status.PENDING_CONFIRMATION, Defect.Status.IN_PROGRESS),
+        Defect.Status.PENDING_CONFIRMATION: (Defect.Status.CLOSED, Defect.Status.REOPENED),
+        Defect.Status.CLOSED: (Defect.Status.REOPENED,),
+        Defect.Status.REOPENED: (Defect.Status.IN_PROGRESS, Defect.Status.REJECTED),
+    }
+    return transitions.get(status, ())
+
+
 def defect_transition_allowed(defect, target):
     transitions = {
         Defect.Status.OPEN: {Defect.Status.ANALYSIS, Defect.Status.IN_PROGRESS, Defect.Status.REJECTED, Defect.Status.DUPLICATED},
