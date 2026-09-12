@@ -1,16 +1,9 @@
 from django.db import transaction
 
-from apps.testcases.models import TestCase
+from apps.core.lifecycle import sync_test_case_status_from_execution
 
 from ..models import TestExecution
 
-
-RESULT_TO_CASE_STATUS = {
-    TestExecution.Result.PASSED: TestCase.Status.PASSED,
-    TestExecution.Result.FAILED: TestCase.Status.FAILED,
-    TestExecution.Result.BLOCKED: TestCase.Status.BLOCKED,
-    TestExecution.Result.ERROR: TestCase.Status.BLOCKED,
-}
 
 
 def calculate_step_approval(step_results):
@@ -45,7 +38,5 @@ def recalculate_execution_from_steps(execution):
     execution.approval_percentage = calculate_step_approval(steps)
     execution.save(update_fields=['result', 'approval_percentage', 'updated_at'])
 
-    test_case = execution.test_case
-    test_case.status = RESULT_TO_CASE_STATUS.get(result, TestCase.Status.PENDING)
-    test_case.save(update_fields=['status', 'updated_at'])
+    sync_test_case_status_from_execution(execution.test_case, execution)
     return execution
