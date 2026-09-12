@@ -382,3 +382,92 @@ def test_docente_marca_todos_los_requisitos_visibles_como_revisados(client, proj
     assert second.versions.filter(changed_by=teacher, change_reason='Revision docente masiva').exists()
     assert not already_reviewed.versions.filter(change_reason='Revision docente masiva').exists()
     assert AuditLog.objects.filter(action='BULK_TEACHER_REVIEW', entity='Requirement').exists()
+
+
+@pytest.mark.django_db
+def test_usuario_no_puede_editar_requisito_de_proyecto_ajeno(client, user):
+    other_user = get_user_model().objects.create_user(
+        email='foreign-owner@example.edu',
+        password='StrongPass123',
+    )
+    other_project = Project.objects.create(
+        code='PRJ-FOREIGN-REQ',
+        name='Proyecto ajeno para IDOR',
+        created_by=other_user,
+    )
+    foreign_requirement = Requirement.objects.create(
+        project=other_project,
+        code='REQ-901',
+        title='Requisito privado',
+        description='No debe ser accesible desde otro proyecto.',
+        created_by=other_user,
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('requirements:edit', args=[foreign_requirement.pk]))
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_eliminacion_masiva_no_borra_requisitos_de_proyectos_ajenos(client, project, user):
+    own_requirement = Requirement.objects.create(
+        project=project,
+        code='REQ-902',
+        title='Requisito propio',
+        description='Debe poder seleccionarse.',
+        created_by=user,
+    )
+    other_user = get_user_model().objects.create_user(
+        email='foreign-bulk@example.edu',
+        password='StrongPass123',
+    )
+    other_project = Project.objects.create(
+        code='PRJ-FOREIGN-BULK',
+        name='Proyecto ajeno para eliminacion masiva',
+        created_by=other_user,
+    )
+    foreign_requirement = Requirement.objects.create(
+        project=other_project,
+        code='REQ-903',
+        title='Requisito ajeno',
+        description='No debe eliminarse por manipulacion de IDs.',
+        created_by=other_user,
+    )
+
+    client.force_login(user)
+    response = client.post(
+        reverse('requirements:bulk_delete'),
+        {'requirement_ids': [own_requirement.pk, foreign_requirement.pk]},
+    )
+
+    assert response.status_code == 302
+    assert not Requirement.objects.filter(pk=own_requirement.pk).exists()
+    assert Requirement.objects.filter(pk=foreign_requirement.pk).exists()
+
+
+@pytest.mark.django_db
+def test_importacion_no_permite_usar_proyecto_ajeno_por_post(client, user):
+    other_user = get_user_model().objects.create_user(
+        email='foreign-import@example.edu',
+        password='StrongPass123',
+    )
+    other_project = Project.objects.create(
+        code='PRJ-FOREIGN-IMPORT',
+        name='Proyecto ajeno para importacion',
+        created_by=other_user,
+    )
+
+    client.force_login(user)
+    response = client.post(
+        reverse('requirements:import'),
+        {
+            'action': 'confirm',
+            'project': other_project.pk,
+            'title': ['Requisito malicioso'],
+            'description': ['No debe crearse en un proyecto ajeno.'],
+        },
+    )
+
+    assert response.status_code == 404
+    assert not Requirement.objects.filter(title='Requisito malicioso').exists()
