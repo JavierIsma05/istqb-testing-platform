@@ -126,3 +126,38 @@ def test_usuario_no_puede_modificar_ni_eliminar_riesgo_de_proyecto_ajeno(client,
     response = client.post(reverse('incidents:delete', args=[incident.pk]))
     assert response.status_code == 404
     assert Incident.objects.filter(pk=incident.pk).exists()
+
+@pytest.mark.django_db
+def test_formulario_no_permite_cambiar_estado_arbitrariamente(client, user, project, test_plan):
+    incident = Incident.objects.create(project=project, test_plan=test_plan, code='INC-LIFE-101', title='Riesgo', description='Descripción', reported_by=user)
+    client.force_login(user)
+    response = client.post(reverse('incidents:edit', args=[incident.pk]), {
+        'project': project.pk, 'test_plan': test_plan.pk, 'code': incident.code,
+        'title': incident.title, 'description': incident.description,
+        'mitigation_strategy': '', 'probability': Incident.Probability.MEDIUM,
+        'impact': Incident.Impact.MEDIUM, 'status': Incident.Status.CLOSED,
+    })
+    assert response.status_code == 302
+    incident.refresh_from_db()
+    assert incident.status == Incident.Status.OPEN
+
+
+@pytest.mark.django_db
+def test_transicion_invalida_de_riesgo_es_bloqueada(client, user, project, test_plan):
+    incident = Incident.objects.create(project=project, test_plan=test_plan, code='INC-LIFE-102', title='Riesgo', description='Descripción', reported_by=user)
+    client.force_login(user)
+    response = client.post(reverse('incidents:transition', args=[incident.pk, Incident.Status.CLOSED]))
+    assert response.status_code == 302
+    incident.refresh_from_db()
+    assert incident.status == Incident.Status.OPEN
+
+
+@pytest.mark.django_db
+def test_riesgo_sigue_transiciones_validas(client, user, project, test_plan):
+    incident = Incident.objects.create(project=project, test_plan=test_plan, code='INC-LIFE-103', title='Riesgo', description='Descripción', mitigation_strategy='Plan de contingencia.', reported_by=user)
+    client.force_login(user)
+    for status in (Incident.Status.ANALYSIS, Incident.Status.MITIGATED, Incident.Status.CLOSED):
+        response = client.post(reverse('incidents:transition', args=[incident.pk, status]))
+        assert response.status_code == 302
+        incident.refresh_from_db()
+        assert incident.status == status
