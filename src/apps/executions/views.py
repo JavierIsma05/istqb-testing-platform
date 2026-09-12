@@ -160,10 +160,14 @@ def sync_defect_from_confirmation(execution):
         return
 
     target = defect_transition_from_confirmation(defect, execution)
+
+    # CLOSED validation requires the confirming execution to be linked first.
     if target == Defect.Status.CLOSED:
         defect.verification_execution = execution
+
     defect_transition_allowed(defect, target)
     defect.status = target
+
     update_fields = ['status', 'updated_at']
     if target == Defect.Status.CLOSED:
         update_fields.insert(1, 'verification_execution')
