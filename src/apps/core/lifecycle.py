@@ -131,6 +131,32 @@ def status_transition_for_plan(plan, new_status):
         raise_if_invalid(validate_test_plan_approval(plan))
     return True
 
+
+def status_transition_for_test_case(test_case, new_status):
+    """Validate the lifecycle transitions of a test case.
+
+    Test case execution results are not arbitrary editable states: they are
+    driven by the execution workflow.
+    """
+    allowed = {
+        TestCase.Status.PENDING: {TestCase.Status.READY},
+        TestCase.Status.READY: {TestCase.Status.RUNNING, TestCase.Status.BLOCKED},
+        TestCase.Status.RUNNING: {
+            TestCase.Status.PASSED,
+            TestCase.Status.FAILED,
+            TestCase.Status.BLOCKED,
+        },
+        TestCase.Status.PASSED: {TestCase.Status.READY},
+        TestCase.Status.FAILED: {TestCase.Status.READY},
+        TestCase.Status.BLOCKED: {TestCase.Status.READY},
+    }
+    if new_status not in allowed.get(test_case.status, set()):
+        raise ValidationError('La transición del caso de prueba no está permitida.')
+    if new_status == TestCase.Status.READY:
+        raise_if_invalid(test_case_readiness(test_case))
+    return True
+
+
 def validate_execution_repeat(test_case, execution_type, environment, previous_execution=None):
     if execution_type != 'NORMAL':
         return ValidationResult(True)
@@ -155,4 +181,4 @@ def validate_file_upload(uploaded, allowed_extensions, max_size):
     return ValidationResult(True)
 
 
-__all__ = ['case_changed_after_execution', 'defect_transition_allowed', 'raise_if_invalid', 'requirement_can_be_approved', 'status_transition_for_plan', 'status_transition_for_requirement', 'test_case_readiness', 'validate_test_plan_approval', 'validate_execution_repeat']
+__all__ = ['case_changed_after_execution', 'defect_transition_allowed', 'raise_if_invalid', 'requirement_can_be_approved', 'status_transition_for_plan', 'status_transition_for_requirement', 'status_transition_for_test_case', 'test_case_readiness', 'validate_test_plan_approval', 'validate_execution_repeat']
