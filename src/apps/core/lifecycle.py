@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from django.core.exceptions import ValidationError
 
 from apps.defects.models import Defect
+from apps.executions.models import TestExecution
+from apps.incidents.models import Incident
 from apps.requirements.models import Requirement
 from apps.testcases.models import TestCase
 from apps.testplans.models import TestPlan
@@ -157,6 +159,38 @@ def status_transition_for_test_case(test_case, new_status):
     return True
 
 
+
+def execution_transition_allowed(execution, target):
+    """Validate legal execution-result transitions."""
+    allowed = {
+        TestExecution.Result.NOT_RUN: {TestExecution.Result.RUNNING},
+        TestExecution.Result.RUNNING: {
+            TestExecution.Result.PASSED,
+            TestExecution.Result.FAILED,
+            TestExecution.Result.BLOCKED,
+            TestExecution.Result.ERROR,
+        },
+    }
+    if target not in allowed.get(execution.result, set()):
+        raise ValidationError('La transición de la ejecución no está permitida desde el resultado actual.')
+    return True
+
+
+def incident_transition_allowed(incident, target):
+    """Validate the lifecycle of a project risk."""
+    allowed = {
+        Incident.Status.OPEN: {Incident.Status.ANALYSIS, Incident.Status.MITIGATED},
+        Incident.Status.ANALYSIS: {Incident.Status.MITIGATED, Incident.Status.OPEN},
+        Incident.Status.MITIGATED: {Incident.Status.CLOSED, Incident.Status.ANALYSIS},
+        Incident.Status.CLOSED: {Incident.Status.ANALYSIS},
+    }
+    if target not in allowed.get(incident.status, set()):
+        raise ValidationError('La transición del riesgo no está permitida desde el estado actual.')
+    if target == Incident.Status.MITIGATED and not (incident.mitigation_strategy or '').strip():
+        raise ValidationError('Registra la estrategia de mitigación antes de marcar el riesgo como mitigado.')
+    return True
+
+
 def validate_execution_repeat(test_case, execution_type, environment, previous_execution=None):
     if execution_type != 'NORMAL':
         return ValidationResult(True)
@@ -181,4 +215,4 @@ def validate_file_upload(uploaded, allowed_extensions, max_size):
     return ValidationResult(True)
 
 
-__all__ = ['case_changed_after_execution', 'defect_transition_allowed', 'raise_if_invalid', 'requirement_can_be_approved', 'status_transition_for_plan', 'status_transition_for_requirement', 'status_transition_for_test_case', 'test_case_readiness', 'validate_test_plan_approval', 'validate_execution_repeat']
+__all__ = ['case_changed_after_execution', 'defect_transition_allowed', 'execution_transition_allowed', 'incident_transition_allowed', 'raise_if_invalid', 'requirement_can_be_approved', 'status_transition_for_plan', 'status_transition_for_requirement', 'status_transition_for_test_case', 'test_case_readiness', 'validate_test_plan_approval', 'validate_execution_repeat']
