@@ -75,7 +75,7 @@ def defect_transition_options(status):
         Defect.Status.OPEN: (Defect.Status.ANALYSIS, Defect.Status.IN_PROGRESS, Defect.Status.REJECTED, Defect.Status.DUPLICATED),
         Defect.Status.ANALYSIS: (Defect.Status.IN_PROGRESS, Defect.Status.OPEN),
         Defect.Status.IN_PROGRESS: (Defect.Status.RESOLVED, Defect.Status.OPEN),
-        Defect.Status.RESOLVED: (Defect.Status.PENDING_CONFIRMATION, Defect.Status.IN_PROGRESS),
+        Defect.Status.RESOLVED: (Defect.Status.PENDING_CONFIRMATION, Defect.Status.IN_PROGRESS, Defect.Status.CLOSED, Defect.Status.REOPENED),
         Defect.Status.PENDING_CONFIRMATION: (Defect.Status.CLOSED, Defect.Status.REOPENED),
         Defect.Status.CLOSED: (Defect.Status.REOPENED,),
         Defect.Status.REOPENED: (Defect.Status.IN_PROGRESS, Defect.Status.REJECTED),
