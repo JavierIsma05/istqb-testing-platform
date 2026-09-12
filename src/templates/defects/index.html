@@ -113,14 +113,18 @@
                     </span>
                     {% if can_manage %}
                         <div class="manage-actions" aria-label="Gestionar defecto">
-                            {% if item.next_status %}
-                                <form method="POST" action="{% url 'defects:transition' item.defect.pk %}">
-                                    {% csrf_token %}
-                                    <button class="btn btn-outline-brand btn-sm" type="submit">
-                                        <i class="bi bi-arrow-right-circle"></i>
-                                        Avanzar a {{ item.next_status|lower }}
-                                    </button>
-                                </form>
+                            {% if item.next_statuses %}
+                                <div class="defect-transition-actions">
+                                    {% for next_status in item.next_statuses %}
+                                        <form method="POST" action="{% url 'defects:transition' item.defect.pk next_status %}">
+                                            {% csrf_token %}
+                                            <button class="btn btn-outline-brand btn-sm" type="submit">
+                                                <i class="bi bi-arrow-right-circle"></i>
+                                                Cambiar a {{ next_status|lower }}
+                                            </button>
+                                        </form>
+                                    {% endfor %}
+                                </div>
                             {% endif %}
                             <a class="btn btn-outline-brand btn-sm" href="{% url 'defects:edit' item.defect.pk %}">
                                 <i class="bi bi-pencil"></i>
