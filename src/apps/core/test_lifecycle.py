@@ -121,3 +121,25 @@ def test_error_tecnico_bloquea_el_caso(test_case):
     sync_test_case_status_from_execution(test_case, execution)
     test_case.refresh_from_db()
     assert test_case.status == TestCase.Status.BLOCKED
+
+
+@pytest.mark.django_db
+def test_resultado_de_ejecucion_revisada_sincroniza_caso(test_case):
+    from apps.executions.models import TestExecution
+    from apps.executions.services.review import recalculate_execution_from_steps
+    from apps.executions.models import TestStepExecution
+
+    execution = TestExecution.objects.create(
+        test_case=test_case,
+        result=TestExecution.Result.NOT_RUN,
+    )
+    TestStepExecution.objects.create(
+        test_execution=execution,
+        step_number=1,
+        action='Validar',
+        expected_result='OK',
+        status=TestExecution.Result.PASSED,
+    )
+    recalculate_execution_from_steps(execution)
+    test_case.refresh_from_db()
+    assert test_case.status == TestCase.Status.PASSED
