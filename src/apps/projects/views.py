@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 from apps.defects.models import Defect
 from apps.audit.services import log_action
 from apps.core.codes import next_code
-from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
+from apps.core.permissions import (can_delete_project, can_manage_artifacts, can_manage_project, redirect_if_teacher_readonly, visible_projects_for)
 from apps.executions.models import TestExecution
 from apps.requirements.models import Requirement
 from apps.testcases.models import TestCase
@@ -185,8 +185,8 @@ def project_edit_view(request, pk):
 
     project = get_object_or_404(visible_projects_for(request.user, request=request), pk=pk)
 
-    if request.user != project.created_by and not request.user.is_admin_role:
-        messages.error(request, 'Solo el propietario del proyecto puede editarlo.')
+    if not can_manage_project(request.user, project):
+        messages.error(request, 'Solo el propietario del proyecto o un administrador puede editarlo.')
         return redirect('projects:detail', pk=project.pk)
 
     form = ProjectForm(request.POST or None, instance=project)
@@ -271,6 +271,10 @@ def project_delete_view(request, pk):
         return readonly_redirect
 
     project = get_object_or_404(visible_projects_for(request.user, request=request), pk=pk)
+    if not can_delete_project(request.user, project):
+        messages.error(request, 'Solo el propietario del proyecto o un administrador puede eliminarlo.')
+        return redirect('projects:detail', pk=project.pk)
+
     project_name = project.name
     log_action(
         request.user,

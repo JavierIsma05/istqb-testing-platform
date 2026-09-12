@@ -386,3 +386,48 @@ def test_administrador_puede_acceder_a_editar_proyecto_visible(client, project):
 
     assert response.status_code == 200
     assert response.context['project'] == project
+
+
+@pytest.mark.django_db
+def test_miembro_no_propietario_no_puede_eliminar_proyecto(client, user):
+    owner = get_user_model().objects.create_user(
+        email='owner-delete@example.edu',
+        password='StrongPass123',
+    )
+    owned_project = Project.objects.create(
+        code='PRJ-DELETE',
+        name='Proyecto protegido contra eliminacion',
+        created_by=owner,
+    )
+    owned_project.members.add(user)
+
+    client.force_login(user)
+    response = client.post(reverse('projects:delete', args=[owned_project.pk]))
+
+    assert response.status_code == 302
+    assert Project.objects.filter(pk=owned_project.pk).exists()
+
+
+@pytest.mark.django_db
+def test_propietario_puede_eliminar_su_proyecto(client, user, project):
+    client.force_login(user)
+
+    response = client.post(reverse('projects:delete', args=[project.pk]))
+
+    assert response.status_code == 302
+    assert not Project.objects.filter(pk=project.pk).exists()
+
+
+@pytest.mark.django_db
+def test_administrador_puede_eliminar_proyecto_visible(client, project):
+    admin = get_user_model().objects.create_user(
+        email='admin-delete@example.edu',
+        password='StrongPass123',
+        role=get_user_model().Roles.ADMIN,
+    )
+    client.force_login(admin)
+
+    response = client.post(reverse('projects:delete', args=[project.pk]))
+
+    assert response.status_code == 302
+    assert not Project.objects.filter(pk=project.pk).exists()
