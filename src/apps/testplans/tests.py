@@ -359,3 +359,56 @@ def test_formulario_plan_muestra_paso_de_riesgos_con_matriz_y_boton(client, proj
     assert 'Agregar riesgo' in content
     assert 'risks_json' in content
     assert 'Requisito relacionado' not in content
+
+
+@pytest.mark.django_db
+def test_usuario_no_puede_editar_plan_de_proyecto_ajeno(client, user, test_plan):
+    other_user = get_user_model().objects.create_user(
+        email='foreign-plan-owner@example.edu',
+        password='StrongPass123',
+    )
+    foreign_project = Project.objects.create(
+        code='PRJ-FOREIGN-PLAN',
+        name='Proyecto ajeno para planes',
+        created_by=other_user,
+    )
+    foreign_plan = PlanModel.objects.create(
+        project=foreign_project,
+        name='Plan privado',
+        version='1.0',
+        objective='No debe ser accesible por otro usuario.',
+        status=PlanModel.Status.DRAFT,
+        created_by=other_user,
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('testplans:edit', args=[foreign_plan.pk]))
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_usuario_no_puede_eliminar_plan_de_proyecto_ajeno(client, user):
+    other_user = get_user_model().objects.create_user(
+        email='foreign-plan-delete@example.edu',
+        password='StrongPass123',
+    )
+    foreign_project = Project.objects.create(
+        code='PRJ-FOREIGN-PLAN-DELETE',
+        name='Proyecto ajeno protegido',
+        created_by=other_user,
+    )
+    foreign_plan = PlanModel.objects.create(
+        project=foreign_project,
+        name='Plan protegido',
+        version='1.0',
+        objective='No debe eliminarse desde otro proyecto.',
+        status=PlanModel.Status.DRAFT,
+        created_by=other_user,
+    )
+
+    client.force_login(user)
+    response = client.post(reverse('testplans:delete', args=[foreign_plan.pk]))
+
+    assert response.status_code == 404
+    assert PlanModel.objects.filter(pk=foreign_plan.pk).exists()
