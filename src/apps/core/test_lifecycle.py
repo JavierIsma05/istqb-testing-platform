@@ -41,6 +41,9 @@ def test_caso_listo_puede_iniciar_ejecucion(test_case):
 
 @pytest.mark.django_db
 def test_caso_completado_puede_volver_a_listo_si_se_requiere_reejecucion(test_case):
+    # READY exige que el requisito asociado esté aprobado.
+    test_case.requirement.status = Requirement.Status.APPROVED
+    test_case.requirement.save(update_fields=['status'])
     test_case.status = TestCase.Status.PASSED
     assert status_transition_for_test_case(test_case, TestCase.Status.READY)
 
