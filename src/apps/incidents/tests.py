@@ -113,3 +113,16 @@ def test_vista_guarda_riesgo_aunque_ya_exista_otro_codigo(client, project, requi
     assert risk.test_plan == test_plan
     assert risk.requirement == requirement
     assert risk.reported_by == user
+
+
+@pytest.mark.django_db
+def test_usuario_no_puede_modificar_ni_eliminar_riesgo_de_proyecto_ajeno(client, user):
+    other_user = get_user_model().objects.create_user(email='foreign-incident@example.edu', password='StrongPass123')
+    project = Project.objects.create(code='PRJ-FOREIGN-INC', name='Proyecto ajeno', created_by=other_user)
+    incident = Incident.objects.create(project=project, code='INC-999', title='Riesgo privado', description='Privado.', reported_by=other_user)
+    client.force_login(user)
+    response = client.get(reverse('incidents:edit', args=[incident.pk]))
+    assert response.status_code == 404
+    response = client.post(reverse('incidents:delete', args=[incident.pk]))
+    assert response.status_code == 404
+    assert Incident.objects.filter(pk=incident.pk).exists()
