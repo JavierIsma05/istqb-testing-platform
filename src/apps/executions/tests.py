@@ -310,7 +310,7 @@ def test_prueba_de_confirmacion_fallida_no_duplica_defecto(client, test_case, ex
     defect.refresh_from_db()
 
     assert response.status_code == 302
-    assert defect.status == Defect.Status.IN_PROGRESS
+    assert defect.status == Defect.Status.REOPENED
     assert Defect.objects.filter(project=test_case.test_plan.project).count() == 1
 
 
