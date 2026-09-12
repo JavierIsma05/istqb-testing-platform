@@ -424,8 +424,7 @@ def execution_workspace_view(request):
         else:
             messages.success(request, 'Resultado de ejecucion registrado correctamente.')
 
-        selected_case.status = RESULT_TO_CASE_STATUS.get(execution.result, TestCase.Status.PENDING)
-        selected_case.save(update_fields=['status', 'updated_at'])
+        sync_test_case_status_from_execution(selected_case, execution)
 
         return redirect(f'{request.path}?case={selected_case.id}')
 
