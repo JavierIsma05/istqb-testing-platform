@@ -30,6 +30,28 @@ def can_manage_artifacts(user):
     return is_admin(user) or is_student(user)
 
 
+def can_view_project(user, project):
+    """Return whether the user can access the project at all."""
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    if is_admin(user):
+        return True
+    return project.created_by_id == user.id or project.members.filter(pk=user.id).exists()
+
+
+def can_manage_project(user, project):
+    """Only administrators and the project owner may change project configuration."""
+    return is_admin(user) or (
+        is_student(user)
+        and project.created_by_id == user.id
+    )
+
+
+def can_delete_project(user, project):
+    """Deletion is destructive: only administrators and the project owner may perform it."""
+    return can_manage_project(user, project)
+
+
 def can_manage_users(user):
     """Only application administrators may manage user accounts."""
     return is_admin(user)
