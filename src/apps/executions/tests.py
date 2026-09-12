@@ -18,6 +18,7 @@ from apps.executions.services.automated_runner import (
 from apps.executions.services.review import recalculate_execution_from_steps
 from apps.requirements.models import Requirement
 from apps.projects.models import Project
+from apps.testcases.models import TestCase as CaseModel
 from apps.traceability.models import TraceabilityLink
 from apps.users.models import User
 
