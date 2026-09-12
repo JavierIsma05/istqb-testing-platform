@@ -4,6 +4,7 @@ from django import forms
 
 from apps.core.codes import next_code
 from apps.core.permissions import visible_projects_for
+from apps.core.lifecycle import incident_transition_allowed
 from apps.projects.models import Project
 from apps.requirements.models import Requirement
 from apps.testplans.models import TestPlan
@@ -23,7 +24,6 @@ class IncidentForm(forms.ModelForm):
             'mitigation_strategy',
             'probability',
             'impact',
-            'status',
         )
         labels = {
             'project': 'Proyecto',
@@ -59,7 +59,6 @@ class IncidentForm(forms.ModelForm):
             ),
             'probability': forms.Select(attrs={'class': 'form-select'}),
             'impact': forms.Select(attrs={'class': 'form-select'}),
-            'status': forms.Select(attrs={'class': 'form-select'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -105,7 +104,6 @@ class IncidentForm(forms.ModelForm):
             'mitigation_strategy': 'Describe la respuesta planificada para reducir probabilidad o impacto.',
             'probability': 'Que tan probable es que ocurra el riesgo.',
             'impact': 'Nivel de afectacion si el riesgo ocurre.',
-            'status': 'Estado actual de gestion del riesgo.',
         }
         for name, help_text in help_texts.items():
             self.fields[name].help_text = help_text
@@ -126,3 +124,8 @@ class IncidentForm(forms.ModelForm):
         if requirement and test_plan and requirement.project_id != test_plan.project_id:
             self.add_error('requirement', 'El requisito debe pertenecer al mismo proyecto que el plan.')
         return cleaned_data
+
+    def clean_status(self):
+        # El estado no se edita desde el formulario general: debe cambiar mediante
+        # una transición explícita y validada del ciclo de vida.
+        return self.instance.status
