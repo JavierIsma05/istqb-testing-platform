@@ -112,6 +112,46 @@ def case_changed_after_execution(instance, cleaned_data):
     return any(getattr(old, field) != cleaned_data.get(field, getattr(old, field)) for field in tracked)
 
 
+
+def case_status_from_execution_result(result):
+    """Map an execution result to the lifecycle state of its test case."""
+    mapping = {
+        TestExecution.Result.NOT_RUN: TestCase.Status.PENDING,
+        TestExecution.Result.RUNNING: TestCase.Status.RUNNING,
+        TestExecution.Result.PASSED: TestCase.Status.PASSED,
+        TestExecution.Result.FAILED: TestCase.Status.FAILED,
+        TestExecution.Result.BLOCKED: TestCase.Status.BLOCKED,
+        TestExecution.Result.ERROR: TestCase.Status.BLOCKED,
+    }
+    return mapping.get(result, TestCase.Status.PENDING)
+
+
+def sync_test_case_status_from_execution(test_case, execution):
+    """Synchronize a test case using the central execution-to-case lifecycle rule."""
+    target = case_status_from_execution_result(execution.result)
+    if test_case.status == target:
+        return target
+
+    # Execution outcomes are authoritative, but every resulting state is still
+    # constrained by the lifecycle. A completed/failed/blocked case may be
+    # re-executed through READY -> RUNNING.
+    if target == TestCase.Status.RUNNING and test_case.status == TestCase.Status.READY:
+        status_transition_for_test_case(test_case, target)
+    elif target in {TestCase.Status.PASSED, TestCase.Status.FAILED, TestCase.Status.BLOCKED} and test_case.status == TestCase.Status.RUNNING:
+        status_transition_for_test_case(test_case, target)
+    elif target == TestCase.Status.PENDING:
+        test_case.status = target
+        test_case.save(update_fields=['status', 'updated_at'])
+        return target
+    else:
+        test_case.status = target
+        test_case.save(update_fields=['status', 'updated_at'])
+        return target
+
+    test_case.status = target
+    test_case.save(update_fields=['status', 'updated_at'])
+    return target
+
 def status_transition_for_requirement(requirement, new_status):
     allowed = {
         Requirement.Status.PENDING: {Requirement.Status.REVIEW},
@@ -222,4 +262,4 @@ def validate_file_upload(uploaded, allowed_extensions, max_size):
     return ValidationResult(True)
 
 
-__all__ = ['case_changed_after_execution', 'defect_transition_allowed', 'execution_transition_allowed', 'incident_transition_allowed', 'raise_if_invalid', 'requirement_can_be_approved', 'status_transition_for_plan', 'status_transition_for_requirement', 'status_transition_for_test_case', 'test_case_readiness', 'validate_test_plan_approval', 'validate_execution_repeat']
+__all__ = ['case_status_from_execution_result', 'sync_test_case_status_from_execution', 'case_changed_after_execution', 'defect_transition_allowed', 'execution_transition_allowed', 'incident_transition_allowed', 'raise_if_invalid', 'requirement_can_be_approved', 'status_transition_for_plan', 'status_transition_for_requirement', 'status_transition_for_test_case', 'test_case_readiness', 'validate_test_plan_approval', 'validate_execution_repeat']
