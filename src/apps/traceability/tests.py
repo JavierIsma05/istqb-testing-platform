@@ -269,3 +269,66 @@ def test_matriz_de_trazabilidad_no_expone_proyectos_ajenos(client, user, project
     }
     assert requirement.pk in visible_requirement_ids
     assert foreign_requirement.pk not in visible_requirement_ids
+
+
+@pytest.mark.django_db
+def test_matriz_muestra_cadena_requisito_caso_ejecucion_y_defecto(
+    client, user, requirement, test_plan, test_case
+):
+    execution = TestExecution.objects.create(
+        test_case=test_case,
+        executed_by=user,
+        result=TestExecution.Result.FAILED,
+    )
+    from apps.defects.models import Defect
+    defect = Defect.objects.create(
+        project=requirement.project,
+        test_case=test_case,
+        execution=execution,
+        code='DEF-TRACE-001',
+        title='Defecto trazable',
+        description='Debe aparecer en la matriz.',
+        reported_by=user,
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('traceability:index'))
+
+    assert response.status_code == 200
+    row = response.context['rows'][0]
+    assert row['requirement'].pk == requirement.pk
+    assert row['plan'].pk == test_plan.pk
+    assert row['case'].pk == test_case.pk
+    assert row['execution'].pk == execution.pk
+    assert defect in row['defects']
+
+
+@pytest.mark.django_db
+def test_matriz_mantiene_multiples_requisitos_para_un_mismo_caso(
+    client, user, project, requirement, test_plan, test_case
+):
+    second_requirement = requirement.__class__.objects.create(
+        project=project,
+        code='REQ-TRACE-002',
+        title='Segundo requisito',
+        description='Tambien es cubierto por el mismo caso.',
+        created_by=user,
+    )
+    TraceabilityLink.objects.create(
+        requirement=second_requirement,
+        test_case=test_case,
+        rationale='Cobertura adicional.',
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('traceability:index'))
+
+    rows = [
+        row for row in response.context['rows']
+        if row['case'] and row['case'].pk == test_case.pk
+    ]
+    assert {row['requirement'].pk for row in rows} == {
+        requirement.pk,
+        second_requirement.pk,
+    }
+    assert len(rows) == 2
