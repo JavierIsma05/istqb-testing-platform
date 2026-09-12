@@ -361,3 +361,36 @@ def test_matriz_identifica_el_tipo_de_la_ultima_ejecucion(
     assert row['execution'].pk == latest.pk
     assert row['execution'].execution_type == TestExecution.ExecutionType.REGRESSION
     assert latest.get_execution_type_display() in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_metricas_calculan_cobertura_de_requisitos_y_ejecucion(
+    client, user, project, requirement, test_plan, test_case
+):
+    second_requirement = requirement.__class__.objects.create(
+        project=project,
+        code='REQ-METRIC-002',
+        title='Requisito sin cobertura',
+        description='No tiene caso asociado.',
+        created_by=user,
+    )
+    TestExecution.objects.create(
+        test_case=test_case,
+        executed_by=user,
+        result=TestExecution.Result.PASSED,
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('traceability:index'))
+
+    assert response.status_code == 200
+    assert response.context['total_requirements'] == 2
+    assert response.context['traced_requirements'] == 1
+    assert response.context['requirements_with_completed_execution'] == 1
+    assert response.context['requirement_coverage_percentage'] == 50.0
+    assert response.context['execution_coverage_percentage'] == 50.0
+    assert second_requirement.pk not in {
+        row['requirement'].pk
+        for row in response.context['rows']
+        if row['execution'] is not None
+    }
