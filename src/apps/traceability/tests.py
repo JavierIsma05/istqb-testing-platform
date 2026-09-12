@@ -332,3 +332,32 @@ def test_matriz_mantiene_multiples_requisitos_para_un_mismo_caso(
         second_requirement.pk,
     }
     assert len(rows) == 2
+
+
+@pytest.mark.django_db
+def test_matriz_identifica_el_tipo_de_la_ultima_ejecucion(
+    client, user, requirement, test_case
+):
+    TestExecution.objects.create(
+        test_case=test_case,
+        executed_by=user,
+        execution_type=TestExecution.ExecutionType.NORMAL,
+        result=TestExecution.Result.PASSED,
+        executed_at=timezone.now() - timedelta(minutes=1),
+    )
+    latest = TestExecution.objects.create(
+        test_case=test_case,
+        executed_by=user,
+        execution_type=TestExecution.ExecutionType.REGRESSION,
+        result=TestExecution.Result.PASSED,
+        executed_at=timezone.now(),
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('traceability:index'))
+
+    assert response.status_code == 200
+    row = response.context['rows'][0]
+    assert row['execution'].pk == latest.pk
+    assert row['execution'].execution_type == TestExecution.ExecutionType.REGRESSION
+    assert latest.get_execution_type_display() in response.content.decode()
