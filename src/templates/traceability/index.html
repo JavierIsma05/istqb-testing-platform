@@ -53,6 +53,22 @@
         </div>
         <i class="bi bi-bug"></i>
     </article>
+    <article class="traceability-metric-card">
+        <div>
+            <span>Cobertura de requisitos</span>
+            <strong>{{ requirement_coverage_percentage }}%</strong>
+            <small>{{ traced_requirements }}/{{ total_requirements }} con casos asociados</small>
+        </div>
+        <i class="bi bi-diagram-3"></i>
+    </article>
+    <article class="traceability-metric-card">
+        <div>
+            <span>Cobertura de ejecución</span>
+            <strong>{{ execution_coverage_percentage }}%</strong>
+            <small>{{ requirements_with_completed_execution }}/{{ total_requirements }} con ejecución completada</small>
+        </div>
+        <i class="bi bi-activity"></i>
+    </article>
 </section>
 
 <section class="traceability-card">
