@@ -1,9 +1,11 @@
 import pytest
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 
 from apps.testcases.forms import TestCaseModalForm as CaseForm
 from apps.testcases.models import TestCase as CaseModel
 from apps.testcases.models import TestCaseVersion
+from apps.projects.models import Project
 
 
 @pytest.mark.django_db
@@ -283,3 +285,43 @@ def test_caso_guarda_campos_istqb_y_riesgos_desde_formulario(project, requiremen
     assert case.execution_type == CaseModel.ExecutionType.AUTOMATED
     assert case.version == '2.1'
     assert list(case.covered_risks.values_list('pk', flat=True)) == [risk.pk]
+
+
+@pytest.mark.django_db
+def test_usuario_no_puede_ver_caso_de_prueba_de_proyecto_ajeno(client, user, test_plan, requirement):
+    other_user = get_user_model().objects.create_user(
+        email='foreign-case@example.edu',
+        password='StrongPass123',
+    )
+    other_project = Project.objects.create(
+        code='PRJ-FOREIGN-CASE',
+        name='Proyecto ajeno para casos',
+        created_by=other_user,
+    )
+    other_plan = test_plan.__class__.objects.create(
+        project=other_project,
+        name='Plan ajeno',
+        objective='Plan privado.',
+        created_by=other_user,
+    )
+    other_requirement = requirement.__class__.objects.create(
+        project=other_project,
+        code='REQ-950',
+        title='Requisito ajeno',
+        description='Requisito privado.',
+        created_by=other_user,
+    )
+    foreign_case = CaseModel.objects.create(
+        test_plan=other_plan,
+        requirement=other_requirement,
+        code='TC-950',
+        title='Caso privado',
+        steps='Paso privado',
+        expected_result='Resultado privado',
+        created_by=other_user,
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('testcases:detail', args=[foreign_case.pk]))
+
+    assert response.status_code == 404
