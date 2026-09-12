@@ -84,16 +84,7 @@ def defect_transition_options(status):
 
 
 def defect_transition_allowed(defect, target):
-    transitions = {
-        Defect.Status.OPEN: {Defect.Status.ANALYSIS, Defect.Status.IN_PROGRESS, Defect.Status.REJECTED, Defect.Status.DUPLICATED},
-        Defect.Status.ANALYSIS: {Defect.Status.IN_PROGRESS, Defect.Status.OPEN},
-        Defect.Status.IN_PROGRESS: {Defect.Status.RESOLVED, Defect.Status.OPEN},
-        Defect.Status.RESOLVED: {Defect.Status.PENDING_CONFIRMATION, Defect.Status.IN_PROGRESS},
-        Defect.Status.PENDING_CONFIRMATION: {Defect.Status.CLOSED, Defect.Status.REOPENED},
-        Defect.Status.CLOSED: {Defect.Status.REOPENED},
-        Defect.Status.REOPENED: {Defect.Status.IN_PROGRESS, Defect.Status.REJECTED},
-    }
-    if target not in transitions.get(defect.status, set()):
+    if target not in defect_transition_options(defect.status):
         raise ValidationError('La transición solicitada no está permitida desde el estado actual.')
     if target in {Defect.Status.IN_PROGRESS, Defect.Status.RESOLVED, Defect.Status.PENDING_CONFIRMATION} and not defect.assigned_to:
         raise ValidationError('Asigna un responsable antes de avanzar el defecto.')
