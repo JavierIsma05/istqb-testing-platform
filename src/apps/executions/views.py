@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from apps.audit.services import log_action
 from apps.core.permissions import can_manage_artifacts, is_teacher, visible_projects_for
-from apps.core.lifecycle import validate_execution_repeat
+from apps.core.lifecycle import validate_execution_repeat, case_status_from_execution_result, sync_test_case_status_from_execution
 from apps.defects.history import record_defect_history
 from apps.defects.models import Defect
 from apps.executions.models import AutomatedValidationRule, TestData, TestExecution, TestStepExecution
@@ -23,12 +23,6 @@ from .services.review import recalculate_execution_from_steps
 from .services.automated_runner import run_automated_execution
 
 
-RESULT_TO_CASE_STATUS = {
-    'PASSED': TestCase.Status.PASSED,
-    'FAILED': TestCase.Status.FAILED,
-    'BLOCKED': TestCase.Status.BLOCKED,
-    'ERROR': TestCase.Status.BLOCKED,
-}
 
 CONFIRMATION_CANDIDATE_STATUSES = {
     Defect.Status.IN_PROGRESS,
@@ -103,10 +97,10 @@ def summarize_step_results(step_results):
 def sync_case_status_from_last_execution(test_case):
     last_execution = test_case.executions.first()
     if last_execution:
-        test_case.status = RESULT_TO_CASE_STATUS.get(last_execution.result, TestCase.Status.PENDING)
+        sync_test_case_status_from_execution(test_case, last_execution)
     else:
         test_case.status = TestCase.Status.PENDING
-    test_case.save(update_fields=['status', 'updated_at'])
+        test_case.save(update_fields=['status', 'updated_at'])
 
 
 def is_image_evidence(evidence):
@@ -832,8 +826,7 @@ def automated_execution_run_view(request, case_id):
         messages.error(request, test_case.execution_block_reason)
         return redirect(f'{reverse("executions:index")}?case={test_case.id}#automation')
     execution = run_automated_execution(test_case, request.user)
-    test_case.status = RESULT_TO_CASE_STATUS.get(execution.result, TestCase.Status.PENDING)
-    test_case.save(update_fields=['status', 'updated_at'])
+    sync_test_case_status_from_execution(test_case, execution)
     if execution.result == TestExecution.Result.FAILED:
         messages.warning(request, 'La ejecucion fallo y se genero un defecto asociado.')
     elif execution.result == TestExecution.Result.PASSED:
