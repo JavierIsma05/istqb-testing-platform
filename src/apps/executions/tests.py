@@ -1204,3 +1204,71 @@ def test_usuario_no_puede_ver_ni_eliminar_ejecucion_de_proyecto_ajeno(client, us
     response = client.post(reverse('executions:delete', args=[foreign_execution.pk]))
     assert response.status_code == 404
     assert ExecutionModel.objects.filter(pk=foreign_execution.pk).exists()
+
+@pytest.mark.django_db
+def test_ejecucion_de_regresion_puede_repetir_caso_y_no_duplica_defecto(client, test_case, execution, user):
+    approve_requirement(test_case)
+    defect = Defect.objects.create(
+        project=test_case.test_plan.project,
+        test_case=test_case,
+        execution=execution,
+        code='DEF-REG-001',
+        title='Defecto corregido',
+        description='Motiva una regresion.',
+        status=Defect.Status.RESOLVED,
+        reported_by=user,
+    )
+    client.force_login(user)
+
+    response = client.post(
+        f'{reverse("executions:index")}?case={test_case.id}',
+        data=manual_payload(
+            execution_type=ExecutionModel.ExecutionType.REGRESSION,
+            related_defect=defect.pk,
+            result=ExecutionModel.Result.PASSED,
+            actual_result='Cumple',
+            **step_payload(
+                ExecutionModel.Result.PASSED,
+                ExecutionModel.Result.PASSED,
+                ExecutionModel.Result.PASSED,
+            ),
+        ),
+    )
+
+    regression = ExecutionModel.objects.get(
+        test_case=test_case,
+        execution_type=ExecutionModel.ExecutionType.REGRESSION,
+    )
+    assert response.status_code == 302
+    assert regression.related_defect == defect
+    assert regression.result == ExecutionModel.Result.PASSED
+    assert Defect.objects.filter(project=test_case.test_plan.project).count() == 1
+
+
+@pytest.mark.django_db
+def test_regresion_fallida_crea_defecto_trazable(client, test_case, user):
+    approve_requirement(test_case)
+    client.force_login(user)
+
+    response = client.post(
+        f'{reverse("executions:index")}?case={test_case.id}',
+        data=manual_payload(
+            execution_type=ExecutionModel.ExecutionType.REGRESSION,
+            result=ExecutionModel.Result.FAILED,
+            actual_result='No cumple',
+            **step_payload(
+                ExecutionModel.Result.FAILED,
+                ExecutionModel.Result.PASSED,
+                ExecutionModel.Result.PASSED,
+            ),
+        ),
+    )
+
+    regression = ExecutionModel.objects.get(
+        test_case=test_case,
+        execution_type=ExecutionModel.ExecutionType.REGRESSION,
+    )
+    defect = Defect.objects.get(execution=regression)
+    assert response.status_code == 302
+    assert regression.result == ExecutionModel.Result.FAILED
+    assert defect.test_case == test_case
