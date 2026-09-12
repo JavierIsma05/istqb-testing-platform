@@ -1155,6 +1155,9 @@ def test_recalculo_marca_fallo_y_calcula_porcentaje_parcial(execution, test_case
 
 @pytest.mark.django_db
 def test_usuario_no_puede_ver_ni_eliminar_ejecucion_de_proyecto_ajeno(client, user):
+    from apps.requirements.models import Requirement
+    from apps.testplans.models import TestPlan
+
     other_user = User.objects.create_user(
         email='foreign-execution@example.com',
         password='StrongPass123',
@@ -1164,7 +1167,7 @@ def test_usuario_no_puede_ver_ni_eliminar_ejecucion_de_proyecto_ajeno(client, us
         name='Proyecto ajeno para ejecucion',
         created_by=other_user,
     )
-    foreign_plan = test_case.__class__._meta.get_field('test_plan').related_model.objects.create(
+    foreign_plan = TestPlan.objects.create(
         project=foreign_project,
         name='Plan ajeno',
         objective='Privado.',
@@ -1178,7 +1181,7 @@ def test_usuario_no_puede_ver_ni_eliminar_ejecucion_de_proyecto_ajeno(client, us
         status=Requirement.Status.APPROVED,
         created_by=other_user,
     )
-    foreign_case = test_case.__class__.objects.create(
+    foreign_case = CaseModel.objects.create(
         test_plan=foreign_plan,
         requirement=foreign_requirement,
         code='TC-EXEC-999',
