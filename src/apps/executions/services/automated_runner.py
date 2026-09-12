@@ -20,6 +20,7 @@ except ImportError:
 
 from apps.audit.services import log_action
 from apps.core.codes import next_code
+from apps.core.lifecycle import sync_test_case_status_from_execution
 from apps.defects.history import record_defect_history
 from apps.defects.models import Defect
 from apps.executions.models import (
@@ -418,14 +419,7 @@ def run_automated_steps(test_case, user, steps):
             'updated_at',
         ]
     )
-    case_status = {
-        TestExecution.Result.PASSED: test_case.Status.PASSED,
-        TestExecution.Result.FAILED: test_case.Status.FAILED,
-        TestExecution.Result.BLOCKED: test_case.Status.BLOCKED,
-        TestExecution.Result.ERROR: test_case.Status.BLOCKED,
-    }.get(execution.result, test_case.Status.PENDING)
-    test_case.status = case_status
-    test_case.save(update_fields=['status', 'updated_at'])
+    sync_test_case_status_from_execution(test_case, execution)
 
     failed_results = [item for item in result_rows if item.status == TestExecution.Result.FAILED]
     if failed_results:
