@@ -213,3 +213,32 @@ def test_transicion_de_estado_avanza_por_el_ciclo(client, project, test_case, us
         assert defect.status == expected
 
     assert defect.history.count() == 6
+
+
+@pytest.mark.django_db
+def test_usuario_no_puede_modificar_ni_eliminar_defecto_de_proyecto_ajeno(client, user):
+    from apps.projects.models import Project
+    from apps.testcases.models import TestCase
+    other_user = get_user_model().objects.create_user(email='foreign-defect@example.edu', password='StrongPass123')
+    project = Project.objects.create(code='PRJ-FOREIGN-DEF', name='Proyecto ajeno', created_by=other_user)
+    # A defect only needs project/reporting fields for authorization lookup.
+    defect = Defect.objects.create(project=project, code='DEF-999', title='Defecto privado', description='Privado.', reported_by=other_user)
+    client.force_login(user)
+    response = client.get(reverse('defects:edit', args=[defect.pk]))
+    assert response.status_code == 404
+    response = client.post(reverse('defects:delete', args=[defect.pk]))
+    assert response.status_code == 404
+    assert Defect.objects.filter(pk=defect.pk).exists()
+
+
+@pytest.mark.django_db
+def test_usuario_no_puede_transicionar_defecto_de_proyecto_ajeno(client, user):
+    from apps.projects.models import Project
+    other_user = get_user_model().objects.create_user(email='foreign-transition@example.edu', password='StrongPass123')
+    project = Project.objects.create(code='PRJ-FOREIGN-TRANS', name='Proyecto ajeno', created_by=other_user)
+    defect = Defect.objects.create(project=project, code='DEF-998', title='Defecto protegido', description='Privado.', reported_by=other_user)
+    client.force_login(user)
+    response = client.post(reverse('defects:transition', args=[defect.pk]))
+    assert response.status_code == 404
+    defect.refresh_from_db()
+    assert defect.status == Defect.Status.OPEN
