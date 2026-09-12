@@ -89,3 +89,35 @@ def test_riesgo_mitigado_puede_cerrarse(project, user):
         reported_by=user,
     )
     assert incident_transition_allowed(incident, Incident.Status.CLOSED)
+
+
+@pytest.mark.django_db
+def test_resultado_de_ejecucion_actualiza_estado_del_caso(test_case):
+    from apps.executions.models import TestExecution
+    from apps.core.lifecycle import sync_test_case_status_from_execution
+
+    test_case.status = TestCase.Status.RUNNING
+    test_case.save()
+    execution = TestExecution.objects.create(
+        test_case=test_case,
+        result=TestExecution.Result.PASSED,
+    )
+    assert sync_test_case_status_from_execution(test_case, execution) == TestCase.Status.PASSED
+    test_case.refresh_from_db()
+    assert test_case.status == TestCase.Status.PASSED
+
+
+@pytest.mark.django_db
+def test_error_tecnico_bloquea_el_caso(test_case):
+    from apps.executions.models import TestExecution
+    from apps.core.lifecycle import sync_test_case_status_from_execution
+
+    test_case.status = TestCase.Status.RUNNING
+    test_case.save()
+    execution = TestExecution.objects.create(
+        test_case=test_case,
+        result=TestExecution.Result.ERROR,
+    )
+    sync_test_case_status_from_execution(test_case, execution)
+    test_case.refresh_from_db()
+    assert test_case.status == TestCase.Status.BLOCKED
