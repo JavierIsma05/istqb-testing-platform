@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from apps.audit.services import log_action
 from apps.core.permissions import can_manage_artifacts, is_teacher, visible_projects_for
-from apps.core.lifecycle import validate_execution_repeat, case_status_from_execution_result, sync_test_case_status_from_execution
+from apps.core.lifecycle import validate_execution_repeat, case_status_from_execution_result, sync_test_case_status_from_execution, defect_transition_from_confirmation, defect_transition_allowed
 from apps.defects.history import record_defect_history
 from apps.defects.models import Defect
 from apps.executions.models import AutomatedValidationRule, TestData, TestExecution, TestStepExecution
@@ -159,15 +159,15 @@ def sync_defect_from_confirmation(execution):
     if not defect or execution.execution_type != TestExecution.ExecutionType.CONFIRMATION:
         return
 
-    defect.verification_execution = execution
-    if execution.result == TestExecution.Result.PASSED:
-        defect.status = Defect.Status.CLOSED
-    elif execution.result == TestExecution.Result.FAILED:
-        defect.status = Defect.Status.IN_PROGRESS
-    else:
-        defect.status = Defect.Status.REOPENED
-
-    defect.save(update_fields=['status', 'verification_execution', 'updated_at'])
+    target = defect_transition_from_confirmation(defect, execution)
+    if target == Defect.Status.CLOSED:
+        defect.verification_execution = execution
+    defect_transition_allowed(defect, target)
+    defect.status = target
+    update_fields = ['status', 'updated_at']
+    if target == Defect.Status.CLOSED:
+        update_fields.insert(1, 'verification_execution')
+    defect.save(update_fields=update_fields)
     record_defect_history(defect, execution.executed_by, 'Actualizacion desde prueba de confirmacion')
     log_action(
         execution.executed_by,
