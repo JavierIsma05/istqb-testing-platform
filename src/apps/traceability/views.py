@@ -109,6 +109,23 @@ def traceability_matrix_view(request):
                 }
             )
 
+    traced_requirement_ids = {
+        row['requirement'].pk for row in rows if row['case'] is not None
+    }
+    requirements_with_completed_execution = {
+        row['requirement'].pk
+        for row in rows
+        if row['execution'] is not None
+    }
+    requirement_coverage_percentage = (
+        round((len(traced_requirement_ids) / len(requirements)) * 100, 1)
+        if requirements else 0
+    )
+    execution_coverage_percentage = (
+        round((len(requirements_with_completed_execution) / len(requirements)) * 100, 1)
+        if requirements else 0
+    )
+
     return render(
         request,
         'traceability/index.html',
@@ -120,5 +137,9 @@ def traceability_matrix_view(request):
             'total_executions': len(latest_executions),
             'total_results': result_count,
             'total_defects': len(defects),
+            'traced_requirements': len(traced_requirement_ids),
+            'requirements_with_completed_execution': len(requirements_with_completed_execution),
+            'requirement_coverage_percentage': requirement_coverage_percentage,
+            'execution_coverage_percentage': execution_coverage_percentage,
         },
     )
