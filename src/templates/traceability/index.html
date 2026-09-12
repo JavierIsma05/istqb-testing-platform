@@ -65,6 +65,7 @@
                     <th>Plan de Pruebas</th>
                     <th>Caso de Prueba</th>
                     <th>Ejecución</th>
+                    <th>Tipo</th>
                     <th>Resultado</th>
                     <th>Defecto</th>
                     <th>Justificación</th>
@@ -107,6 +108,13 @@
                         </td>
                         <td>
                             {% if row.execution %}
+                                <span class="trace-pill">{{ row.execution.get_execution_type_display }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.execution %}
                                 <span class="trace-pill result-pill result-{{ row.execution.result|lower }}">
                                     {{ row.execution.get_result_display }}
                                 </span>
@@ -134,7 +142,7 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center text-muted py-5">
+                        <td colspan="8" class="text-center text-muted py-5">
                             No hay requisitos para mostrar en la matriz.
                         </td>
                     </tr>
