@@ -143,3 +143,23 @@ def test_resultado_de_ejecucion_revisada_sincroniza_caso(test_case):
     recalculate_execution_from_steps(execution)
     test_case.refresh_from_db()
     assert test_case.status == TestCase.Status.PASSED
+
+
+@pytest.mark.django_db
+def test_confirmacion_fallida_reabre_defecto(project, test_case, user):
+    from apps.defects.models import Defect
+    from apps.executions.models import TestExecution
+    from apps.core.lifecycle import defect_transition_from_confirmation
+
+    defect = Defect.objects.create(
+        project=project, test_case=test_case, code='DEF-CONF-001',
+        title='Defecto', description='Pendiente de confirmar.',
+        reported_by=user, assigned_to=user,
+        resolution='Corrección aplicada.', status=Defect.Status.PENDING_CONFIRMATION,
+    )
+    execution = TestExecution.objects.create(
+        test_case=test_case, related_defect=defect,
+        execution_type=TestExecution.ExecutionType.CONFIRMATION,
+        result=TestExecution.Result.FAILED,
+    )
+    assert defect_transition_from_confirmation(defect, execution) == Defect.Status.REOPENED
