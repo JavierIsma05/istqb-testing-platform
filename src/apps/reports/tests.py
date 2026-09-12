@@ -732,3 +732,93 @@ def test_exportaciones_de_metricas_respetan_proyecto(client, project, user):
     assert pdf_response.status_code == 200
     assert pdf_response['Content-Type'] == 'application/pdf'
     assert pdf_response.content.startswith(b'%PDF')
+
+
+@pytest.mark.django_db
+def test_usuario_no_puede_acceder_descargar_ni_eliminar_reporte_ajeno(client, user):
+    other_user = get_user_model().objects.create_user(
+        email='foreign-report@example.edu',
+        password='StrongPass123',
+    )
+    from apps.projects.models import Project
+    foreign_project = Project.objects.create(
+        code='PRJ-FOREIGN-REPORT',
+        name='Proyecto ajeno para reportes',
+        created_by=other_user,
+    )
+    foreign_report = Report.objects.create(
+        project=foreign_project,
+        title='Reporte privado',
+        report_type=Report.ReportType.SUMMARY,
+        generated_by=other_user,
+        content={'requirements': 0},
+    )
+
+    client.force_login(user)
+
+    response = client.get(reverse('reports:detail', args=[foreign_report.pk]))
+    assert response.status_code == 404
+
+    response = client.get(reverse('reports:download', args=[foreign_report.pk]))
+    assert response.status_code == 404
+
+    response = client.post(reverse('reports:delete', args=[foreign_report.pk]))
+    assert response.status_code == 404
+    assert Report.objects.filter(pk=foreign_report.pk).exists()
+
+
+@pytest.mark.django_db
+def test_metricas_no_permiten_exportar_proyecto_ajeno_por_querystring(client, user):
+    other_user = get_user_model().objects.create_user(
+        email='foreign-metrics@example.edu',
+        password='StrongPass123',
+    )
+    from apps.projects.models import Project
+    foreign_project = Project.objects.create(
+        code='PRJ-FOREIGN-METRICS',
+        name='Proyecto ajeno para metricas',
+        created_by=other_user,
+    )
+
+    client.force_login(user)
+
+    csv_response = client.get(
+        reverse('reports:quality-metrics-csv'),
+        {'project': foreign_project.pk},
+    )
+    pdf_response = client.get(
+        reverse('reports:quality-metrics-pdf'),
+        {'project': foreign_project.pk},
+    )
+
+    assert csv_response.status_code == 404
+    assert pdf_response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_selector_no_redirige_a_plan_de_proyecto_ajeno(client, user):
+    other_user = get_user_model().objects.create_user(
+        email='foreign-selector@example.edu',
+        password='StrongPass123',
+    )
+    from apps.projects.models import Project
+    from apps.testplans.models import TestPlan
+    foreign_project = Project.objects.create(
+        code='PRJ-FOREIGN-SELECTOR',
+        name='Proyecto ajeno para selector',
+        created_by=other_user,
+    )
+    foreign_plan = TestPlan.objects.create(
+        project=foreign_project,
+        name='Plan privado',
+        objective='No debe seleccionarse por query string.',
+        created_by=other_user,
+    )
+
+    client.force_login(user)
+    response = client.get(
+        reverse('reports:plan-report'),
+        {'type': 'final', 'plan': foreign_plan.pk},
+    )
+
+    assert response.status_code == 404
