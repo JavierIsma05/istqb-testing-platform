@@ -239,3 +239,33 @@ def test_matriz_ofrece_enlaces_contextuales(client, user, requirement, test_plan
     assert reverse('testcases:detail', args=[test_case.pk]) in content
     assert reverse('executions:history', args=[test_case.pk]) in content
     assert 'Cubre el acceso válido.' in content
+
+
+@pytest.mark.django_db
+def test_matriz_de_trazabilidad_no_expone_proyectos_ajenos(client, user, project, requirement, test_plan, test_case):
+    other_user = user.__class__.objects.create_user(
+        email='foreign-traceability@example.edu',
+        password='StrongPass123',
+    )
+    foreign_project = Project.objects.create(
+        code='PRJ-FOREIGN-TRACE',
+        name='Proyecto ajeno de trazabilidad',
+        created_by=other_user,
+    )
+    foreign_requirement = requirement.__class__.objects.create(
+        project=foreign_project,
+        code='REQ-FOREIGN-001',
+        title='Requisito privado',
+        description='No debe aparecer en la matriz de otro usuario.',
+        created_by=other_user,
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('traceability:index'))
+
+    assert response.status_code == 200
+    visible_requirement_ids = {
+        row['requirement'].pk for row in response.context['rows']
+    }
+    assert requirement.pk in visible_requirement_ids
+    assert foreign_requirement.pk not in visible_requirement_ids
