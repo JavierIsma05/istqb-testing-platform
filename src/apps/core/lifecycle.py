@@ -98,6 +98,15 @@ def defect_transition_allowed(defect, target):
     return True
 
 
+
+def defect_transition_from_confirmation(defect, execution):
+    """Return the legal defect target produced by a confirmation execution."""
+    if execution.result == TestExecution.Result.PASSED:
+        return Defect.Status.CLOSED
+    if execution.result == TestExecution.Result.FAILED:
+        return Defect.Status.REOPENED
+    return Defect.Status.REOPENED
+
 def raise_if_invalid(result):
     if not result.ok:
         raise ValidationError(list(result.errors))
@@ -262,4 +271,4 @@ def validate_file_upload(uploaded, allowed_extensions, max_size):
     return ValidationResult(True)
 
 
-__all__ = ['case_status_from_execution_result', 'sync_test_case_status_from_execution', 'case_changed_after_execution', 'defect_transition_allowed', 'execution_transition_allowed', 'incident_transition_allowed', 'raise_if_invalid', 'requirement_can_be_approved', 'status_transition_for_plan', 'status_transition_for_requirement', 'status_transition_for_test_case', 'test_case_readiness', 'validate_test_plan_approval', 'validate_execution_repeat']
+__all__ = ['case_status_from_execution_result', 'sync_test_case_status_from_execution', 'case_changed_after_execution', 'defect_transition_allowed', 'defect_transition_from_confirmation', 'execution_transition_allowed', 'incident_transition_allowed', 'raise_if_invalid', 'requirement_can_be_approved', 'status_transition_for_plan', 'status_transition_for_requirement', 'status_transition_for_test_case', 'test_case_readiness', 'validate_test_plan_approval', 'validate_execution_repeat']
