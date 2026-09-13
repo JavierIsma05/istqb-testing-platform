@@ -13,11 +13,7 @@ from apps.projects.models import Project
 
 @pytest.mark.django_db
 def test_trazabilidad_conecta_requisito_con_caso_de_prueba(requirement, test_case):
-    link = TraceabilityLink.objects.create(
-        requirement=requirement,
-        test_case=test_case,
-        rationale='El caso cubre el flujo principal del requisito.',
-    )
+    link = TraceabilityLink.objects.create(requirement=requirement, test_case=test_case, rationale='El caso cubre el flujo principal del requisito.')
     assert link.requirement == requirement
     assert link.test_case == test_case
     assert str(link) == 'REQ-001 -> TC-001'
@@ -33,22 +29,14 @@ def test_trazabilidad_no_permite_duplicar_requisito_y_caso(requirement, test_cas
 @pytest.mark.django_db
 def test_trazabilidad_rechaza_requisito_y_caso_de_proyectos_distintos(requirement, test_case, user):
     other_project = Project.objects.create(code='PRJ-TRZ-002', name='Proyecto de otra trazabilidad', created_by=user)
-    other_requirement = requirement.__class__.objects.create(
-        project=other_project, code='REQ-999', title='Requisito de otro proyecto',
-        description='No debe vincularse a un caso externo.', created_by=user,
-    )
+    other_requirement = requirement.__class__.objects.create(project=other_project, code='REQ-999', title='Requisito de otro proyecto', description='No debe vincularse a un caso externo.', created_by=user)
     with pytest.raises(ValidationError, match='mismo proyecto'):
         TraceabilityLink.objects.create(requirement=other_requirement, test_case=test_case)
 
 
 @pytest.mark.django_db
 def test_matriz_muestra_una_fila_por_caso_de_prueba(client, user, requirement, test_plan, test_case):
-    TestCase.objects.create(
-        test_plan=test_plan, requirement=requirement, code='TC-002', title='Login fallido',
-        steps='Enviar credenciales invalidas => Se muestra error',
-        steps_data=[{'number': 1, 'action': 'Enviar credenciales invalidas', 'expected_result': 'Se muestra error'}],
-        expected_result='Se muestra error.', created_by=user,
-    )
+    TestCase.objects.create(test_plan=test_plan, requirement=requirement, code='TC-002', title='Login fallido', steps='Enviar credenciales invalidas => Se muestra error', steps_data=[{'number': 1, 'action': 'Enviar credenciales invalidas', 'expected_result': 'Se muestra error'}], expected_result='Se muestra error.', created_by=user)
     client.force_login(user)
     response = client.get(reverse('traceability:index'))
     assert response.status_code == 200
@@ -57,7 +45,7 @@ def test_matriz_muestra_una_fila_por_caso_de_prueba(client, user, requirement, t
 
 
 @pytest.mark.django_db
-def test_matriz_no_duplica_filas_ni_pierde_historial(client, user, requirement, test_plan, test_case):
+def test_matriz_no_duplica_filas_ni_pierde_historial(client, user, test_case):
     for _ in range(40):
         TestExecution.objects.create(test_case=test_case, executed_by=user, result=TestExecution.Result.PASSED)
     client.force_login(user)
