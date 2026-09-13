@@ -10,6 +10,7 @@ esperado y evidencias.
 from __future__ import annotations
 
 import os
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable
@@ -96,15 +97,24 @@ class SeleniumBaseTest:
         """Asigna un valor a un input type=date via JS (send_keys no es fiable)."""
         element = self.find_visible(locator)
         self.driver.execute_script(
-            "arguments[0].value = arguments[1];",
+            "arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles: true})); arguments[0].dispatchEvent(new Event('change', {bubbles: true}));",
             element,
             value,
         )
 
     def select_option(self, locator: tuple[str, str], value: str) -> None:
         """Selecciona un valor en un select."""
+        Select(self.find_visible(locator)).select_by_value(value)
+
+    def select_first_available_option(self, locator: tuple[str, str]) -> str:
+        """Selecciona la primera opción real disponible, sin depender de IDs fijos."""
         select = Select(self.find_visible(locator))
-        select.select_by_value(value)
+        for option in select.options:
+            value = option.get_attribute("value")
+            if value and option.is_enabled():
+                select.select_by_value(value)
+                return value
+        raise TimeoutException(f"No hay opciones disponibles para: {locator}")
 
     def wait_for_url_contains(self, text: str) -> None:
         self.wait.until(EC.url_contains(text))
