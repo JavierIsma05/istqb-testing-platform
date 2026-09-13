@@ -447,3 +447,34 @@ def test_metricas_de_casos_ejecutados_distinguen_casos_pendientes(
     assert response.context['total_test_cases'] == 2
     assert response.context['executed_test_cases'] == 1
     assert response.context['test_case_execution_coverage_percentage'] == 50.0
+
+
+@pytest.mark.django_db
+def test_indice_de_trazabilidad_integral_es_reproducible(
+    client, user, project, requirement, test_plan, test_case
+):
+    uncovered_requirement = requirement.__class__.objects.create(
+        project=project,
+        code='REQ-TRACE-INDEX-002',
+        title='Requisito sin cadena completa',
+        description='No tiene caso ni ejecución.',
+        created_by=user,
+    )
+    TestExecution.objects.create(
+        test_case=test_case,
+        executed_by=user,
+        result=TestExecution.Result.PASSED,
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('traceability:index'))
+
+    assert response.status_code == 200
+    assert response.context['total_requirements'] == 2
+    assert response.context['end_to_end_traced_requirements'] == 1
+    assert response.context['end_to_end_traceability_percentage'] == 50.0
+    assert uncovered_requirement.pk not in {
+        row['requirement'].pk
+        for row in response.context['rows']
+        if row['execution'] is not None
+    }
