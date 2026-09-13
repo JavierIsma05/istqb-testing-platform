@@ -15,11 +15,7 @@ class TestTestCases(SeleniumBaseTest):
 
         try:
             self.login()
-            self.ensure_test_case()
-            self.open_path("/test-cases/")
-            self.click((By.CSS_SELECTOR, "[data-bs-target='#testCaseModal']"))
-            self.find_visible((By.ID, "testCaseModal"))
-
+            self.ensure_test_plan()
             self.select_first_available_option((By.NAME, "requirement"))
             self.type_text((By.NAME, "title"), title)
             self.type_text((By.NAME, "description"), "Verifica el acceso con credenciales validas.")
