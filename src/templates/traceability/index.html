@@ -36,6 +36,7 @@
         <div>
             <span>Ejecuciones</span>
             <strong>{{ total_executions }}</strong>
+            <small>Historial total registrado</small>
         </div>
         <i class="bi bi-play-circle"></i>
     </article>
@@ -68,6 +69,14 @@
             <small>{{ requirements_with_completed_execution }}/{{ total_requirements }} con ejecución completada</small>
         </div>
         <i class="bi bi-activity"></i>
+    </article>
+    <article class="traceability-metric-card">
+        <div>
+            <span>Casos ejecutados</span>
+            <strong>{{ test_case_execution_coverage_percentage }}%</strong>
+            <small>{{ executed_test_cases }}/{{ total_test_cases }} con al menos una ejecución completada</small>
+        </div>
+        <i class="bi bi-check2-square"></i>
     </article>
 </section>
 
