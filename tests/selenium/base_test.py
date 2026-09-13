@@ -179,7 +179,7 @@ class SeleniumBaseTest:
     def ensure_test_plan(self) -> str:
         """Garantiza un plan nuevo y usa exactamente el rango de fechas del proyecto."""
         project_id = self.ensure_requirement()
-        self.open_path("/testplans/new/")
+        self.open_path("/test-plans/new/")
         project_select = self._require_form((By.NAME, "project"), "creación de plan de pruebas")
         date_ranges_raw = project_select.get_attribute("data-date-ranges") or "{}"
         try:
