@@ -4,15 +4,16 @@ from django.db import migrations
 LEGACY_COLUMNS = (
     "uses_risk_management",
     "entry_criteria_items",
+    "exit_criteria_items",
 )
 
 
 def remove_legacy_columns(apps, schema_editor):
     """Remove columns left by obsolete TestPlan schemas.
 
-    The current TestPlan model/migrations no longer define these columns. They
-    are intentionally handled conditionally so the migration is safe for a
-    database that was already repaired manually or created from scratch.
+    The current TestPlan model and migrations do not define these columns.
+    The operation is conditional so it is safe for clean databases and for
+    databases where one or more legacy columns were already removed.
     """
     connection = schema_editor.connection
     quote = connection.ops.quote_name
