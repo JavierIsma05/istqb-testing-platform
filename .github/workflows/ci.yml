@@ -35,6 +35,8 @@ jobs:
       DB_PORT: 5432
       SECRET_KEY: ci-only-secret
       AUTOMATION_ALLOWED_HOSTS: localhost,127.0.0.1,::1
+      SELENIUM_HEADLESS: 'true'
+      SELENIUM_TIMEOUT: '15'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
