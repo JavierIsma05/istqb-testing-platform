@@ -72,6 +72,14 @@
     </article>
     <article class="traceability-metric-card">
         <div>
+            <span>Trazabilidad integral</span>
+            <strong>{{ end_to_end_traceability_percentage }}%</strong>
+            <small>{{ end_to_end_traced_requirements }}/{{ total_requirements }} con cadena requisito → caso → ejecución</small>
+        </div>
+        <i class="bi bi-link-45deg"></i>
+    </article>
+    <article class="traceability-metric-card">
+        <div>
             <span>Casos ejecutados</span>
             <strong>{{ test_case_execution_coverage_percentage }}%</strong>
             <small>{{ executed_test_cases }}/{{ total_test_cases }} con al menos una ejecución completada</small>
