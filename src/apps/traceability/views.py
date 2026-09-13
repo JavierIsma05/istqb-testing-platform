@@ -109,6 +109,15 @@ def traceability_matrix_view(request):
                 }
             )
 
+    executed_test_case_ids = {
+        row['case'].pk
+        for row in rows
+        if row['case'] is not None and row['execution'] is not None
+    }
+    total_execution_history = TestExecution.objects.filter(
+        test_case__test_plan__project__in=visible_projects
+    ).count()
+
     traced_requirement_ids = {
         row['requirement'].pk for row in rows if row['case'] is not None
     }
@@ -134,12 +143,18 @@ def traceability_matrix_view(request):
             'total_requirements': len(requirements),
             'total_plans': len(plans),
             'total_test_cases': len(cases),
-            'total_executions': len(latest_executions),
+            'total_executions': total_execution_history,
+            'latest_execution_snapshots': len(latest_executions),
             'total_results': result_count,
             'total_defects': len(defects),
             'traced_requirements': len(traced_requirement_ids),
             'requirements_with_completed_execution': len(requirements_with_completed_execution),
             'requirement_coverage_percentage': requirement_coverage_percentage,
             'execution_coverage_percentage': execution_coverage_percentage,
+            'executed_test_cases': len(executed_test_case_ids),
+            'test_case_execution_coverage_percentage': (
+                round((len(executed_test_case_ids) / len(cases)) * 100, 1)
+                if cases else 0
+            ),
         },
     )
