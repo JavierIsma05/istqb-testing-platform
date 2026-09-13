@@ -90,7 +90,7 @@ def test_matriz_actualiza_cuando_llega_una_ejecucion_completada_nueva(client, us
 
 
 @pytest.mark.django_db
-def test_matriz_muestra_requisito_sin_caso_con_relaciones_incompletas(client, user, project, requirement):
+def test_matriz_muestra_requisito_sin_caso_con_relaciones_incompletas(client, user, project, requirement, test_case):
     lonely = requirement.__class__.objects.create(project=project, code='REQ-002', title='Requisito sin caso de prueba', description='Aun no tiene casos asociados.', created_by=user)
     client.force_login(user)
     response = client.get(reverse('traceability:index'))
@@ -120,6 +120,11 @@ def test_metric_cards_cuentan_elementos_de_la_matriz(client, user, test_case):
 @pytest.mark.django_db
 def test_matriz_ofrece_enlaces_contextuales(client, user, requirement, test_plan, test_case):
     TraceabilityLink.objects.create(requirement=requirement, test_case=test_case, rationale='Cubre el acceso válido.')
+    TestExecution.objects.create(
+        test_case=test_case,
+        executed_by=user,
+        result=TestExecution.Result.PASSED,
+    )
     client.force_login(user)
     response = client.get(reverse('traceability:index'))
     content = response.content.decode()
