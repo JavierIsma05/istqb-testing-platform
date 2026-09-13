@@ -1,7 +1,7 @@
 """Pruebas funcionales CRUD para proyectos."""
 
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from selenium.webdriver.common.by import By
 
@@ -14,15 +14,20 @@ class TestProjects(SeleniumBaseTest):
         test_name = "crear proyecto"
         project_name = f"Proyecto Selenium {int(time.time())}"
         year = datetime.now().year
+        start_date = datetime.now().date() + timedelta(days=1)
+        end_date = datetime(year, 12, 31).date()
+        if start_date.year != year or start_date > end_date:
+            start_date = datetime(year, 1, 1).date()
 
         try:
             self.login()
             self.open_path("/projects/new/")
             self.type_text((By.NAME, "name"), project_name)
             self.type_text((By.NAME, "description"), "Proyecto creado por prueba funcional automatizada.")
-            self.set_date((By.NAME, "start_date"), f"{year}-09-01")
-            self.set_date((By.NAME, "end_date"), f"{year}-12-31")
+            self.set_date((By.NAME, "start_date"), start_date.isoformat())
+            self.set_date((By.NAME, "end_date"), end_date.isoformat())
             self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
+
             self.wait_for_text(project_name)
             assert project_name in self.driver.find_element(By.TAG_NAME, "body").text
             self.print_success(module_name, test_name)
