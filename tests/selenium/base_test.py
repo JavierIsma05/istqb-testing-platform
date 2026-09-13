@@ -112,6 +112,22 @@ class SeleniumBaseTest:
                 return value
         raise TimeoutException(f"No hay opciones disponibles para: {locator}")
 
+    def _require_form(self, locator: tuple[str, str], form_name: str):
+        """Verifica que la ruta solicitada realmente renderizó el formulario esperado."""
+        elements = self.driver.find_elements(*locator)
+        if elements:
+            for element in elements:
+                if element.is_displayed():
+                    return element
+
+        url = self.driver.current_url
+        body = self.driver.find_element(By.TAG_NAME, "body").text.strip().replace("\n", " | ")
+        body = body[:700] if body else "<sin contenido visible>"
+        raise TimeoutException(
+            f"No se renderizo el formulario '{form_name}'. URL actual: {url}. "
+            f"Contenido visible: {body}"
+        )
+
     def ensure_project(self) -> str:
         """Garantiza un proyecto visible para las pruebas E2E."""
         self.open_path("/requirements/new/")
@@ -132,6 +148,7 @@ class SeleniumBaseTest:
             start_date = datetime(year, 1, 1).date()
 
         self.open_path("/projects/new/")
+        self._require_form((By.NAME, "name"), "creación de proyecto")
         self.type_text((By.NAME, "name"), f"Proyecto E2E {int(time.time())}")
         self.type_text((By.NAME, "description"), "Proyecto auxiliar para pruebas funcionales automatizadas.")
         self.set_date((By.NAME, "start_date"), start_date.isoformat())
@@ -146,6 +163,7 @@ class SeleniumBaseTest:
         """Crea un requisito y devuelve el proyecto al que pertenece."""
         project_id = self.ensure_project()
         self.open_path("/requirements/new/")
+        self._require_form((By.NAME, "project"), "creación de requisito")
         self.select_option((By.NAME, "project"), project_id)
         title = f"REQ-E2E-{int(time.time())} Requisito funcional"
         self.type_text((By.NAME, "title"), title)
@@ -162,7 +180,7 @@ class SeleniumBaseTest:
         """Garantiza un plan nuevo y usa exactamente el rango de fechas del proyecto."""
         project_id = self.ensure_requirement()
         self.open_path("/testplans/new/")
-        project_select = self.find_visible((By.NAME, "project"))
+        project_select = self._require_form((By.NAME, "project"), "creación de plan de pruebas")
         date_ranges_raw = project_select.get_attribute("data-date-ranges") or "{}"
         try:
             date_ranges = json.loads(date_ranges_raw)
