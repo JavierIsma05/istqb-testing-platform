@@ -394,3 +394,56 @@ def test_metricas_calculan_cobertura_de_requisitos_y_ejecucion(
         for row in response.context['rows']
         if row['execution'] is not None
     }
+
+
+@pytest.mark.django_db
+def test_metricas_separan_historial_de_ejecuciones_y_ultima_fotografia(
+    client, user, requirement, test_case
+):
+    for result in (
+        TestExecution.Result.PASSED,
+        TestExecution.Result.FAILED,
+        TestExecution.Result.PASSED,
+    ):
+        TestExecution.objects.create(
+            test_case=test_case,
+            executed_by=user,
+            result=result,
+        )
+
+    client.force_login(user)
+    response = client.get(reverse('traceability:index'))
+
+    assert response.status_code == 200
+    assert response.context['total_executions'] == 3
+    assert response.context['latest_execution_snapshots'] == 1
+    assert response.context['executed_test_cases'] == 1
+    assert response.context['test_case_execution_coverage_percentage'] == 100.0
+
+
+@pytest.mark.django_db
+def test_metricas_de_casos_ejecutados_distinguen_casos_pendientes(
+    client, user, requirement, test_plan, test_case
+):
+    TestCase.objects.create(
+        test_plan=test_plan,
+        requirement=requirement,
+        code='TC-METRIC-002',
+        title='Caso pendiente',
+        steps='Ejecutar',
+        steps_data=[],
+        expected_result='Correcto',
+        created_by=user,
+    )
+    TestExecution.objects.create(
+        test_case=test_case,
+        executed_by=user,
+        result=TestExecution.Result.PASSED,
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('traceability:index'))
+
+    assert response.context['total_test_cases'] == 2
+    assert response.context['executed_test_cases'] == 1
+    assert response.context['test_case_execution_coverage_percentage'] == 50.0
