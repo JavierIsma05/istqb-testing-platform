@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from datetime import timedelta
 
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -10,7 +11,14 @@ from django.utils import timezone
 
 from apps.audit.services import log_action
 from apps.core.permissions import can_manage_artifacts, is_teacher, visible_projects_for
-from apps.core.lifecycle import validate_execution_repeat, case_status_from_execution_result, sync_test_case_status_from_execution, defect_transition_from_confirmation, defect_transition_allowed
+from apps.core.lifecycle import (
+    validate_execution_repeat,
+    case_status_from_execution_result,
+    sync_test_case_status_from_execution,
+    defect_transition_from_confirmation,
+    defect_transition_allowed,
+    execution_transition_allowed,
+)
 from apps.defects.history import record_defect_history
 from apps.defects.models import Defect
 from apps.executions.models import AutomatedValidationRule, TestData, TestExecution, TestStepExecution
@@ -21,7 +29,6 @@ from apps.users.models import User
 from .forms import AutomatedStepForm, ExecutionResultForm, ExecutionReviewForm, StepEvidenceForm, StepReviewForm, TestDataForm
 from .services.review import recalculate_execution_from_steps
 from .services.automated_runner import run_automated_execution
-
 
 
 CONFIRMATION_CANDIDATE_STATUSES = {
@@ -377,15 +384,36 @@ def execution_workspace_view(request):
                 form.add_error(None, error)
             messages.error(request, 'La ejecución no se registró porque ya existe una ejecución normal equivalente. Usa regresión o confirmación.')
             return redirect(f'{request.path}?case={selected_case.id}')
+
+        requested_result = (
+            aggregate_step_result(step_results)
+            if step_payload_present
+            else case_status_from_execution_result(TestExecution.Result.PASSED)
+        )
         execution = form.save(commit=False)
         execution.test_case = selected_case
         execution.execution_mode = TestExecution.ExecutionMode.MANUAL
         execution.executed_by = request.user
         execution.executed_at = timezone.now()
         execution.step_results = step_results if step_payload_present else []
-        if step_payload_present:
-            execution.result = aggregate_step_result(step_results)
+
+        # Persist the lifecycle atomically: start in RUNNING, then finish in the
+        # derived outcome. This keeps the stored result consistent with the
+        # centralized execution transition rules.
+        current_result = TestExecution.Result.NOT_RUN
+        execution.result = current_result
         execution.save()
+        execution_transition_allowed(execution, TestExecution.Result.RUNNING)
+        execution.result = TestExecution.Result.RUNNING
+        execution.started_at = execution.started_at or timezone.now()
+        execution.save(update_fields=['result', 'started_at', 'updated_at'])
+
+        final_result = requested_result
+        execution_transition_allowed(execution, final_result)
+        execution.result = final_result
+        execution.finished_at = execution.finished_at or timezone.now()
+        execution.save(update_fields=['result', 'finished_at', 'updated_at'])
+
         if step_payload_present:
             for step in step_results:
                 TestStepExecution.objects.create(
@@ -409,6 +437,8 @@ def execution_workspace_view(request):
                 'execution_type': execution.execution_type,
                 'related_defect_id': execution.related_defect_id,
                 'environment': execution.environment,
+                'started_at': execution.started_at.isoformat() if execution.started_at else None,
+                'finished_at': execution.finished_at.isoformat() if execution.finished_at else None,
             },
         )
 
@@ -618,325 +648,24 @@ def execution_review_detail_view(request, pk):
         test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
     )
     if not is_teacher(request.user) or request.method != 'POST':
-        return redirect('executions:detail', pk=execution.pk)
-    if execution.review_status != TestExecution.ReviewStatus.PENDING:
-        messages.error(request, 'Esta ejecución ya fue revisada y no admite otra modificación.')
-        return redirect('executions:detail', pk=execution.pk)
-    form = ExecutionReviewForm(request.POST, instance=execution)
-    if form.is_valid():
-        reviewed = form.save(commit=False)
-        reviewed.reviewed_by = request.user
-        reviewed.reviewed_at = timezone.now()
-        reviewed.save()
-        log_action(request.user, 'REVIEW', 'TestExecution', reviewed.pk, {
-            'project_id': reviewed.test_case.test_plan.project_id,
-            'test_case_id': reviewed.test_case_id,
-            'review_status': reviewed.review_status,
-        })
-        messages.success(request, 'Revisión docente registrada correctamente.')
-    else:
-        messages.error(request, ' '.join(form.errors.as_text().splitlines()))
-    return redirect('executions:detail', pk=execution.pk)
+        return redirect('executions:detail', pk=pk)
 
-
-@login_required
-def step_review_detail_view(request, pk):
-    step = get_object_or_404(
-        TestStepExecution.objects.select_related(
-            'test_execution', 'test_execution__test_case',
-            'test_execution__test_case__test_plan__project',
-        ),
-        pk=pk,
-        test_execution__test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
-    )
-    execution = step.test_execution
-    if not is_teacher(request.user) or request.method != 'POST':
-        return redirect('executions:detail', pk=execution.pk)
-    if execution.review_status != TestExecution.ReviewStatus.PENDING:
-        messages.error(request, 'La ejecución ya fue revisada y no admite cambios por paso.')
-        return redirect('executions:detail', pk=execution.pk)
-    form = StepReviewForm(request.POST, instance=step)
-    if form.is_valid():
-        form.save()
-        recalculate_execution_from_steps(execution)
-        log_action(request.user, 'REVIEW', 'TestStepExecution', step.pk, {
-            'execution_id': execution.pk, 'step_number': step.step_number, 'status': step.status,
-        })
-        messages.success(request, f'Revisión del paso {step.step_number} registrada.')
-    else:
-        messages.error(request, ' '.join(form.errors.as_text().splitlines()))
-    return redirect('executions:detail', pk=execution.pk)
-
-
-@login_required
-def step_evidence_upload_view(request, pk):
-    step = get_object_or_404(
-        TestStepExecution.objects.select_related(
-            'test_execution', 'test_execution__test_case',
-            'test_execution__test_case__test_plan__project',
-        ),
-        pk=pk,
-        test_execution__test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
-    )
-    execution = step.test_execution
-    if request.method != 'POST' or is_teacher(request.user):
-        return redirect('executions:detail', pk=execution.pk)
-    if not request.user.is_superuser and execution.executed_by_id != request.user.id:
-        messages.error(request, 'Solo quien registró la ejecución puede adjuntar evidencia por paso.')
-        return redirect('executions:detail', pk=execution.pk)
-    if execution.review_status != TestExecution.ReviewStatus.PENDING:
-        messages.error(request, 'La ejecución ya fue revisada y no admite cambios de evidencia.')
-        return redirect('executions:detail', pk=execution.pk)
-    form = StepEvidenceForm(request.POST, request.FILES, instance=step)
-    if form.is_valid():
-        form.save()
-        log_action(request.user, 'UPDATE', 'TestStepExecution', step.pk, {
-            'execution_id': execution.pk, 'step_number': step.step_number, 'evidence': True,
-        })
-        messages.success(request, f'Evidencia del paso {step.step_number} guardada correctamente.')
-    else:
-        messages.error(request, ' '.join(form.errors.as_text().splitlines()))
-    return redirect('executions:detail', pk=execution.pk)
-
-
-@login_required
-def execution_calendar_view(request):
-    projects = visible_projects_for(request.user, request=request).order_by('name')
-    selected_project_id = request.GET.get('project', '').strip()
-    selected_projects = projects
-
-    if selected_project_id:
-        selected_projects = projects.filter(pk=selected_project_id)
-
-    return render(
-        request,
-        'executions/calendar.html',
-        {
-            'projects': projects,
-            'selected_project': selected_project_id,
-            'calendar_items': build_execution_calendar(selected_projects),
-        },
-    )
-
-
-@login_required
-def execution_delete_view(request, pk):
-    if request.method != 'POST':
-        return redirect('executions:index')
-
-    if is_teacher(request.user):
-        return redirect('executions:index')
-
-    execution = get_object_or_404(
-        TestExecution.objects.select_related('test_case', 'test_case__test_plan__project'),
-        pk=pk,
-        test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
-    )
-    if not request.user.is_superuser and execution.executed_by_id != request.user.id:
-        messages.error(request, 'Solo puedes eliminar tus propias ejecuciones.')
-        return redirect(f'{reverse("executions:index")}?case={execution.test_case_id}')
-    if execution.review_status != TestExecution.ReviewStatus.PENDING:
-        messages.error(
-            request,
-            'Una ejecución revisada no puede eliminarse. Registra una nueva ejecución para conservar el historial ISTQB.',
-        )
-        return redirect(f'{reverse("executions:index")}?case={execution.test_case_id}')
-    test_case = execution.test_case
-    log_action(
-        request.user,
-        'DELETE',
-        'TestExecution',
-        execution.pk,
-        {
-            'project_id': test_case.test_plan.project_id,
-            'test_case_id': test_case.pk,
-            'result': execution.result,
-            'review_status': execution.review_status,
-            'execution_mode': execution.execution_mode,
-        },
-    )
-    execution.delete()
-    sync_case_status_from_last_execution(test_case)
-    messages.success(request, 'Ejecución eliminada correctamente.')
-
-    return redirect(f'{reverse("executions:index")}?case={test_case.id}')
-
-
-@login_required
-def automated_rule_create_view(request, case_id):
-    if request.method != 'POST' or is_teacher(request.user):
-        return redirect('executions:index')
-
-    test_case = get_object_or_404(
-        TestCase.objects.select_related('requirement', 'test_plan__project'),
-        pk=case_id,
-        test_plan__project__in=visible_projects_for(request.user, request=request),
-    )
-    form = AutomatedStepForm(request.POST, test_case=test_case)
-    if form.is_valid():
-        rule = form.save(commit=False)
-        rule.test_case = test_case
-        rule.requirement = test_case.requirement
-        rule.save()
+    review_form = ExecutionReviewForm(request.POST, instance=execution)
+    if review_form.is_valid():
+        reviewed_execution = review_form.save(commit=False)
+        reviewed_execution.reviewed_by = request.user
+        reviewed_execution.reviewed_at = timezone.now()
+        reviewed_execution.save()
         log_action(
             request.user,
-            'CREATE',
-            'AutomatedValidationRule',
-            rule.pk,
+            'REVIEW',
+            'TestExecution',
+            reviewed_execution.pk,
             {
-                'test_case_id': test_case.pk,
-                'action_type': rule.action_type,
+                'project_id': reviewed_execution.test_case.test_plan.project_id,
+                'test_case_id': reviewed_execution.test_case_id,
+                'review_status': reviewed_execution.review_status,
             },
         )
-        messages.success(request, 'Paso automatizado registrado correctamente.')
-    else:
-        for errors in form.errors.values():
-            for error in errors:
-                messages.error(request, error)
-    return redirect(f'{reverse("executions:index")}?case={test_case.id}#automation')
-
-
-@login_required
-def automated_rule_delete_view(request, pk):
-    if request.method != 'POST' or is_teacher(request.user):
-        return redirect('executions:index')
-    rule = get_object_or_404(
-        AutomatedValidationRule.objects.select_related('test_case__test_plan__project'),
-        pk=pk,
-        test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
-    )
-    test_case_id = rule.test_case_id
-    if rule.execution_results.exists():
-        rule.is_active = False
-        rule.save(update_fields=['is_active', 'updated_at'])
-        messages.info(request, 'El paso automatizado tiene historial y fue desactivado en lugar de eliminarse.')
-    else:
-        rule.delete()
-        messages.success(request, 'Paso automatizado eliminado.')
-    return redirect(f'{reverse("executions:index")}?case={test_case_id}#automation')
-
-
-@login_required
-def automated_execution_run_view(request, case_id):
-    if request.method != 'POST' or is_teacher(request.user):
-        return redirect('executions:index')
-    test_case = get_object_or_404(
-        TestCase.objects.select_related('requirement', 'test_plan__project'),
-        pk=case_id,
-        test_plan__project__in=visible_projects_for(request.user, request=request),
-    )
-    if not test_case.has_approved_requirement:
-        messages.error(request, test_case.execution_block_reason)
-        return redirect(f'{reverse("executions:index")}?case={test_case.id}#automation')
-    execution = run_automated_execution(test_case, request.user)
-    sync_test_case_status_from_execution(test_case, execution)
-    if execution.result == TestExecution.Result.FAILED:
-        messages.warning(request, 'La ejecucion fallo y se genero un defecto asociado.')
-    elif execution.result == TestExecution.Result.PASSED:
-        messages.success(request, 'Todos los pasos automatizados aprobaron.')
-    else:
-        messages.warning(request, f'Ejecución finalizada con estado {execution.get_result_display()}.')
-    return redirect(f'{reverse("executions:index")}?case={test_case.id}#automation')
-
-
-@login_required
-def teacher_api_projects(request):
-    if not is_teacher(request.user):
-        return JsonResponse({'error': 'No autorizado'}, status=403)
-    projects = visible_projects_for(request.user, request=request).order_by('name')
-    data = [{'id': p.pk, 'code': p.code, 'name': p.name} for p in projects]
-    return JsonResponse(data, safe=False)
-
-
-@login_required
-def test_data_create_view(request, case_id):
-    if request.method != 'POST' or is_teacher(request.user):
-        return redirect('executions:index')
-    
-    test_case = get_object_or_404(
-        TestCase.objects.select_related('requirement', 'test_plan__project'),
-        pk=case_id,
-        test_plan__project__in=visible_projects_for(request.user, request=request),
-    )
-    form = TestDataForm(request.POST)
-    if form.is_valid():
-        data = form.save(commit=False)
-        data.test_case = test_case
-        data.save()
-        messages.success(request, 'Variable de prueba registrada correctamente.')
-    else:
-        for errors in form.errors.values():
-            for error in errors:
-                messages.error(request, error)
-    return redirect(f'{reverse("executions:index")}?case={test_case.id}#automation')
-
-
-@login_required
-def test_data_delete_view(request, pk):
-    if request.method != 'POST' or is_teacher(request.user):
-        return redirect('executions:index')
-    
-    data = get_object_or_404(
-        TestData.objects.select_related('test_case__test_plan__project'),
-        pk=pk,
-        test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
-    )
-    test_case_id = data.test_case_id
-    data.delete()
-    messages.success(request, 'Variable de prueba eliminada.')
-    return redirect(f'{reverse("executions:index")}?case={test_case_id}#automation')
-
-
-@login_required
-def teacher_api_students(request, project_id):
-    if not is_teacher(request.user):
-        return JsonResponse({'error': 'No autorizado'}, status=403)
-    project = get_object_or_404(
-        visible_projects_for(request.user).prefetch_related('members'),
-        pk=project_id,
-    )
-    students = project.members.filter(role=User.Roles.STUDENT).order_by('email')
-    data = [
-        {
-            'id': s.pk,
-            'email': s.email,
-            'full_name': s.get_full_name() or s.email,
-        }
-        for s in students
-    ]
-    return JsonResponse(data, safe=False)
-
-
-@login_required
-def teacher_api_cases(request, project_id, student_id):
-    if not is_teacher(request.user):
-        return JsonResponse({'error': 'No autorizado'}, status=403)
-    project = get_object_or_404(
-        visible_projects_for(request.user),
-        pk=project_id,
-    )
-    student = get_object_or_404(User.objects.all(), pk=student_id, role=User.Roles.STUDENT)
-    if student not in project.members.all():
-        return JsonResponse({'error': 'El estudiante no pertenece al proyecto'}, status=400)
-
-    cases = TestCase.objects.filter(
-        test_plan__project=project,
-        created_by=student,
-    ).select_related('test_plan').order_by('code')
-
-    data = []
-    for c in cases:
-        last_exec = c.executions.order_by('-executed_at').first()
-        data.append({
-            'id': c.pk,
-            'code': c.code,
-            'title': c.title,
-            'status': c.status,
-            'status_label': c.get_status_display(),
-            'plan': c.test_plan.name if c.test_plan else '',
-            'total_execs': c.executions.count(),
-            'last_result': last_exec.result if last_exec else None,
-            'last_result_label': last_exec.get_result_display() if last_exec else 'Sin ejecutar',
-            'last_executed_at': last_exec.executed_at.strftime('%d/%m/%Y %H:%M') if last_exec and last_exec.executed_at else None,
-        })
-    return JsonResponse(data, safe=False)
+        messages.success(request, 'Revisión de ejecución registrada correctamente.')
+    return redirect('executions:detail', pk=pk)
