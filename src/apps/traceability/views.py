@@ -6,24 +6,14 @@ from apps.core.permissions import visible_projects_for
 from apps.executions.models import TestExecution
 from apps.requirements.models import Requirement
 from apps.testcases.models import TestCase
+from apps.traceability.services import calculate_visible_project_metrics
 
 
-# Solo estas ejecuciones cuentan como completadas dentro de la matriz.
-# RUNNING y NOT_RUN no reemplazan la ultima ejecucion completada de un caso.
 COMPLETED_RESULTS = [
     TestExecution.Result.PASSED,
     TestExecution.Result.FAILED,
     TestExecution.Result.BLOCKED,
     TestExecution.Result.ERROR,
-]
-
-COMMON_RESULTS = [
-    TestExecution.Result.PASSED,
-    TestExecution.Result.FAILED,
-    TestExecution.Result.BLOCKED,
-    TestExecution.Result.ERROR,
-    TestExecution.Result.RUNNING,
-    TestExecution.Result.NOT_RUN,
 ]
 
 
@@ -75,16 +65,14 @@ def traceability_matrix_view(request):
 
     for requirement, test_cases in requirement_cases:
         if not test_cases:
-            rows.append(
-                {
-                    'requirement': requirement,
-                    'plan': None,
-                    'case': None,
-                    'execution': None,
-                    'defects': [],
-                    'rationale': '',
-                }
-            )
+            rows.append({
+                'requirement': requirement,
+                'plan': None,
+                'case': None,
+                'execution': None,
+                'defects': [],
+                'rationale': '',
+            })
             continue
 
         for test_case in test_cases:
@@ -98,16 +86,14 @@ def traceability_matrix_view(request):
             if execution:
                 row_defects += list(execution.defects.all())
             defects.update(row_defects)
-            rows.append(
-                {
-                    'requirement': requirement,
-                    'plan': plan,
-                    'case': test_case,
-                    'execution': execution,
-                    'defects': row_defects,
-                    'rationale': getattr(link_by_case.get(test_case.pk), 'rationale', '') or '',
-                }
-            )
+            rows.append({
+                'requirement': requirement,
+                'plan': plan,
+                'case': test_case,
+                'execution': execution,
+                'defects': row_defects,
+                'rationale': getattr(link_by_case.get(test_case.pk), 'rationale', '') or '',
+            })
 
     executed_test_case_ids = {
         row['case'].pk
@@ -134,38 +120,7 @@ def traceability_matrix_view(request):
     )
     end_to_end_traceability_percentage = execution_coverage_percentage
 
-    project_metrics = []
-    for project in visible_projects:
-        project_requirements = [item for item in requirements if item.project_id == project.pk]
-        project_rows = [row for row in rows if row['requirement'].project_id == project.pk]
-        project_case_ids = {row['case'].pk for row in project_rows if row['case'] is not None}
-        project_executed_case_ids = {
-            row['case'].pk
-            for row in project_rows
-            if row['case'] is not None and row['execution'] is not None
-        }
-        project_traced_requirement_ids = {
-            row['requirement'].pk for row in project_rows if row['case'] is not None
-        }
-        project_executed_requirement_ids = {
-            row['requirement'].pk for row in project_rows if row['execution'] is not None
-        }
-        total_project_requirements = len(project_requirements)
-        project_metrics.append({
-            'project': project,
-            'total_requirements': total_project_requirements,
-            'total_test_cases': len(project_case_ids),
-            'total_executions': TestExecution.objects.filter(test_case__test_plan__project=project).count(),
-            'requirement_coverage_percentage': round(
-                len(project_traced_requirement_ids) * 100 / total_project_requirements, 1
-            ) if total_project_requirements else 0,
-            'execution_coverage_percentage': round(
-                len(project_executed_requirement_ids) * 100 / total_project_requirements, 1
-            ) if total_project_requirements else 0,
-            'test_case_execution_coverage_percentage': round(
-                len(project_executed_case_ids) * 100 / len(project_case_ids), 1
-            ) if project_case_ids else 0,
-        })
+    project_metrics = calculate_visible_project_metrics(visible_projects, requirements, rows)
 
     return render(
         request,
