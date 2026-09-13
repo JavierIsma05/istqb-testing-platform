@@ -6,6 +6,9 @@ from apps.core.lifecycle import (
     status_transition_for_test_case,
     execution_transition_allowed,
     incident_transition_allowed,
+    sync_test_case_status_from_execution,
+    defect_transition_allowed,
+    defect_transition_from_confirmation,
 )
 from apps.requirements.models import Requirement
 from apps.testcases.models import TestCase
@@ -41,7 +44,6 @@ def test_caso_listo_puede_iniciar_ejecucion(test_case):
 
 @pytest.mark.django_db
 def test_caso_completado_puede_volver_a_listo_si_se_requiere_reejecucion(test_case):
-    # READY exige que el requisito asociado esté aprobado.
     test_case.requirement.status = Requirement.Status.APPROVED
     test_case.requirement.save(update_fields=['status'])
     test_case.status = TestCase.Status.PASSED
@@ -62,6 +64,49 @@ def test_ejecucion_en_progreso_puede_finalizar(test_case):
         result=TestExecution.Result.RUNNING,
     )
     assert execution_transition_allowed(execution, TestExecution.Result.PASSED)
+
+
+@pytest.mark.django_db
+def test_ejecucion_fallida_reabre_cadena_en_siguiente_intento(test_case):
+    execution = TestExecution.objects.create(
+        test_case=test_case,
+        result=TestExecution.Result.RUNNING,
+    )
+    assert execution_transition_allowed(execution, TestExecution.Result.FAILED)
+    test_case.status = TestCase.Status.RUNNING
+    test_case.save(update_fields=['status'])
+    execution.result = TestExecution.Result.FAILED
+    execution.save(update_fields=['result'])
+    assert sync_test_case_status_from_execution(test_case, execution) == TestCase.Status.FAILED
+    test_case.refresh_from_db()
+    assert test_case.status == TestCase.Status.FAILED
+    test_case.requirement.status = Requirement.Status.APPROVED
+    test_case.requirement.save(update_fields=['status'])
+    assert status_transition_for_test_case(test_case, TestCase.Status.READY)
+
+
+@pytest.mark.django_db
+def test_ejecucion_de_regresion_permite_validar_una_correccion(test_case, user):
+    test_case.requirement.status = Requirement.Status.APPROVED
+    test_case.requirement.save(update_fields=['status'])
+    test_case.status = TestCase.Status.PASSED
+    test_case.save(update_fields=['status'])
+    first = TestExecution.objects.create(
+        test_case=test_case,
+        executed_by=user,
+        execution_type=TestExecution.ExecutionType.NORMAL,
+        result=TestExecution.Result.FAILED,
+    )
+    regression = TestExecution.objects.create(
+        test_case=test_case,
+        executed_by=user,
+        execution_type=TestExecution.ExecutionType.REGRESSION,
+        result=TestExecution.Result.PASSED,
+        related_defect=None,
+    )
+    assert first.result == TestExecution.Result.FAILED
+    assert regression.result == TestExecution.Result.PASSED
+    assert sync_test_case_status_from_execution(test_case, regression) == TestCase.Status.PASSED
 
 
 @pytest.mark.django_db
@@ -93,15 +138,12 @@ def test_riesgo_mitigado_puede_cerrarse(project, user):
 
 @pytest.mark.django_db
 def test_resultado_de_ejecucion_actualiza_estado_del_caso(test_case):
-    from apps.executions.models import TestExecution
-    from apps.core.lifecycle import sync_test_case_status_from_execution
-
-    test_case.status = TestCase.Status.RUNNING
-    test_case.save()
     execution = TestExecution.objects.create(
         test_case=test_case,
         result=TestExecution.Result.PASSED,
     )
+    test_case.status = TestCase.Status.RUNNING
+    test_case.save(update_fields=['status'])
     assert sync_test_case_status_from_execution(test_case, execution) == TestCase.Status.PASSED
     test_case.refresh_from_db()
     assert test_case.status == TestCase.Status.PASSED
@@ -109,11 +151,8 @@ def test_resultado_de_ejecucion_actualiza_estado_del_caso(test_case):
 
 @pytest.mark.django_db
 def test_error_tecnico_bloquea_el_caso(test_case):
-    from apps.executions.models import TestExecution
-    from apps.core.lifecycle import sync_test_case_status_from_execution
-
     test_case.status = TestCase.Status.RUNNING
-    test_case.save()
+    test_case.save(update_fields=['status'])
     execution = TestExecution.objects.create(
         test_case=test_case,
         result=TestExecution.Result.ERROR,
@@ -125,7 +164,6 @@ def test_error_tecnico_bloquea_el_caso(test_case):
 
 @pytest.mark.django_db
 def test_resultado_de_ejecucion_revisada_sincroniza_caso(test_case):
-    from apps.executions.models import TestExecution
     from apps.executions.services.review import recalculate_execution_from_steps
     from apps.executions.models import TestStepExecution
 
@@ -146,11 +184,31 @@ def test_resultado_de_ejecucion_revisada_sincroniza_caso(test_case):
 
 
 @pytest.mark.django_db
+def test_defecto_resuelto_exige_responsable_y_resolucion(project, test_case, user):
+    from apps.defects.models import Defect
+    defect = Defect.objects.create(
+        project=project,
+        test_case=test_case,
+        code='DEF-LIFE-001',
+        title='Defecto',
+        description='Falla reproducible.',
+        reported_by=user,
+        status=Defect.Status.OPEN,
+    )
+    with pytest.raises(ValidationError):
+        defect_transition_allowed(defect, Defect.Status.IN_PROGRESS)
+    defect.assigned_to = user
+    defect.save(update_fields=['assigned_to'])
+    defect_transition_allowed(defect, Defect.Status.IN_PROGRESS)
+    defect.status = Defect.Status.IN_PROGRESS
+    defect.resolution = 'Corrección aplicada.'
+    defect.save(update_fields=['status', 'resolution'])
+    defect_transition_allowed(defect, Defect.Status.RESOLVED)
+
+
+@pytest.mark.django_db
 def test_confirmacion_fallida_reabre_defecto(project, test_case, user):
     from apps.defects.models import Defect
-    from apps.executions.models import TestExecution
-    from apps.core.lifecycle import defect_transition_from_confirmation
-
     defect = Defect.objects.create(
         project=project, test_case=test_case, code='DEF-CONF-001',
         title='Defecto', description='Pendiente de confirmar.',
@@ -163,3 +221,24 @@ def test_confirmacion_fallida_reabre_defecto(project, test_case, user):
         result=TestExecution.Result.FAILED,
     )
     assert defect_transition_from_confirmation(defect, execution) == Defect.Status.REOPENED
+
+
+@pytest.mark.django_db
+def test_confirmacion_aprobada_cierra_defecto(project, test_case, user):
+    from apps.defects.models import Defect
+    defect = Defect.objects.create(
+        project=project, test_case=test_case, code='DEF-CONF-002',
+        title='Defecto corregido', description='Listo para confirmar.',
+        reported_by=user, assigned_to=user,
+        resolution='Corrección aplicada.', status=Defect.Status.PENDING_CONFIRMATION,
+    )
+    execution = TestExecution.objects.create(
+        test_case=test_case, related_defect=defect,
+        execution_type=TestExecution.ExecutionType.CONFIRMATION,
+        result=TestExecution.Result.PASSED,
+    )
+    defect.verification_execution = execution
+    assert defect_transition_from_confirmation(defect, execution) == Defect.Status.CLOSED
+    defect.verification_execution = execution
+    defect.status = Defect.Status.PENDING_CONFIRMATION
+    assert defect_transition_allowed(defect, Defect.Status.CLOSED)
