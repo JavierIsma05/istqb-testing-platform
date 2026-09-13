@@ -9,12 +9,7 @@ LEGACY_COLUMNS = (
 
 
 def remove_legacy_columns(apps, schema_editor):
-    """Remove columns left by obsolete TestPlan schemas.
-
-    The current TestPlan model and migrations do not define these columns.
-    The operation is conditional so it is safe for clean databases and for
-    databases where one or more legacy columns were already removed.
-    """
+    """Remove columns left by obsolete TestPlan schemas."""
     connection = schema_editor.connection
     quote = connection.ops.quote_name
     table = quote("testplans_testplan")
