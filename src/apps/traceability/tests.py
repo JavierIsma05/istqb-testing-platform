@@ -478,3 +478,89 @@ def test_indice_de_trazabilidad_integral_es_reproducible(
         for row in response.context['rows']
         if row['execution'] is not None
     }
+
+
+@pytest.mark.django_db
+def test_metricas_mantienen_orden_logico_de_cobertura(
+    client, user, project, requirement, test_plan, test_case
+):
+    uncovered_requirement = requirement.__class__.objects.create(
+        project=project,
+        code='REQ-CONSIST-002',
+        title='Sin cobertura',
+        description='No tiene caso.',
+        created_by=user,
+    )
+    pending_case = TestCase.objects.create(
+        test_plan=test_plan,
+        requirement=requirement,
+        code='TC-CONSIST-002',
+        title='Caso pendiente',
+        steps='Ejecutar',
+        steps_data=[],
+        expected_result='Correcto',
+        created_by=user,
+    )
+    TestExecution.objects.create(
+        test_case=test_case,
+        executed_by=user,
+        result=TestExecution.Result.PASSED,
+    )
+
+    client.force_login(user)
+    response = client.get(reverse('traceability:index'))
+    context = response.context
+
+    assert context['requirement_coverage_percentage'] == 50.0
+    assert context['execution_coverage_percentage'] == 50.0
+    assert context['end_to_end_traceability_percentage'] == 50.0
+    assert context['test_case_execution_coverage_percentage'] == 50.0
+    assert context['end_to_end_traceability_percentage'] <= context['requirement_coverage_percentage']
+    assert context['execution_coverage_percentage'] <= context['requirement_coverage_percentage']
+    assert uncovered_requirement.pk not in {
+        row['requirement'].pk for row in context['rows'] if row['case'] is not None
+    }
+    assert pending_case.pk not in {
+        row['case'].pk for row in context['rows'] if row['execution'] is not None
+    }
+
+
+@pytest.mark.django_db
+def test_multiples_casos_y_ejecuciones_no_inflan_el_indice_por_requisito(
+    client, user, requirement, test_plan, test_case
+):
+    second_case = TestCase.objects.create(
+        test_plan=test_plan,
+        requirement=requirement,
+        code='TC-CONSIST-003',
+        title='Segundo caso',
+        steps='Ejecutar',
+        steps_data=[],
+        expected_result='Correcto',
+        created_by=user,
+    )
+    for case in (test_case, second_case):
+        for result in (
+            TestExecution.Result.PASSED,
+            TestExecution.Result.FAILED,
+        ):
+            TestExecution.objects.create(
+                test_case=case,
+                executed_by=user,
+                result=result,
+            )
+
+    client.force_login(user)
+    response = client.get(reverse('traceability:index'))
+    context = response.context
+
+    assert context['total_requirements'] == 1
+    assert context['traced_requirements'] == 1
+    assert context['requirements_with_completed_execution'] == 1
+    assert context['end_to_end_traced_requirements'] == 1
+    assert context['requirement_coverage_percentage'] == 100.0
+    assert context['execution_coverage_percentage'] == 100.0
+    assert context['end_to_end_traceability_percentage'] == 100.0
+    assert context['total_executions'] == 4
+    assert context['executed_test_cases'] == 2
+    assert context['test_case_execution_coverage_percentage'] == 100.0
