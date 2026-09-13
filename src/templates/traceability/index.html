@@ -11,175 +11,51 @@
 </div>
 
 <section class="traceability-metric-grid">
-    <article class="traceability-metric-card">
-        <div>
-            <span>Requisitos</span>
-            <strong>{{ total_requirements }}</strong>
-        </div>
-        <i class="bi bi-file-earmark-text"></i>
-    </article>
-    <article class="traceability-metric-card">
-        <div>
-            <span>Planes de Prueba</span>
-            <strong>{{ total_plans }}</strong>
-        </div>
-        <i class="bi bi-journal-text"></i>
-    </article>
-    <article class="traceability-metric-card">
-        <div>
-            <span>Casos de Prueba</span>
-            <strong>{{ total_test_cases }}</strong>
-        </div>
-        <i class="bi bi-test-tube"></i>
-    </article>
-    <article class="traceability-metric-card">
-        <div>
-            <span>Ejecuciones</span>
-            <strong>{{ total_executions }}</strong>
-            <small>Historial total registrado</small>
-        </div>
-        <i class="bi bi-play-circle"></i>
-    </article>
-    <article class="traceability-metric-card">
-        <div>
-            <span>Resultados</span>
-            <strong>{{ total_results }}</strong>
-        </div>
-        <i class="bi bi-check2-circle"></i>
-    </article>
-    <article class="traceability-metric-card">
-        <div>
-            <span>Defectos</span>
-            <strong>{{ total_defects }}</strong>
-        </div>
-        <i class="bi bi-bug"></i>
-    </article>
-    <article class="traceability-metric-card">
-        <div>
-            <span>Cobertura de requisitos</span>
-            <strong>{{ requirement_coverage_percentage }}%</strong>
-            <small>{{ traced_requirements }}/{{ total_requirements }} con casos asociados</small>
-        </div>
-        <i class="bi bi-diagram-3"></i>
-    </article>
-    <article class="traceability-metric-card">
-        <div>
-            <span>Cobertura de ejecución</span>
-            <strong>{{ execution_coverage_percentage }}%</strong>
-            <small>{{ requirements_with_completed_execution }}/{{ total_requirements }} con ejecución completada</small>
-        </div>
-        <i class="bi bi-activity"></i>
-    </article>
-    <article class="traceability-metric-card">
-        <div>
-            <span>Trazabilidad integral</span>
-            <strong>{{ end_to_end_traceability_percentage }}%</strong>
-            <small>{{ end_to_end_traced_requirements }}/{{ total_requirements }} con cadena requisito → caso → ejecución</small>
-        </div>
-        <i class="bi bi-link-45deg"></i>
-    </article>
-    <article class="traceability-metric-card">
-        <div>
-            <span>Casos ejecutados</span>
-            <strong>{{ test_case_execution_coverage_percentage }}%</strong>
-            <small>{{ executed_test_cases }}/{{ total_test_cases }} con al menos una ejecución completada</small>
-        </div>
-        <i class="bi bi-check2-square"></i>
-    </article>
+    <article class="traceability-metric-card"><div><span>Requisitos</span><strong>{{ total_requirements }}</strong></div><i class="bi bi-file-earmark-text"></i></article>
+    <article class="traceability-metric-card"><div><span>Planes de Prueba</span><strong>{{ total_plans }}</strong></div><i class="bi bi-journal-text"></i></article>
+    <article class="traceability-metric-card"><div><span>Casos de Prueba</span><strong>{{ total_test_cases }}</strong></div><i class="bi bi-test-tube"></i></article>
+    <article class="traceability-metric-card"><div><span>Ejecuciones</span><strong>{{ total_executions }}</strong><small>Historial total registrado</small></div><i class="bi bi-play-circle"></i></article>
+    <article class="traceability-metric-card"><div><span>Resultados</span><strong>{{ total_results }}</strong></div><i class="bi bi-check2-circle"></i></article>
+    <article class="traceability-metric-card"><div><span>Defectos</span><strong>{{ total_defects }}</strong></div><i class="bi bi-bug"></i></article>
+    <article class="traceability-metric-card"><div><span>Cobertura de requisitos</span><strong>{{ requirement_coverage_percentage }}%</strong><small>{{ traced_requirements }}/{{ total_requirements }} con casos asociados</small></div><i class="bi bi-diagram-3"></i></article>
+    <article class="traceability-metric-card"><div><span>Cobertura de ejecución</span><strong>{{ execution_coverage_percentage }}%</strong><small>{{ requirements_with_completed_execution }}/{{ total_requirements }} con ejecución completada</small></div><i class="bi bi-activity"></i></article>
+    <article class="traceability-metric-card"><div><span>Trazabilidad integral</span><strong>{{ end_to_end_traceability_percentage }}%</strong><small>{{ end_to_end_traced_requirements }}/{{ total_requirements }} con cadena requisito → caso → ejecución</small></div><i class="bi bi-link-45deg"></i></article>
+    <article class="traceability-metric-card"><div><span>Casos ejecutados</span><strong>{{ test_case_execution_coverage_percentage }}%</strong><small>{{ executed_test_cases }}/{{ total_test_cases }} con al menos una ejecución completada</small></div><i class="bi bi-check2-square"></i></article>
+</section>
+
+<section class="traceability-card">
+    <h3>Indicadores por proyecto</h3>
+    <p class="text-muted mb-3">Cada fila usa exclusivamente los artefactos del proyecto correspondiente.</p>
+    <div class="table-responsive">
+        <table class="table traceability-table align-middle mb-0">
+            <thead><tr><th>Proyecto</th><th>Requisitos</th><th>Casos</th><th>Ejecuciones</th><th>Cobertura de requisitos</th><th>Cobertura de ejecución</th><th>Casos ejecutados</th></tr></thead>
+            <tbody>
+                {% for metric in project_metrics %}
+                    <tr><td><strong>{{ metric.project.code }}</strong><br><small>{{ metric.project.name }}</small></td><td>{{ metric.total_requirements }}</td><td>{{ metric.total_test_cases }}</td><td>{{ metric.total_executions }}</td><td>{{ metric.requirement_coverage_percentage }}%</td><td>{{ metric.execution_coverage_percentage }}%</td><td>{{ metric.test_case_execution_coverage_percentage }}%</td></tr>
+                {% empty %}<tr><td colspan="7" class="text-center text-muted py-4">No hay proyectos visibles.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
 </section>
 
 <section class="traceability-card">
     <h3>Matriz de Trazabilidad</h3>
     <div class="table-responsive">
         <table class="table traceability-table align-middle mb-0">
-            <thead>
-                <tr>
-                    <th>Requisito</th>
-                    <th>Plan de Pruebas</th>
-                    <th>Caso de Prueba</th>
-                    <th>Ejecución</th>
-                    <th>Tipo</th>
-                    <th>Resultado</th>
-                    <th>Defecto</th>
-                    <th>Justificación</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Requisito</th><th>Plan de Pruebas</th><th>Caso de Prueba</th><th>Ejecución</th><th>Tipo</th><th>Resultado</th><th>Defecto</th><th>Justificación</th></tr></thead>
             <tbody>
                 {% for row in rows %}
                     <tr>
-                        <td>
-                            <a class="trace-pill requirement-pill" href="{% url 'requirements:edit' row.requirement.pk %}">{{ row.requirement.code }}</a>
-                        </td>
-                        <td>
-                            {% if row.plan %}
-                                <a class="trace-pill plan-pill" href="{% url 'testplans:edit' row.plan.pk %}">{{ row.plan.name }}</a>
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if row.case %}
-                                <div class="trace-pill-list">
-                                    <a class="trace-pill testcase-pill" href="{% url 'testcases:detail' row.case.pk %}">
-                                        <i class="bi bi-test-tube"></i>
-                                        {{ row.case.code }}
-                                    </a>
-                                </div>
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if row.execution %}
-                                <a class="trace-pill execution-pill" href="{% url 'executions:history' row.case.pk %}">
-                                    <i class="bi bi-play-circle"></i>
-                                    Ejecución #{{ row.execution.id }}
-                                </a>
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if row.execution %}
-                                <span class="trace-pill">{{ row.execution.get_execution_type_display }}</span>
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if row.execution %}
-                                <span class="trace-pill result-pill result-{{ row.execution.result|lower }}">
-                                    {{ row.execution.get_result_display }}
-                                </span>
-                            {% else %}
-                                <span class="trace-pill result-pill result-not_run">Pendiente</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if row.defects %}
-                                <div class="trace-pill-list">
-                                    {% for defect in row.defects %}
-                                        <a class="trace-pill defect-pill" href="{% url 'defects:edit' defect.pk %}">
-                                            <i class="bi bi-bug"></i>
-                                            {{ defect.code }}
-                                        </a>
-                                    {% endfor %}
-                                </div>
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if row.rationale %}{{ row.rationale }}{% else %}<span class="text-muted">Sin justificación</span>{% endif %}
-                        </td>
+                        <td><a class="trace-pill requirement-pill" href="{% url 'requirements:edit' row.requirement.pk %}">{{ row.requirement.code }}</a></td>
+                        <td>{% if row.plan %}<a class="trace-pill plan-pill" href="{% url 'testplans:edit' row.plan.pk %}">{{ row.plan.name }}</a>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                        <td>{% if row.case %}<div class="trace-pill-list"><a class="trace-pill testcase-pill" href="{% url 'testcases:detail' row.case.pk %}"><i class="bi bi-test-tube"></i>{{ row.case.code }}</a></div>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                        <td>{% if row.execution %}<a class="trace-pill execution-pill" href="{% url 'executions:history' row.case.pk %}"><i class="bi bi-play-circle"></i>Ejecución #{{ row.execution.id }}</a>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                        <td>{% if row.execution %}<span class="trace-pill">{{ row.execution.get_execution_type_display }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                        <td>{% if row.execution %}<span class="trace-pill result-pill result-{{ row.execution.result|lower }}">{{ row.execution.get_result_display }}</span>{% else %}<span class="trace-pill result-pill result-not_run">Pendiente</span>{% endif %}</td>
+                        <td>{% if row.defects %}<div class="trace-pill-list">{% for defect in row.defects %}<a class="trace-pill defect-pill" href="{% url 'defects:edit' defect.pk %}"><i class="bi bi-bug"></i>{{ defect.code }}</a>{% endfor %}</div>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                        <td>{% if row.rationale %}{{ row.rationale }}{% else %}<span class="text-muted">Sin justificación</span>{% endif %}</td>
                     </tr>
-                {% empty %}
-                    <tr>
-                        <td colspan="8" class="text-center text-muted py-5">
-                            No hay requisitos para mostrar en la matriz.
-                        </td>
-                    </tr>
-                {% endfor %}
+                {% empty %}<tr><td colspan="8" class="text-center text-muted py-5">No hay requisitos para mostrar en la matriz.</td></tr>{% endfor %}
             </tbody>
         </table>
     </div>
