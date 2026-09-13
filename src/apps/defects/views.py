@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -237,7 +238,7 @@ def defect_transition_view(request, pk, status=None):
                 defect.assigned_to = request.user
             try:
                 defect_transition_allowed(defect, target)
-            except Exception as exc:
+            except ValidationError as exc:
                 messages.error(request, str(exc))
                 return redirect('defects:index')
             defect.status = target
