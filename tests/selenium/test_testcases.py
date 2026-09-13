@@ -15,7 +15,7 @@ class TestTestCases(SeleniumBaseTest):
 
         try:
             self.login()
-            self.ensure_requirement()
+            self.ensure_test_case()
             self.open_path("/test-cases/")
             self.click((By.CSS_SELECTOR, "[data-bs-target='#testCaseModal']"))
             self.find_visible((By.ID, "testCaseModal"))
