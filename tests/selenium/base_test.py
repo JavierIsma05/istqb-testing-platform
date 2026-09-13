@@ -115,12 +115,14 @@ class SeleniumBaseTest:
     def ensure_project(self) -> str:
         """Garantiza un proyecto visible para las pruebas E2E."""
         self.open_path("/requirements/new/")
-        project_select = Select(self.find_visible((By.NAME, "project")))
-        for option in project_select.options:
-            value = option.get_attribute("value")
-            if value:
-                project_select.select_by_value(value)
-                return value
+        project_elements = self.driver.find_elements(By.NAME, "project")
+        if project_elements:
+            project_select = Select(project_elements[0])
+            for option in project_select.options:
+                value = option.get_attribute("value")
+                if value and option.is_enabled():
+                    project_select.select_by_value(value)
+                    return value
 
         today = datetime.now().date()
         year = today.year
@@ -135,8 +137,8 @@ class SeleniumBaseTest:
         self.set_date((By.NAME, "start_date"), start_date.isoformat())
         self.set_date((By.NAME, "end_date"), end_date.isoformat())
         self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
-        self.wait_for_text("Proyecto E2E")
 
+        self.wait.until(lambda driver: "/projects/" in driver.current_url or "/requirements/" in driver.current_url)
         self.open_path("/requirements/new/")
         return self.select_first_available_option((By.NAME, "project"))
 
