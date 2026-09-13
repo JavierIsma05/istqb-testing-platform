@@ -12,18 +12,13 @@ class TestDefects(SeleniumBaseTest):
 
         try:
             self.login()
+            self.ensure_test_case()
             self.open_path("/defects/new/")
-
             self.select_first_available_option((By.NAME, "test_case"))
-
             self.type_text((By.NAME, "title"), "DEF-SEL-001 Mensaje de validacion")
             self.type_text((By.NAME, "description"), "Defecto de ejemplo registrado por Selenium.")
-
-            severity_select = self.find_visible((By.NAME, "severity"))
-            Select(severity_select).select_by_visible_text("Media")
-
+            self.select_first_available_option((By.NAME, "severity"))
             self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
-
             self.wait_for_any_visible(
                 [
                     (By.CSS_SELECTOR, ".alert-success"),
@@ -31,7 +26,6 @@ class TestDefects(SeleniumBaseTest):
                     (By.CSS_SELECTOR, "[data-testid='success-message']"),
                 ]
             )
-
             self.print_success(module_name, test_name)
         except Exception as error:
             self.print_error(module_name, test_name, error)
