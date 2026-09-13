@@ -1,5 +1,6 @@
 """Pruebas funcionales para registro de ejecuciones."""
 
+from datetime import datetime
 from pathlib import Path
 
 from selenium.webdriver.common.by import By
@@ -14,11 +15,8 @@ class TestExecutions(SeleniumBaseTest):
 
         try:
             self.login()
-            self.open_path("/executions/")
-
-            case_id = self.select_first_available_option((By.NAME, "test_case"))
+            case_id = self.ensure_test_case()
             self.open_path(f"/executions/?case={case_id}")
-
             self.wait_for_any_visible(
                 [
                     (By.CSS_SELECTOR, "form[data-execution-form]"),
@@ -27,24 +25,22 @@ class TestExecutions(SeleniumBaseTest):
                 ]
             )
 
+            body = self.driver.find_element(By.TAG_NAME, "body").text
+            if "No se puede ejecutar" in body or "requisito" in body.lower() and "aprob" in body.lower():
+                raise AssertionError(
+                    "El caso E2E requiere aprobación docente antes de ejecutar. "
+                    "Configura las credenciales docentes de Selenium para automatizar esa precondición."
+                )
+
             self.click((By.CSS_SELECTOR, "label[for='id_actual_result_cumple']"))
-            self.set_date((By.NAME, "planned_date"), "2026-08-10")
+            self.set_date((By.NAME, "planned_date"), f"{datetime.now().year}-08-10")
 
             evidence = Path(__file__).resolve().parent / "screenshots" / "evidencia_test.png"
             file_input = self.driver.find_element(By.CSS_SELECTOR, "form[data-execution-form] input[type='file']")
             file_input.send_keys(str(evidence))
 
             self.click((By.CSS_SELECTOR, "form[data-execution-form] button[type='submit']"))
-
-            self.wait_for_any_visible(
-                [
-                    (By.CSS_SELECTOR, ".alert-success"),
-                    (By.CSS_SELECTOR, ".messages .success"),
-                    (By.CSS_SELECTOR, "[data-testid='success-message']"),
-                ]
-            )
-            assert "Resultado de ejecucion registrado correctamente." in self.driver.find_element(By.TAG_NAME, "body").text
-
+            self.wait_for_text("Resultado de ejecucion registrado correctamente.")
             self.print_success(module_name, test_name)
         except Exception as error:
             self.print_error(module_name, test_name, error)
