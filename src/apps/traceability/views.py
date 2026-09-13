@@ -134,6 +134,9 @@ def traceability_matrix_view(request):
         round((len(requirements_with_completed_execution) / len(requirements)) * 100, 1)
         if requirements else 0
     )
+    # Índice de trazabilidad integral: requisito -> caso -> ejecución completada.
+    # Un requisito cuenta una sola vez aunque tenga múltiples casos o ejecuciones.
+    end_to_end_traceability_percentage = execution_coverage_percentage
 
     return render(
         request,
@@ -151,6 +154,8 @@ def traceability_matrix_view(request):
             'requirements_with_completed_execution': len(requirements_with_completed_execution),
             'requirement_coverage_percentage': requirement_coverage_percentage,
             'execution_coverage_percentage': execution_coverage_percentage,
+            'end_to_end_traced_requirements': len(requirements_with_completed_execution),
+            'end_to_end_traceability_percentage': end_to_end_traceability_percentage,
             'executed_test_cases': len(executed_test_case_ids),
             'test_case_execution_coverage_percentage': (
                 round((len(executed_test_case_ids) / len(cases)) * 100, 1)
