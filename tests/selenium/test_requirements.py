@@ -17,7 +17,7 @@ class TestRequirements(SeleniumBaseTest):
             self.login()
             self.open_path("/requirements/new/")
 
-            self.select_option((By.NAME, "project"), "12")
+            self.select_first_available_option((By.NAME, "project"))
             self.type_text((By.NAME, "title"), title)
             self.type_text((By.NAME, "description"), "El usuario autenticado debe acceder al dashboard.")
             self.select_option((By.NAME, "requirement_type"), "FUNCTIONAL")
