@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import pytest
+from selenium.common.exceptions import WebDriverException
 
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    """Captura screenshot automatico cuando una prueba falla."""
+    """Captura una evidencia si Selenium sigue disponible cuando falla una prueba."""
     outcome = yield
     report = outcome.get_result()
 
@@ -15,5 +16,14 @@ def pytest_runtest_makereport(item, call):
         return
 
     instance = getattr(item, "instance", None)
-    if instance and hasattr(instance, "take_screenshot"):
-        instance.take_screenshot(item.name)
+    screenshot = getattr(instance, "take_screenshot", None)
+
+    if not callable(screenshot):
+        return
+
+    try:
+        screenshot(item.name)
+    except WebDriverException:
+        # La evidencia nunca debe convertir un fallo de prueba en un INTERNALERROR
+        # cuando Chrome o la ventana ya fueron cerrados.
+        return
