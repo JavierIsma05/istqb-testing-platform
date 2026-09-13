@@ -219,7 +219,45 @@ class SeleniumBaseTest:
         for name, value in (("start_date", start_date), ("end_date", end_date)):
             if self.driver.find_elements(By.NAME, name):
                 self.set_date((By.NAME, name), value)
-        self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
+
+        # El formulario es un asistente: los campos de los pasos 2-5 están
+        # ocultos hasta avanzar. Navegamos por el wizard antes de completar
+        # cada grupo de campos para evitar escribir sobre elementos invisibles.
+        for step in range(2, 6):
+            self.click((By.CSS_SELECTOR, "[data-wizard-next]"))
+            self.wait.until(
+                lambda driver, current=step: (
+                    driver.find_element(By.CSS_SELECTOR, ".wizard-panel.active")
+                    .get_attribute("data-step-panel")
+                    == str(current)
+                )
+            )
+            step_fields = {
+                2: ("scope", "objective"),
+                3: ("strategy", "environment", "estimation"),
+                4: (
+                    "entry_criteria",
+                    "exit_criteria",
+                    "minimum_pass_percentage",
+                    "maximum_critical_defects",
+                    "minimum_coverage_percentage",
+                ),
+                5: (
+                    "resources",
+                    "responsibilities",
+                    "start_date",
+                    "end_date",
+                ),
+            }.get(step, ())
+            for name in step_fields:
+                if name in values:
+                    self.type_text((By.NAME, name), values[name])
+                elif name == "start_date":
+                    self.set_date((By.NAME, name), start_date)
+                elif name == "end_date":
+                    self.set_date((By.NAME, name), end_date)
+
+        self.click((By.CSS_SELECTOR, "button.wizard-submit[type='submit']"))
         self.wait_for_text("Plan de pruebas creado correctamente.")
 
         self.open_path("/test-cases/")
