@@ -1,8 +1,9 @@
 """Pruebas funcionales CRUD para proyectos."""
 
-from selenium.webdriver.common.by import By
-
 import time
+from datetime import datetime
+
+from selenium.webdriver.common.by import By
 
 from base_test import SeleniumBaseTest
 
@@ -12,20 +13,18 @@ class TestProjects(SeleniumBaseTest):
         module_name = "CRUD de proyectos"
         test_name = "crear proyecto"
         project_name = f"Proyecto Selenium {int(time.time())}"
+        year = datetime.now().year
 
         try:
             self.login()
             self.open_path("/projects/new/")
-
             self.type_text((By.NAME, "name"), project_name)
             self.type_text((By.NAME, "description"), "Proyecto creado por prueba funcional automatizada.")
-            self.set_date((By.NAME, "start_date"), "2026-09-01")
-            self.set_date((By.NAME, "end_date"), "2027-12-31")
+            self.set_date((By.NAME, "start_date"), f"{year}-09-01")
+            self.set_date((By.NAME, "end_date"), f"{year}-12-31")
             self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
-
             self.wait_for_text(project_name)
             assert project_name in self.driver.find_element(By.TAG_NAME, "body").text
-
             self.print_success(module_name, test_name)
         except Exception as error:
             self.print_error(module_name, test_name, error)
@@ -34,11 +33,9 @@ class TestProjects(SeleniumBaseTest):
     def test_listar_proyectos(self):
         module_name = "CRUD de proyectos"
         test_name = "listar proyectos"
-
         try:
             self.login()
             self.open_path("/projects/")
-
             self.wait_for_any_visible(
                 [
                     (By.CSS_SELECTOR, "table"),
@@ -47,7 +44,6 @@ class TestProjects(SeleniumBaseTest):
                     (By.CSS_SELECTOR, ".project-card-grid"),
                 ]
             )
-
             self.print_success(module_name, test_name)
         except Exception as error:
             self.print_error(module_name, test_name, error)
