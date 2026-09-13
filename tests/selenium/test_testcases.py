@@ -15,8 +15,8 @@ class TestTestCases(SeleniumBaseTest):
 
         try:
             self.login()
+            self.ensure_requirement()
             self.open_path("/test-cases/")
-
             self.click((By.CSS_SELECTOR, "[data-bs-target='#testCaseModal']"))
             self.find_visible((By.ID, "testCaseModal"))
 
@@ -25,23 +25,17 @@ class TestTestCases(SeleniumBaseTest):
             self.type_text((By.NAME, "description"), "Verifica el acceso con credenciales validas.")
             self.select_option((By.NAME, "priority"), "HIGH")
             self.select_option((By.NAME, "technique"), "EQUIVALENCE")
-            self.select_option((By.NAME, "status"), "PENDING")
+            if self.driver.find_elements(By.NAME, "level"):
+                self.select_first_available_option((By.NAME, "level"))
+            if self.driver.find_elements(By.NAME, "execution_type"):
+                self.select_first_available_option((By.NAME, "execution_type"))
             self.type_text((By.NAME, "preconditions"), "Usuario registrado y activo.")
             self.type_text((By.NAME, "test_data"), "usuario: demo@example.com / clave: secreta")
             self.type_text((By.NAME, "steps"), "1. Abrir login\n2. Ingresar credenciales\n3. Enviar formulario")
             self.type_text((By.NAME, "expected_result"), "El sistema muestra el dashboard principal.")
             submit = self.find_clickable((By.CSS_SELECTOR, "#testCaseModal button[type='submit']"))
             self.driver.execute_script("arguments[0].click();", submit)
-
-            self.wait_for_any_visible(
-                [
-                    (By.CSS_SELECTOR, ".alert-success"),
-                    (By.CSS_SELECTOR, ".messages .success"),
-                    (By.CSS_SELECTOR, "[data-testid='success-message']"),
-                ]
-            )
-            assert "Caso de prueba creado correctamente." in self.driver.find_element(By.TAG_NAME, "body").text
-
+            self.wait_for_text("Caso de prueba creado correctamente.")
             self.print_success(module_name, test_name)
         except Exception as error:
             self.print_error(module_name, test_name, error)
