@@ -9,6 +9,7 @@ esperado y evidencias.
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from datetime import datetime, timedelta
@@ -156,11 +157,25 @@ class SeleniumBaseTest:
         return project_id
 
     def ensure_test_plan(self) -> str:
-        """Garantiza un plan nuevo para el proyecto usado por la prueba."""
+        """Garantiza un plan nuevo y usa exactamente el rango de fechas del proyecto."""
         project_id = self.ensure_requirement()
         self.open_path("/testplans/new/")
+        project_select = self.find_visible((By.NAME, "project"))
+        date_ranges_raw = project_select.get_attribute("data-date-ranges") or "{}"
+        try:
+            date_ranges = json.loads(date_ranges_raw)
+        except json.JSONDecodeError:
+            date_ranges = {}
+        project_range = date_ranges.get(str(project_id), {})
+        start_date = project_range.get("start")
+        end_date = project_range.get("end")
+
+        if not start_date or not end_date:
+            year = datetime.now().year
+            start_date = f"{year}-01-01"
+            end_date = f"{year}-12-31"
+
         self.select_option((By.NAME, "project"), project_id)
-        year = datetime.now().year
         values = {
             "name": f"Plan E2E {int(time.time())}",
             "version": "1.0",
@@ -181,7 +196,7 @@ class SeleniumBaseTest:
         for name, value in values.items():
             if self.driver.find_elements(By.NAME, name):
                 self.type_text((By.NAME, name), value)
-        for name, value in (("start_date", f"{year}-01-01"), ("end_date", f"{year}-12-31")):
+        for name, value in (("start_date", start_date), ("end_date", end_date)):
             if self.driver.find_elements(By.NAME, name):
                 self.set_date((By.NAME, name), value)
         self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
