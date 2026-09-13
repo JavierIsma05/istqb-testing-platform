@@ -33,7 +33,8 @@ class TestExecutions(SeleniumBaseTest):
                 )
 
             self.click((By.CSS_SELECTOR, "label[for='id_actual_result_cumple']"))
-            self.set_date((By.NAME, "planned_date"), f"{datetime.now().year}-08-10")
+            execution_date = datetime.now().date().replace(day=max(1, datetime.now().day - 1))
+            self.set_date((By.NAME, "planned_date"), execution_date.isoformat())
 
             evidence = Path(__file__).resolve().parent / "screenshots" / "evidencia_test.png"
             file_input = self.driver.find_element(By.CSS_SELECTOR, "form[data-execution-form] input[type='file']")
