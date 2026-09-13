@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Iterable
 
@@ -121,21 +121,28 @@ class SeleniumBaseTest:
                 project_select.select_by_value(value)
                 return value
 
-        year = datetime.now().year
+        today = datetime.now().date()
+        year = today.year
+        start_date = today + timedelta(days=1)
+        end_date = datetime(year, 12, 31).date()
+        if start_date.year != year or start_date > end_date:
+            start_date = datetime(year, 1, 1).date()
+
         self.open_path("/projects/new/")
         self.type_text((By.NAME, "name"), f"Proyecto E2E {int(time.time())}")
         self.type_text((By.NAME, "description"), "Proyecto auxiliar para pruebas funcionales automatizadas.")
-        self.set_date((By.NAME, "start_date"), f"{year}-01-01")
-        self.set_date((By.NAME, "end_date"), f"{year}-12-31")
+        self.set_date((By.NAME, "start_date"), start_date.isoformat())
+        self.set_date((By.NAME, "end_date"), end_date.isoformat())
         self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
-        self.wait_for_url_contains("/projects/")
+        self.wait_for_text("Proyecto E2E")
 
         self.open_path("/requirements/new/")
         return self.select_first_available_option((By.NAME, "project"))
 
     def ensure_requirement(self) -> str:
-        """Crea un requisito si el proyecto visible no tiene uno utilizable."""
+        """Crea un requisito y devuelve su identificador para el proyecto visible."""
         project_id = self.ensure_project()
+        self.open_path("/requirements/new/")
         self.select_option((By.NAME, "project"), project_id)
         title = f"REQ-E2E-{int(time.time())} Requisito funcional"
         self.type_text((By.NAME, "title"), title)
@@ -146,28 +153,23 @@ class SeleniumBaseTest:
         self.select_option((By.NAME, "priority"), "HIGH")
         self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
         self.wait_for_text("Requisito creado correctamente.")
-        self.open_path(f"/requirements/?project={project_id}")
+        return project_id
 
-        for link in self.driver.find_elements(By.CSS_SELECTOR, "a[href*='/requirements/']"):
-            href = link.get_attribute("href") or ""
-            if "/edit/" in href:
-                continue
-            parts = href.rstrip("/").split("/")
-            if parts and parts[-1].isdigit():
-                return parts[-1]
-        raise TimeoutException("No se pudo identificar el requisito creado.")
-
-    def ensure_test_case(self) -> str:
-        """Garantiza un caso de prueba siguiendo la cadena proyecto -> requisito -> plan -> caso."""
-        self.open_path("/executions/")
-        for option in self.driver.find_elements(By.CSS_SELECTOR, "select[name='test_case'] option"):
-            value = option.get_attribute("value")
-            if value:
-                return value
-
+    def ensure_test_plan(self) -> str:
+        """Garantiza un plan de pruebas para el proyecto visible."""
         self.ensure_requirement()
+        self.open_path("/testplans/")
+        project_id = None
+        for link in self.driver.find_elements(By.CSS_SELECTOR, "a[href*='/testplans/'][href$='/edit/']"):
+            href = link.get_attribute("href") or ""
+            if href:
+                self.driver.execute_script("arguments[0].click();", link)
+                self.wait_for_url_contains("/testplans/")
+                parts = self.driver.current_url.rstrip("/").split("/")
+                if parts:
+                    return parts[-2] if parts[-2].isdigit() else parts[-1]
         self.open_path("/testplans/new/")
-        self.select_first_available_option((By.NAME, "project"))
+        project_id = self.select_first_available_option((By.NAME, "project"))
         year = datetime.now().year
         values = {
             "name": f"Plan E2E {int(time.time())}",
@@ -189,27 +191,45 @@ class SeleniumBaseTest:
         for name, value in values.items():
             if self.driver.find_elements(By.NAME, name):
                 self.type_text((By.NAME, name), value)
-        if self.driver.find_elements(By.NAME, "start_date"):
-            self.set_date((By.NAME, "start_date"), f"{year}-01-01")
-        if self.driver.find_elements(By.NAME, "end_date"):
-            self.set_date((By.NAME, "end_date"), f"{year}-12-31")
+        for name, value in (("start_date", f"{year}-01-01"), ("end_date", f"{year}-12-31")):
+            if self.driver.find_elements(By.NAME, name):
+                self.set_date((By.NAME, name), value)
         self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
         self.wait_for_text("Plan de pruebas creado correctamente.")
 
         self.open_path("/test-cases/")
         self.click((By.CSS_SELECTOR, "[data-bs-target='#testCaseModal']"))
         self.find_visible((By.ID, "testCaseModal"))
+        hidden_plan = self.driver.find_element(By.NAME, "test_plan")
+        plan_id = hidden_plan.get_attribute("value")
+        if not plan_id or plan_id == "None":
+            raise TimeoutException("El formulario de caso no tiene un plan de pruebas seleccionado.")
+        return plan_id
+
+    def ensure_test_case(self) -> str:
+        """Garantiza un caso de prueba siguiendo la cadena proyecto -> requisito -> plan -> caso."""
+        self.open_path("/executions/")
+        for option in self.driver.find_elements(By.CSS_SELECTOR, "select[name='test_case'] option"):
+            value = option.get_attribute("value")
+            if value:
+                return value
+
+        self.ensure_test_plan()
         self.select_first_available_option((By.NAME, "requirement"))
         self.type_text((By.NAME, "title"), f"Caso E2E {int(time.time())}")
         self.type_text((By.NAME, "description"), "Caso auxiliar para pruebas funcionales automatizadas.")
         self.select_option((By.NAME, "priority"), "HIGH")
         self.select_option((By.NAME, "technique"), "EQUIVALENCE")
-        for name, value in {"preconditions": "Usuario registrado y activo.", "test_data": "Datos de prueba E2E.", "steps": "1. Abrir la funcionalidad\n2. Ejecutar la acción principal", "expected_result": "La funcionalidad responde correctamente."}.items():
+        for name, value in {
+            "preconditions": "Usuario registrado y activo.",
+            "test_data": "Datos de prueba E2E.",
+            "steps": "1. Abrir la funcionalidad\n2. Ejecutar la acción principal",
+            "expected_result": "La funcionalidad responde correctamente.",
+        }.items():
             self.type_text((By.NAME, name), value)
-        if self.driver.find_elements(By.NAME, "level"):
-            self.select_first_available_option((By.NAME, "level"))
-        if self.driver.find_elements(By.NAME, "execution_type"):
-            self.select_first_available_option((By.NAME, "execution_type"))
+        for name in ("level", "execution_type"):
+            if self.driver.find_elements(By.NAME, name):
+                self.select_first_available_option((By.NAME, name))
         if self.driver.find_elements(By.NAME, "version"):
             self.type_text((By.NAME, "version"), "1.0")
         submit = self.find_clickable((By.CSS_SELECTOR, "#testCaseModal button[type='submit']"))
