@@ -14,7 +14,10 @@ class TestExecutions(SeleniumBaseTest):
 
         try:
             self.login()
-            self.open_path("/executions/?case=10")
+            self.open_path("/executions/")
+
+            case_id = self.select_first_available_option((By.NAME, "test_case"))
+            self.open_path(f"/executions/?case={case_id}")
 
             self.wait_for_any_visible(
                 [
