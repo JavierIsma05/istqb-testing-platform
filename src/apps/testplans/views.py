@@ -2,6 +2,7 @@ import json
 
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -166,7 +167,7 @@ def testplan_transition_view(request, pk):
         return redirect('testplans:index')
     try:
         status_transition_for_plan(plan, target)
-    except Exception as exc:
+    except ValidationError as exc:
         messages.error(request, str(exc))
         return redirect('testplans:index')
     plan.status = target
