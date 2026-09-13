@@ -140,7 +140,7 @@ class SeleniumBaseTest:
         return self.select_first_available_option((By.NAME, "project"))
 
     def ensure_requirement(self) -> str:
-        """Crea un requisito y devuelve su identificador para el proyecto visible."""
+        """Crea un requisito y devuelve el proyecto al que pertenece."""
         project_id = self.ensure_project()
         self.open_path("/requirements/new/")
         self.select_option((By.NAME, "project"), project_id)
@@ -156,20 +156,10 @@ class SeleniumBaseTest:
         return project_id
 
     def ensure_test_plan(self) -> str:
-        """Garantiza un plan de pruebas para el proyecto visible."""
-        self.ensure_requirement()
-        self.open_path("/testplans/")
-        project_id = None
-        for link in self.driver.find_elements(By.CSS_SELECTOR, "a[href*='/testplans/'][href$='/edit/']"):
-            href = link.get_attribute("href") or ""
-            if href:
-                self.driver.execute_script("arguments[0].click();", link)
-                self.wait_for_url_contains("/testplans/")
-                parts = self.driver.current_url.rstrip("/").split("/")
-                if parts:
-                    return parts[-2] if parts[-2].isdigit() else parts[-1]
+        """Garantiza un plan nuevo para el proyecto usado por la prueba."""
+        project_id = self.ensure_requirement()
         self.open_path("/testplans/new/")
-        project_id = self.select_first_available_option((By.NAME, "project"))
+        self.select_option((By.NAME, "project"), project_id)
         year = datetime.now().year
         values = {
             "name": f"Plan E2E {int(time.time())}",
@@ -200,9 +190,8 @@ class SeleniumBaseTest:
         self.open_path("/test-cases/")
         self.click((By.CSS_SELECTOR, "[data-bs-target='#testCaseModal']"))
         self.find_visible((By.ID, "testCaseModal"))
-        hidden_plan = self.driver.find_element(By.NAME, "test_plan")
-        plan_id = hidden_plan.get_attribute("value")
-        if not plan_id or plan_id == "None":
+        plan_id = self.driver.find_element(By.NAME, "test_plan").get_attribute("value")
+        if not plan_id:
             raise TimeoutException("El formulario de caso no tiene un plan de pruebas seleccionado.")
         return plan_id
 
