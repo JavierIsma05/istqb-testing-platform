@@ -15,24 +15,18 @@ class TestRequirements(SeleniumBaseTest):
 
         try:
             self.login()
+            project_id = self.ensure_project()
             self.open_path("/requirements/new/")
-
-            self.select_first_available_option((By.NAME, "project"))
+            self.select_option((By.NAME, "project"), project_id)
             self.type_text((By.NAME, "title"), title)
             self.type_text((By.NAME, "description"), "El usuario autenticado debe acceder al dashboard.")
+            if self.driver.find_elements(By.NAME, "acceptance_criteria"):
+                self.type_text((By.NAME, "acceptance_criteria"), "El acceso debe mostrar el dashboard correctamente.")
             self.select_option((By.NAME, "requirement_type"), "FUNCTIONAL")
             self.select_option((By.NAME, "priority"), "HIGH")
             self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
-
-            self.wait_for_any_visible(
-                [
-                    (By.CSS_SELECTOR, ".alert-success"),
-                    (By.CSS_SELECTOR, ".messages .success"),
-                    (By.CSS_SELECTOR, "[data-testid='success-message']"),
-                ]
-            )
+            self.wait_for_text("Requisito creado correctamente.")
             assert "Requisito creado correctamente." in self.driver.find_element(By.TAG_NAME, "body").text
-
             self.print_success(module_name, test_name)
         except Exception as error:
             self.print_error(module_name, test_name, error)
