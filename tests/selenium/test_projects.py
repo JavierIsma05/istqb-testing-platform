@@ -20,7 +20,7 @@ class TestProjects(SeleniumBaseTest):
             self.type_text((By.NAME, "name"), project_name)
             self.type_text((By.NAME, "description"), "Proyecto creado por prueba funcional automatizada.")
             self.set_date((By.NAME, "start_date"), "2026-09-01")
-            self.set_date((By.NAME, "end_date"), "2026-12-31")
+            self.set_date((By.NAME, "end_date"), "2027-12-31")
             self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
 
             self.wait_for_text(project_name)
