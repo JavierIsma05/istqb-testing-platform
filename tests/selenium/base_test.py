@@ -267,7 +267,17 @@ class SeleniumBaseTest:
         self.wait.until(EC.url_contains(text))
 
     def wait_for_text(self, text: str) -> None:
-        self.wait.until(EC.text_to_be_present_in_element((By.TAG_NAME, "body"), text))
+        """Espera un mensaje y reporta la página real si no aparece."""
+        try:
+            self.wait.until(EC.text_to_be_present_in_element((By.TAG_NAME, "body"), text))
+        except TimeoutException as exc:
+            url = self.driver.current_url
+            body = self.driver.find_element(By.TAG_NAME, "body").text.strip().replace("\n", " | ")
+            body = body[:1000] if body else "<sin contenido visible>"
+            raise TimeoutException(
+                f"No apareció el texto esperado {text!r}. URL actual: {url}. "
+                f"Contenido visible: {body}"
+            ) from exc
 
     def wait_for_any_visible(self, locators: Iterable[tuple[str, str]]):
         last_error: Exception | None = None
