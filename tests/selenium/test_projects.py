@@ -38,10 +38,10 @@ class TestProjects(SeleniumBaseTest):
             self.open_path("/projects/")
             self.wait_for_any_visible(
                 [
+                    (By.CSS_SELECTOR, ".project-card-grid"),
                     (By.CSS_SELECTOR, "table"),
                     (By.CSS_SELECTOR, "[data-testid='projects-list']"),
                     (By.CSS_SELECTOR, ".project-list"),
-                    (By.CSS_SELECTOR, ".project-card-grid"),
                 ]
             )
             self.print_success(module_name, test_name)
