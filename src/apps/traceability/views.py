@@ -122,9 +122,7 @@ def traceability_matrix_view(request):
         row['requirement'].pk for row in rows if row['case'] is not None
     }
     requirements_with_completed_execution = {
-        row['requirement'].pk
-        for row in rows
-        if row['execution'] is not None
+        row['requirement'].pk for row in rows if row['execution'] is not None
     }
     requirement_coverage_percentage = (
         round((len(traced_requirement_ids) / len(requirements)) * 100, 1)
@@ -134,15 +132,47 @@ def traceability_matrix_view(request):
         round((len(requirements_with_completed_execution) / len(requirements)) * 100, 1)
         if requirements else 0
     )
-    # Índice de trazabilidad integral: requisito -> caso -> ejecución completada.
-    # Un requisito cuenta una sola vez aunque tenga múltiples casos o ejecuciones.
     end_to_end_traceability_percentage = execution_coverage_percentage
+
+    project_metrics = []
+    for project in visible_projects:
+        project_requirements = [item for item in requirements if item.project_id == project.pk]
+        project_rows = [row for row in rows if row['requirement'].project_id == project.pk]
+        project_case_ids = {row['case'].pk for row in project_rows if row['case'] is not None}
+        project_executed_case_ids = {
+            row['case'].pk
+            for row in project_rows
+            if row['case'] is not None and row['execution'] is not None
+        }
+        project_traced_requirement_ids = {
+            row['requirement'].pk for row in project_rows if row['case'] is not None
+        }
+        project_executed_requirement_ids = {
+            row['requirement'].pk for row in project_rows if row['execution'] is not None
+        }
+        total_project_requirements = len(project_requirements)
+        project_metrics.append({
+            'project': project,
+            'total_requirements': total_project_requirements,
+            'total_test_cases': len(project_case_ids),
+            'total_executions': TestExecution.objects.filter(test_case__test_plan__project=project).count(),
+            'requirement_coverage_percentage': round(
+                len(project_traced_requirement_ids) * 100 / total_project_requirements, 1
+            ) if total_project_requirements else 0,
+            'execution_coverage_percentage': round(
+                len(project_executed_requirement_ids) * 100 / total_project_requirements, 1
+            ) if total_project_requirements else 0,
+            'test_case_execution_coverage_percentage': round(
+                len(project_executed_case_ids) * 100 / len(project_case_ids), 1
+            ) if project_case_ids else 0,
+        })
 
     return render(
         request,
         'traceability/index.html',
         {
             'rows': rows,
+            'project_metrics': project_metrics,
             'total_requirements': len(requirements),
             'total_plans': len(plans),
             'total_test_cases': len(cases),
