@@ -34,6 +34,10 @@ def quality_metrics_for_project(project):
     covered_requirement_ids &= requirement_ids
 
     completed = executions.filter(result__in=COMPLETED_RESULTS)
+    completed_case_ids = set(completed.values_list('test_case_id', flat=True))
+    completed_case_ids.discard(None)
+    completed_case_ids &= set(cases.values_list('pk', flat=True))
+
     passed = executions.filter(result=TestExecution.Result.PASSED).count()
     failed = executions.filter(result=TestExecution.Result.FAILED).count()
     reviewed = executions.exclude(review_status=TestExecution.ReviewStatus.PENDING).count()
@@ -57,6 +61,10 @@ def quality_metrics_for_project(project):
         execution_type=TestExecution.ExecutionType.REGRESSION
     ).count()
 
+    cases_with_execution = len(completed_case_ids)
+    review_rate = percentage(reviewed, executions.count())
+    execution_case_rate = percentage(cases_with_execution, cases.count())
+
     return {
         'project': project,
         'requirements_total': requirements.count(),
@@ -64,14 +72,14 @@ def quality_metrics_for_project(project):
         'requirements_covered': len(covered_requirement_ids),
         'requirements_coverage': percentage(len(covered_requirement_ids), requirements.count()),
         'cases_total': cases.count(),
-        'cases_with_execution': cases.filter(executions__isnull=False).distinct().count(),
+        'cases_with_execution': cases_with_execution,
         'executions_total': executions.count(),
         'executions_completed': completed.count(),
         'executions_passed': passed,
         'executions_failed': failed,
         'pass_rate': percentage(passed, completed.count()),
         'executions_reviewed': reviewed,
-        'review_rate': percentage(reviewed, executions.count()),
+        'review_rate': review_rate,
         'steps_total': step_total,
         'steps_with_evidence': step_evidence,
         'step_evidence_rate': percentage(step_evidence, step_total),
@@ -86,8 +94,8 @@ def quality_metrics_for_project(project):
         'regression_executions': regression_executions,
         'traceability_index': round((
             percentage(len(covered_requirement_ids), requirements.count())
-            + percentage(cases.filter(executions__isnull=False).distinct().count(), cases.count())
-            + percentage(reviewed, executions.count())
+            + execution_case_rate
+            + review_rate
             + percentage(defects_with_execution, defects.count())
         ) / 4, 2),
         'thresholds': {
@@ -102,7 +110,7 @@ def metric_rows(metrics):
     return [
         ('Cobertura de requisitos', f"{metrics['requirements_coverage']}%", 'Requisitos con caso directo o vínculo de trazabilidad'),
         ('Requisitos aprobados', str(metrics['requirements_approved']), 'Requisitos en estado aprobado'),
-        ('Tasa de ejecución de casos', f"{percentage(metrics['cases_with_execution'], metrics['cases_total'])}%", 'Casos con al menos una ejecución'),
+        ('Tasa de ejecución de casos', f"{percentage(metrics['cases_with_execution'], metrics['cases_total'])}%", 'Casos con al menos una ejecución completada'),
         ('Tasa de aprobación', f"{metrics['pass_rate']}%", 'Ejecuciones aprobadas / ejecuciones completadas'),
         ('Tasa de revisión docente', f"{metrics['review_rate']}%", 'Ejecuciones con revisión docente'),
         ('Evidencia por paso', f"{metrics['step_evidence_rate']}%", 'Pasos con archivo o captura'),
