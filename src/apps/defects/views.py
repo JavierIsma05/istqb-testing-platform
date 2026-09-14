@@ -204,6 +204,17 @@ def defect_delete_view(request, pk):
     )
 
     if request.method == 'POST':
+        has_history = defect.history.exists()
+        has_execution_link = defect.execution_id is not None
+        has_confirmation_history = defect.verification_execution_id is not None
+
+        if has_history or has_execution_link or has_confirmation_history:
+            messages.error(
+                request,
+                'El defecto tiene historial o trazabilidad asociada y no puede eliminarse. Cambia su estado para conservar el registro.',
+            )
+            return redirect('defects:index')
+
         log_action(
             request.user,
             'DELETE',
