@@ -18,14 +18,20 @@ class TraceabilityLink(TimeStampedModel):
         super().clean()
         if not self.requirement_id or not self.test_case_id:
             return
+
         if self.requirement.project_id != self.test_case.test_plan.project_id:
             raise ValidationError({
                 'test_case': 'El caso de prueba debe pertenecer al mismo proyecto que el requisito.',
             })
 
+        if self.test_case.requirement_id and self.test_case.requirement_id != self.requirement_id:
+            raise ValidationError({
+                'test_case': 'El vínculo debe coincidir con el requisito principal del caso de prueba.',
+            })
+
     def save(self, *args, **kwargs):
-        # Validate project consistency here, while leaving duplicate pairs to
-        # the database unique constraint so callers receive IntegrityError.
+        # Validate project and primary-requirement consistency here, while leaving
+        # duplicate pairs to the database unique constraint so callers receive IntegrityError.
         self.full_clean(validate_unique=False)
         return super().save(*args, **kwargs)
 
