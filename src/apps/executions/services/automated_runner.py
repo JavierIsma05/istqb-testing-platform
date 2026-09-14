@@ -94,6 +94,7 @@ def _create_automatic_defect(execution, failed_results):
     failed_names = ', '.join(result.validation_rule.name for result in failed_results)
     defect = Defect.objects.create(
         project=project,
+        test_case=execution.test_case,
         execution=execution,
         code=next_code(Defect.objects.filter(project=project), 'DEF'),
         title=f'Fallo automatizado en {execution.test_case.code}'[:180],
@@ -118,55 +119,38 @@ def run_automated_execution(test_case, user):
 
 
 def resolve_variables(text, test_case):
-    """Replace {{variable}} placeholders with values from TestData."""
     if not text:
         return text
-    # Use prefetched data to avoid sync DB access in async context
     variables = getattr(test_case, '_prefetched_objects_cache', {}).get('test_data_vars', None)
     if variables is None:
         variables = test_case.test_data_vars.all()
     var_dict = {var.key: var.value for var in variables}
-    
+
     def replace_var(match):
         key = match.group(1).strip()
         return var_dict.get(key, match.group(0))
-    
     return re.sub(r'\{\{([^}]+)\}\}', replace_var, text)
 
 
 def evaluate(expected, actual, comparison_type=AutomatedValidationRule.ComparisonType.EXACT):
-    """Compare expected vs actual based on comparison type. Returns (result, error_message)."""
     expected_text = '' if expected is None else str(expected).strip()
     actual_text = '' if actual is None else str(actual).strip()
-    
     if comparison_type == AutomatedValidationRule.ComparisonType.CONTAINS:
-        if expected_text in actual_text:
-            return 'MATCH', ''
-        else:
-            return 'NO_MATCH', f'Se esperaba que contuviera "{expected_text}" y se obtuvo "{actual_text}"'
-    elif comparison_type == AutomatedValidationRule.ComparisonType.REGEX:
+        return ('MATCH', '') if expected_text in actual_text else ('NO_MATCH', f'Se esperaba que contuviera "{expected_text}" y se obtuvo "{actual_text}"')
+    if comparison_type == AutomatedValidationRule.ComparisonType.REGEX:
         try:
-            if re.search(expected_text, actual_text):
-                return 'MATCH', ''
-            else:
-                return 'NO_MATCH', f'La expresión regular "{expected_text}" no coincidió con "{actual_text}"'
-        except re.error as e:
-            return 'NO_MATCH', f'Expresión regular inválida: {e}'
-    else:  # EXACT
-        if expected_text == actual_text:
-            return 'MATCH', ''
-        else:
-            return 'NO_MATCH', f'Se esperaba "{expected_text}" y se obtuvo "{actual_text}"'
+            return ('MATCH', '') if re.search(expected_text, actual_text) else ('NO_MATCH', f'La expresión regular "{expected_text}" no coincidió con "{actual_text}"')
+        except re.error as exc:
+            return 'NO_MATCH', f'Expresión regular inválida: {exc}'
+    return ('MATCH', '') if expected_text == actual_text else ('NO_MATCH', f'Se esperaba "{expected_text}" y se obtuvo "{actual_text}"')
 
 
 def get_comparison_description(comparison_type):
-    """Get human-readable description of comparison type."""
-    descriptions = {
+    return {
         AutomatedValidationRule.ComparisonType.EXACT: 'Exacto',
         AutomatedValidationRule.ComparisonType.CONTAINS: 'Contiene',
         AutomatedValidationRule.ComparisonType.REGEX: 'Expresión regular',
-    }
-    return descriptions.get(comparison_type, 'Exacto')
+    }.get(comparison_type, 'Exacto')
 
 
 def _step_expected_label(step):
@@ -181,20 +165,18 @@ def _execute_browser_step(page, step, test_case, timeout_ms):
     action = step.action_type
     comparison_type = step.comparison_type or AutomatedValidationRule.ComparisonType.EXACT
     error_message = ''
-    
-    # Resolve variables in step fields
     target_url = resolve_variables(step.target_url, test_case)
     selector_value = resolve_variables(step.selector_value, test_case)
     input_value = resolve_variables(step.input_value, test_case)
     expected_value = resolve_variables(step.expected_value, test_case)
-    
+
     if action == AutomatedValidationRule.ActionType.OPEN_URL:
         validate_automation_url(target_url)
         page.goto(target_url, wait_until='domcontentloaded', timeout=timeout_ms)
+        match_result, error_msg = evaluate(target_url.rstrip('/'), page.url.rstrip('/'), comparison_type)
+        passed = match_result == 'MATCH'
         expected = target_url
         actual = page.url
-        match_result, error_msg = evaluate(expected.rstrip('/'), actual.rstrip('/'), comparison_type)
-        passed = match_result == 'MATCH'
         if not passed:
             error_message = error_msg
     elif action == AutomatedValidationRule.ActionType.CLICK:
@@ -208,7 +190,6 @@ def _execute_browser_step(page, step, test_case, timeout_ms):
         expected = f'Campo con texto: {input_value}'
         actual = 'Texto ingresado'
     elif action == AutomatedValidationRule.ActionType.WAIT:
-        # WAIT can be either duration (timeout_seconds) or wait for selector
         if selector_value:
             page.locator(selector_value).first.wait_for(state='visible', timeout=timeout_ms)
             expected = f'Elemento visible: {selector_value}'
@@ -220,9 +201,7 @@ def _execute_browser_step(page, step, test_case, timeout_ms):
             actual = 'Espera completada'
         passed = True
     elif action == AutomatedValidationRule.ActionType.VERIFY:
-        # VERIFY can check element visibility, text content, URL, or input value
-        if selector_value == 'URL actual' or selector_value == 'current_url':
-            # Verify current URL
+        if selector_value in {'URL actual', 'current_url'}:
             actual_url = page.url
             match_result, error_msg = evaluate(expected_value, actual_url, comparison_type)
             passed = match_result == 'MATCH'
@@ -231,24 +210,19 @@ def _execute_browser_step(page, step, test_case, timeout_ms):
             if not passed:
                 error_message = error_msg
         else:
-            # Verify element - could be visibility, text, or value
             locator = page.locator(selector_value).first
             is_visible = locator.is_visible()
-            
             if not is_visible:
                 passed = False
                 expected = f'Elemento visible: {selector_value}'
                 actual = f'Elemento no visible: {selector_value}'
                 error_message = f'El elemento "{selector_value}" no está visible en la página'
             else:
-                # Determine if the element is a text input (get its value) or a regular element (get its text)
-                element_value = ''
                 try:
                     element_value = locator.input_value() or ''
                 except PlaywrightError:
                     element_value = ''
                 actual_content = element_value if element_value else (locator.text_content() or '')
-
                 match_result, error_msg = evaluate(expected_value, actual_content, comparison_type)
                 passed = match_result == 'MATCH'
                 expected = f'Contenido {get_comparison_description(comparison_type).lower()}: {expected_value}'
@@ -381,11 +355,7 @@ def run_automated_steps(test_case, user, steps):
             finished_at=outcome.get('finished_at'),
         )
         if outcome.get('screenshot'):
-            result.screenshot.save(
-                f'execution-{execution.pk}-step-{step.pk}.png',
-                ContentFile(outcome['screenshot']),
-                save=True,
-            )
+            result.screenshot.save(f'execution-{execution.pk}-step-{step.pk}.png', ContentFile(outcome['screenshot']), save=True)
         TestStepExecution.objects.create(
             test_execution=execution,
             step_number=step.step_number,
@@ -409,16 +379,7 @@ def run_automated_steps(test_case, user, steps):
     execution.duration_seconds = Decimal(str((finished_at - started_at) / timedelta(seconds=1))).quantize(Decimal('0.001'))
     execution.technical_log = '\n'.join(log_lines)
     execution.actual_result = '\n'.join(item.actual_behavior for item in result_rows)
-    execution.save(
-        update_fields=[
-            'result',
-            'finished_at',
-            'duration_seconds',
-            'technical_log',
-            'actual_result',
-            'updated_at',
-        ]
-    )
+    execution.save(update_fields=['result', 'finished_at', 'duration_seconds', 'technical_log', 'actual_result', 'updated_at'])
     sync_test_case_status_from_execution(test_case, execution)
 
     failed_results = [item for item in result_rows if item.status == TestExecution.Result.FAILED]
