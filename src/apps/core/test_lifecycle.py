@@ -242,3 +242,86 @@ def test_confirmacion_aprobada_cierra_defecto(project, test_case, user):
     defect.verification_execution = execution
     defect.status = Defect.Status.PENDING_CONFIRMATION
     assert defect_transition_allowed(defect, Defect.Status.CLOSED)
+
+
+@pytest.mark.django_db
+def test_defecto_no_puede_cerrarse_directamente_desde_resuelto(project, test_case, user):
+    from apps.defects.models import Defect
+
+    defect = Defect.objects.create(
+        project=project,
+        test_case=test_case,
+        code='DEF-CONF-003',
+        title='Cierre sin confirmación',
+        description='Debe requerir una prueba de confirmación.',
+        reported_by=user,
+        assigned_to=user,
+        resolution='Corrección aplicada.',
+        status=Defect.Status.RESOLVED,
+    )
+
+    with pytest.raises(ValidationError):
+        defect_transition_allowed(defect, Defect.Status.CLOSED)
+
+
+@pytest.mark.django_db
+def test_confirmacion_debe_estar_vinculada_al_defecto(project, test_case, user):
+    from apps.defects.models import Defect
+
+    defect = Defect.objects.create(
+        project=project,
+        test_case=test_case,
+        code='DEF-CONF-004',
+        title='Confirmación incorrecta',
+        description='La ejecución debe pertenecer al defecto.',
+        reported_by=user,
+        assigned_to=user,
+        resolution='Corrección aplicada.',
+        status=Defect.Status.PENDING_CONFIRMATION,
+    )
+    other_defect = Defect.objects.create(
+        project=project,
+        test_case=test_case,
+        code='DEF-CONF-005',
+        title='Otro defecto',
+        description='Otro defecto.',
+        reported_by=user,
+        assigned_to=user,
+        resolution='Corrección aplicada.',
+        status=Defect.Status.PENDING_CONFIRMATION,
+    )
+    execution = TestExecution.objects.create(
+        test_case=test_case,
+        related_defect=other_defect,
+        execution_type=TestExecution.ExecutionType.CONFIRMATION,
+        result=TestExecution.Result.PASSED,
+    )
+
+    with pytest.raises(ValidationError):
+        defect_transition_from_confirmation(defect, execution)
+
+
+@pytest.mark.django_db
+def test_confirmacion_no_puede_cerrar_defecto_si_no_es_tipo_confirmacion(project, test_case, user):
+    from apps.defects.models import Defect
+
+    defect = Defect.objects.create(
+        project=project,
+        test_case=test_case,
+        code='DEF-CONF-006',
+        title='Ejecución normal no confirma',
+        description='Una ejecución normal no puede cerrar el defecto.',
+        reported_by=user,
+        assigned_to=user,
+        resolution='Corrección aplicada.',
+        status=Defect.Status.PENDING_CONFIRMATION,
+    )
+    execution = TestExecution.objects.create(
+        test_case=test_case,
+        related_defect=defect,
+        execution_type=TestExecution.ExecutionType.NORMAL,
+        result=TestExecution.Result.PASSED,
+    )
+
+    with pytest.raises(ValidationError):
+        defect_transition_from_confirmation(defect, execution)
