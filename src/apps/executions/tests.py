@@ -131,6 +131,7 @@ def test_vista_de_ejecucion_guarda_y_muestra_evidencia(client, test_case, user, 
                 'environment': 'Chrome en Windows',
                 'notes': 'Ejecución con evidencia.',
                 'evidence': evidence,
+                **step_payload(ExecutionModel.Result.PASSED),
             },
             follow=True,
         )
@@ -141,14 +142,23 @@ def test_vista_de_ejecucion_guarda_y_muestra_evidencia(client, test_case, user, 
     assert execution.evidence.name.startswith('evidence/')
     assert execution.evidence.name.endswith('.png')
     assert execution.actual_result == 'El sistema mostro la confirmacion esperada.'
-    assert execution.step_results == []
+    assert execution.step_results == [
+        {
+            'number': 1,
+            'action': 'Abrir login',
+            'expected_result': test_case.expected_result,
+            'actual_result': 'Resultado observado en el paso 1.',
+            'status': ExecutionModel.Result.PASSED,
+            'comment': '',
+        }
+    ]
     assert execution.result == ExecutionModel.Result.PASSED
     assert b'Evidencia adjunta' in response.content
     assert b'Ver archivo' in response.content
 
 
 @pytest.mark.django_db
-def test_vista_de_ejecucion_manual_guarda_resultado_global_sin_pasos(client, test_case, user):
+def test_vista_de_ejecucion_manual_rechaza_resultado_global_sin_pasos(client, test_case, user):
     approve_requirement(test_case)
     client.force_login(user)
 
@@ -157,21 +167,16 @@ def test_vista_de_ejecucion_manual_guarda_resultado_global_sin_pasos(client, tes
         data=manual_payload(
             result=ExecutionModel.Result.PASSED,
             actual_result='Cumple',
-            notes='Resultado registrado de forma global.',
+            notes='Resultado global sin detalle por paso.',
             test_data='',
             environment='',
         ),
+        follow=True,
     )
 
-    execution = ExecutionModel.objects.get(test_case=test_case)
-
-    assert response.status_code == 302
-    assert execution.result == ExecutionModel.Result.PASSED
-    assert execution.actual_result == 'Cumple'
-    assert execution.notes == 'Resultado registrado de forma global.'
-    assert execution.step_results == []
-    assert execution.test_data == ''
-    assert execution.environment == ''
+    assert response.status_code == 200
+    assert not ExecutionModel.objects.filter(test_case=test_case).exists()
+    assert b'no se indicaron resultados por paso' in response.content
 
 
 @pytest.mark.django_db
@@ -212,13 +217,16 @@ def test_ejecucion_fallida_crea_defecto_asociado(client, test_case, user):
 
     response = client.post(
         f'{reverse("executions:index")}?case={test_case.id}',
-        data=manual_payload(
-            result=ExecutionModel.Result.FAILED,
-            actual_result='No cumple',
-            test_data='usuario=estudiante@example.com',
-            environment='Firefox',
-            notes='Se detectó una regresión funcional.',
-        ),
+        data={
+            **manual_payload(
+                result=ExecutionModel.Result.FAILED,
+                actual_result='No cumple',
+                test_data='usuario=estudiante@example.com',
+                environment='Firefox',
+                notes='Se detectó una regresión funcional.',
+            ),
+            **step_payload(ExecutionModel.Result.FAILED, ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED),
+        },
     )
 
     execution = ExecutionModel.objects.get(test_case=test_case)
@@ -252,18 +260,16 @@ def test_prueba_de_confirmacion_aprobada_cierra_defecto(client, test_case, execu
 
     response = client.post(
         f'{reverse("executions:index")}?case={test_case.id}',
-        data=manual_payload(
-            execution_type=ExecutionModel.ExecutionType.CONFIRMATION,
-            related_defect=defect.pk,
-            planned_date=timezone.localdate().isoformat(),
-            result=ExecutionModel.Result.PASSED,
-            actual_result='Cumple',
-            **step_payload(
-                ExecutionModel.Result.PASSED,
-                ExecutionModel.Result.PASSED,
-                ExecutionModel.Result.PASSED,
+        data={
+            **manual_payload(
+                execution_type=ExecutionModel.ExecutionType.CONFIRMATION,
+                related_defect=defect.pk,
+                planned_date=timezone.localdate().isoformat(),
+                result=ExecutionModel.Result.PASSED,
+                actual_result='Cumple',
             ),
-        ),
+            **step_payload(ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED),
+        },
     )
 
     defect.refresh_from_db()
@@ -293,18 +299,16 @@ def test_prueba_de_confirmacion_fallida_no_duplica_defecto(client, test_case, ex
 
     response = client.post(
         f'{reverse("executions:index")}?case={test_case.id}',
-        data=manual_payload(
-            execution_type=ExecutionModel.ExecutionType.CONFIRMATION,
-            related_defect=defect.pk,
-            planned_date=timezone.localdate().isoformat(),
-            result=ExecutionModel.Result.FAILED,
-            actual_result='No cumple',
-            **step_payload(
-                ExecutionModel.Result.FAILED,
-                ExecutionModel.Result.PASSED,
-                ExecutionModel.Result.PASSED,
+        data={
+            **manual_payload(
+                execution_type=ExecutionModel.ExecutionType.CONFIRMATION,
+                related_defect=defect.pk,
+                planned_date=timezone.localdate().isoformat(),
+                result=ExecutionModel.Result.FAILED,
+                actual_result='No cumple',
             ),
-        ),
+            **step_payload(ExecutionModel.Result.FAILED, ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED),
+        },
     )
 
     defect.refresh_from_db()
@@ -880,10 +884,13 @@ def test_ejecucion_permitida_cuando_al_menos_un_requisito_aprobado(
 
     response = client.post(
         f'{reverse("executions:index")}?case={test_case.id}',
-        data=manual_payload(
-            result=ExecutionModel.Result.PASSED,
-            actual_result='Cumple',
-        ),
+        data={
+            **manual_payload(
+                result=ExecutionModel.Result.PASSED,
+                actual_result='Cumple',
+            ),
+            **step_payload(ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED),
+        },
     )
 
     execution = ExecutionModel.objects.get(test_case=test_case)
@@ -903,10 +910,13 @@ def test_ejecucion_desbloqueada_al_aprobar_requisito(client, test_case, user):
     assert test_case.has_approved_requirement is True
     response = client.post(
         f'{reverse("executions:index")}?case={test_case.id}',
-        data=manual_payload(
-            result=ExecutionModel.Result.PASSED,
-            actual_result='Cumple',
-        ),
+        data={
+            **manual_payload(
+                result=ExecutionModel.Result.PASSED,
+                actual_result='Cumple',
+            ),
+            **step_payload(ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED),
+        },
     )
 
     assert ExecutionModel.objects.filter(test_case=test_case).exists()
@@ -1105,7 +1115,7 @@ def test_revision_de_paso_recalcula_resultado_porcentaje_y_estado_del_caso(clien
             action=f'Paso {number}',
             expected_result='OK',
             obtained_result='OK',
-            status=ExecutionModel.Result.PENDING if hasattr(ExecutionModel.Result, 'PENDING') else ExecutionModel.Result.NOT_RUN,
+            status=ExecutionModel.Result.NOT_RUN,
         )
         for number in range(1, 4)
     ]
@@ -1205,6 +1215,7 @@ def test_usuario_no_puede_ver_ni_eliminar_ejecucion_de_proyecto_ajeno(client, us
     assert response.status_code == 404
     assert ExecutionModel.objects.filter(pk=foreign_execution.pk).exists()
 
+
 @pytest.mark.django_db
 def test_ejecucion_de_regresion_puede_repetir_caso_y_no_duplica_defecto(client, test_case, execution, user):
     approve_requirement(test_case)
@@ -1222,17 +1233,15 @@ def test_ejecucion_de_regresion_puede_repetir_caso_y_no_duplica_defecto(client, 
 
     response = client.post(
         f'{reverse("executions:index")}?case={test_case.id}',
-        data=manual_payload(
-            execution_type=ExecutionModel.ExecutionType.REGRESSION,
-            related_defect=defect.pk,
-            result=ExecutionModel.Result.PASSED,
-            actual_result='Cumple',
-            **step_payload(
-                ExecutionModel.Result.PASSED,
-                ExecutionModel.Result.PASSED,
-                ExecutionModel.Result.PASSED,
+        data={
+            **manual_payload(
+                execution_type=ExecutionModel.ExecutionType.REGRESSION,
+                related_defect=defect.pk,
+                result=ExecutionModel.Result.PASSED,
+                actual_result='Cumple',
             ),
-        ),
+            **step_payload(ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED),
+        },
     )
 
     regression = ExecutionModel.objects.get(
@@ -1252,16 +1261,14 @@ def test_regresion_fallida_crea_defecto_trazable(client, test_case, user):
 
     response = client.post(
         f'{reverse("executions:index")}?case={test_case.id}',
-        data=manual_payload(
-            execution_type=ExecutionModel.ExecutionType.REGRESSION,
-            result=ExecutionModel.Result.FAILED,
-            actual_result='No cumple',
-            **step_payload(
-                ExecutionModel.Result.FAILED,
-                ExecutionModel.Result.PASSED,
-                ExecutionModel.Result.PASSED,
+        data={
+            **manual_payload(
+                execution_type=ExecutionModel.ExecutionType.REGRESSION,
+                result=ExecutionModel.Result.FAILED,
+                actual_result='No cumple',
             ),
-        ),
+            **step_payload(ExecutionModel.Result.FAILED, ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED),
+        },
     )
 
     regression = ExecutionModel.objects.get(
