@@ -135,8 +135,13 @@ class TestCaseModalForm(forms.ModelForm):
         cleaned_data = super().clean()
         test_plan = cleaned_data.get('test_plan')
         requirement = cleaned_data.get('requirement')
+        covered_risks = cleaned_data.get('covered_risks')
         if test_plan and requirement and test_plan.project_id != requirement.project_id:
             self.add_error('requirement', 'El requisito debe pertenecer al proyecto del plan seleccionado.')
+        if test_plan and covered_risks:
+            invalid_risks = [risk.code for risk in covered_risks if risk.test_plan_id != test_plan.pk]
+            if invalid_risks:
+                self.add_error('covered_risks', 'Todos los riesgos seleccionados deben pertenecer al plan de pruebas actual.')
         if cleaned_data.get('technique') == TestCase.Technique.OTHER and not (cleaned_data.get('custom_technique') or '').strip():
             self.add_error('custom_technique', 'Especifique la técnica personalizada cuando selecciona "Otra".')
         return cleaned_data
