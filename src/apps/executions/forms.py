@@ -88,6 +88,7 @@ class ExecutionResultForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         self.user = user
+        self.test_case = test_case
         self.fields['planned_date'].required = False
         self.fields['execution_mode'].required = False
         self.fields['execution_mode'].initial = TestExecution.ExecutionMode.MANUAL
@@ -104,12 +105,14 @@ class ExecutionResultForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
             self.fields['notes'].widget.attrs['disabled'] = True
             self.fields['notes'].help_text = 'El comentario queda bloqueado para estudiantes; lo podrá escribir el docente en revisión.'
         if test_case:
-            self.fields['related_defect'].queryset = test_case.test_plan.project.defects.order_by('-created_at')
+            self.fields['related_defect'].queryset = test_case.test_plan.project.defects.filter(
+                test_case=test_case,
+            ).order_by('-created_at')
         else:
             self.fields['related_defect'].queryset = self.fields['related_defect'].queryset.none()
         help_texts = {
             'execution_type': 'Usa confirmacion para verificar un defecto corregido y regresion para comprobar que no se afectaron funciones existentes.',
-            'related_defect': 'Selecciona el defecto que estas confirmando o que motiva esta regresion.',
+            'related_defect': 'Selecciona el defecto relacionado con este caso de prueba.',
             'planned_date': 'Fecha sugerida o planificada para dar seguimiento a esta ejecucion.',
             'result': 'El estado se calcula automaticamente segun el resultado obtenido.',
             'actual_result': 'Indica si el caso de prueba cumple o no con el resultado esperado.',
@@ -128,6 +131,12 @@ class ExecutionResultForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
         execution_type = cleaned_data.get('execution_type')
         related_defect = cleaned_data.get('related_defect')
         actual_result = (cleaned_data.get('actual_result') or '').strip()
+
+        if related_defect and self.test_case and related_defect.test_case_id != self.test_case.pk:
+            self.add_error(
+                'related_defect',
+                'El defecto seleccionado debe pertenecer al caso de prueba actual.',
+            )
 
         if execution_type == TestExecution.ExecutionType.CONFIRMATION and not related_defect:
             self.add_error(
@@ -355,43 +364,35 @@ class AutomatedStepForm(forms.ModelForm):
 
         # OPEN_URL: only target_url required
         if action == AutomatedValidationRule.ActionType.OPEN_URL:
-            url = cleaned_data.get('target_url')
-            if not url:
-                self.add_error('target_url', 'Indica la URL que debe abrirse.')
-            else:
-                from .services.automated_runner import validate_automation_url
-                try:
-                    validate_automation_url(url)
-                except ValidationError as exc:
-                    self.add_error('target_url', exc)
+            if not cleaned_data.get('target_url'):
+                self.add_error('target_url', 'Indica la URL que debe abrir la automatizacion.')
+            if cleaned_data.get('selector_value') or cleaned_data.get('input_value') or cleaned_data.get('expected_value'):
+                self.add_error(None, 'El paso Abrir URL no debe usar selector, dato ni resultado esperado.')
 
-        # CLICK: only selector_value required
-        elif action == AutomatedValidationRule.ActionType.CLICK:
-            if not (cleaned_data.get('selector_value') or '').strip():
-                self.add_error('selector_value', 'Esta accion requiere un elemento (selector CSS).')
-
-        # FILL_TEXT: selector_value and input_value required
+        # FILL_TEXT: selector and input value
         elif action == AutomatedValidationRule.ActionType.FILL_TEXT:
-            if not (cleaned_data.get('selector_value') or '').strip():
-                self.add_error('selector_value', 'Esta accion requiere un elemento (selector CSS).')
-            if not (cleaned_data.get('input_value') or '').strip():
-                self.add_error('input_value', 'Indica el dato que debe ingresarse.')
+            if not cleaned_data.get('selector_value'):
+                self.add_error('selector_value', 'Indica el selector del campo que se debe completar.')
+            if not cleaned_data.get('input_value'):
+                self.add_error('input_value', 'Indica el valor que debe escribirse.')
 
-        # VERIFY: selector_value, expected_value, and comparison_type required
+        # CLICK: selector only
+        elif action == AutomatedValidationRule.ActionType.CLICK:
+            if not cleaned_data.get('selector_value'):
+                self.add_error('selector_value', 'Indica el selector del elemento que se debe pulsar.')
+            if cleaned_data.get('input_value') or cleaned_data.get('expected_value'):
+                self.add_error(None, 'El paso Click no debe usar dato de entrada ni resultado esperado.')
+
+        # VERIFY: selector, expected value, comparison
         elif action == AutomatedValidationRule.ActionType.VERIFY:
-            if not (cleaned_data.get('selector_value') or '').strip():
-                self.add_error('selector_value', 'Esta accion requiere un elemento (selector CSS) o "URL actual".')
-            if not (cleaned_data.get('expected_value') or '').strip():
-                self.add_error('expected_value', 'Indica el resultado esperado de la verificacion.')
-            if not (cleaned_data.get('comparison_type') or '').strip():
-                cleaned_data['comparison_type'] = AutomatedValidationRule.ComparisonType.EXACT
+            if not cleaned_data.get('selector_value'):
+                self.add_error('selector_value', 'Indica el selector del elemento que se debe verificar.')
+            if not cleaned_data.get('expected_value'):
+                self.add_error('expected_value', 'Indica el resultado esperado para la verificacion.')
 
-        # WAIT: timeout_seconds (duration) or selector_value (wait for element)
+        # WAIT: timeout only
         elif action == AutomatedValidationRule.ActionType.WAIT:
-            duration = cleaned_data.get('timeout_seconds') or 10
-            selector = cleaned_data.get('selector_value')
-            if not selector and duration < 1:
-                self.add_error('timeout_seconds', 'Indica segundos de espera o un selector a esperar.')
-            cleaned_data['timeout_seconds'] = min(duration, 60)
+            if cleaned_data.get('selector_value') or cleaned_data.get('input_value') or cleaned_data.get('expected_value'):
+                self.add_error(None, 'El paso Esperar no debe usar selector, dato ni resultado esperado.')
 
         return cleaned_data
