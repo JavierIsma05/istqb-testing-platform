@@ -374,6 +374,11 @@ def execution_workspace_view(request):
         return redirect(f'{request.path}?case={execution.test_case.id}')
 
     if request.method == 'POST' and selected_case and form.is_valid():
+        if not step_payload_present:
+            form.add_error(None, 'Completa los resultados de todos los pasos antes de registrar la ejecución.')
+            messages.error(request, 'La ejecución no se registró porque no se indicaron resultados por paso.')
+            return redirect(f'{request.path}?case={selected_case.id}#execucion-manual')
+
         repeat_validation = validate_execution_repeat(
             selected_case,
             form.cleaned_data.get('execution_type') or TestExecution.ExecutionType.NORMAL,
@@ -385,17 +390,13 @@ def execution_workspace_view(request):
             messages.error(request, 'La ejecución no se registró porque ya existe una ejecución normal equivalente. Usa regresión o confirmación.')
             return redirect(f'{request.path}?case={selected_case.id}')
 
-        requested_result = (
-            aggregate_step_result(step_results)
-            if step_payload_present
-            else case_status_from_execution_result(TestExecution.Result.PASSED)
-        )
+        requested_result = aggregate_step_result(step_results)
         execution = form.save(commit=False)
         execution.test_case = selected_case
         execution.execution_mode = TestExecution.ExecutionMode.MANUAL
         execution.executed_by = request.user
         execution.executed_at = timezone.now()
-        execution.step_results = step_results if step_payload_present else []
+        execution.step_results = step_results
 
         # Persist the lifecycle atomically: start in RUNNING, then finish in the
         # derived outcome. This keeps the stored result consistent with the
@@ -414,17 +415,16 @@ def execution_workspace_view(request):
         execution.finished_at = execution.finished_at or timezone.now()
         execution.save(update_fields=['result', 'finished_at', 'updated_at'])
 
-        if step_payload_present:
-            for step in step_results:
-                TestStepExecution.objects.create(
-                    test_execution=execution,
-                    step_number=step['number'],
-                    action=step['action'],
-                    expected_result=step['expected_result'],
-                    obtained_result=step['actual_result'],
-                    status=step['status'],
-                    comment=step['comment'],
-                )
+        for step in step_results:
+            TestStepExecution.objects.create(
+                test_execution=execution,
+                step_number=step['number'],
+                action=step['action'],
+                expected_result=step['expected_result'],
+                obtained_result=step['actual_result'],
+                status=step['status'],
+                comment=step['comment'],
+            )
         log_action(
             request.user,
             'CREATE',
@@ -618,54 +618,3 @@ def execution_detail_view(request, pk):
         pk=pk,
         test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
     )
-    step_executions = list(execution.step_executions.all())
-    step_rows = [
-        {'step': step, 'review_form': StepReviewForm(instance=step)}
-        for step in step_executions
-    ]
-    return render(request, 'executions/detail.html', {
-        'execution': execution,
-        'step_executions': step_executions,
-        'step_rows': step_rows,
-        'automated_results': execution.automated_results.all(),
-        'defects': execution.defects.all(),
-        'can_upload_step_evidence': (
-            not is_teacher(request.user)
-            and execution.review_status == TestExecution.ReviewStatus.PENDING
-            and (request.user.is_superuser or execution.executed_by_id == request.user.id)
-        ),
-        'can_manage': can_manage_artifacts(request.user),
-        'is_teacher': is_teacher(request.user),
-        'execution_review_form': ExecutionReviewForm(instance=execution) if is_teacher(request.user) else None,
-    })
-
-
-@login_required
-def execution_review_detail_view(request, pk):
-    execution = get_object_or_404(
-        TestExecution.objects.select_related('test_case', 'test_case__test_plan__project'),
-        pk=pk,
-        test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
-    )
-    if not is_teacher(request.user) or request.method != 'POST':
-        return redirect('executions:detail', pk=pk)
-
-    review_form = ExecutionReviewForm(request.POST, instance=execution)
-    if review_form.is_valid():
-        reviewed_execution = review_form.save(commit=False)
-        reviewed_execution.reviewed_by = request.user
-        reviewed_execution.reviewed_at = timezone.now()
-        reviewed_execution.save()
-        log_action(
-            request.user,
-            'REVIEW',
-            'TestExecution',
-            reviewed_execution.pk,
-            {
-                'project_id': reviewed_execution.test_case.test_plan.project_id,
-                'test_case_id': reviewed_execution.test_case_id,
-                'review_status': reviewed_execution.review_status,
-            },
-        )
-        messages.success(request, 'Revisión de ejecución registrada correctamente.')
-    return redirect('executions:detail', pk=pk)
