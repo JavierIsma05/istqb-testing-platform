@@ -54,7 +54,11 @@ def validate_test_plan_approval(plan):
         'environment': plan.environment,
         'responsibilities': plan.responsibilities,
     }
-    errors.extend(f'Completa el campo {name.replace("_", " ")}.'.capitalize() for name, value in required_fields.items() if not (value or '').strip())
+    errors.extend(
+        f'Completa el campo {name.replace("_", " ")}.'.capitalize()
+        for name, value in required_fields.items()
+        if not (value or '').strip()
+    )
     requirements = plan.project.requirements.all()
     if not requirements.exists():
         errors.append('El proyecto debe tener requisitos antes de aprobar el plan.')
@@ -70,12 +74,20 @@ def validate_test_plan_approval(plan):
 
 
 def defect_transition_options(status):
-    """Return the available defect targets from the central lifecycle definition."""
     transitions = {
-        Defect.Status.OPEN: (Defect.Status.ANALYSIS, Defect.Status.IN_PROGRESS, Defect.Status.REJECTED, Defect.Status.DUPLICATED),
+        Defect.Status.OPEN: (
+            Defect.Status.ANALYSIS,
+            Defect.Status.IN_PROGRESS,
+            Defect.Status.REJECTED,
+            Defect.Status.DUPLICATED,
+        ),
         Defect.Status.ANALYSIS: (Defect.Status.IN_PROGRESS, Defect.Status.OPEN),
         Defect.Status.IN_PROGRESS: (Defect.Status.RESOLVED, Defect.Status.OPEN),
-        Defect.Status.RESOLVED: (Defect.Status.PENDING_CONFIRMATION, Defect.Status.IN_PROGRESS, Defect.Status.CLOSED, Defect.Status.REOPENED),
+        Defect.Status.RESOLVED: (
+            Defect.Status.PENDING_CONFIRMATION,
+            Defect.Status.IN_PROGRESS,
+            Defect.Status.REOPENED,
+        ),
         Defect.Status.PENDING_CONFIRMATION: (Defect.Status.CLOSED, Defect.Status.REOPENED),
         Defect.Status.CLOSED: (Defect.Status.REOPENED,),
         Defect.Status.REOPENED: (Defect.Status.IN_PROGRESS, Defect.Status.REJECTED),
@@ -86,26 +98,33 @@ def defect_transition_options(status):
 def defect_transition_allowed(defect, target):
     if target not in defect_transition_options(defect.status):
         raise ValidationError('La transición solicitada no está permitida desde el estado actual.')
-    if target in {Defect.Status.IN_PROGRESS, Defect.Status.RESOLVED, Defect.Status.PENDING_CONFIRMATION} and not defect.assigned_to:
+    if target in {
+        Defect.Status.IN_PROGRESS,
+        Defect.Status.RESOLVED,
+        Defect.Status.PENDING_CONFIRMATION,
+    } and not defect.assigned_to:
         raise ValidationError('Asigna un responsable antes de avanzar el defecto.')
     if target == Defect.Status.PENDING_CONFIRMATION and not (defect.resolution or '').strip():
         raise ValidationError('Registra la resolución antes de solicitar confirmación.')
     if target == Defect.Status.CLOSED:
         if not defect.verification_execution_id:
             raise ValidationError('Un defecto solo se puede cerrar con una ejecución de confirmación aprobada.')
-        if defect.verification_execution.result != 'PASSED':
+        if defect.verification_execution.result != TestExecution.Result.PASSED:
             raise ValidationError('La ejecución de confirmación debe estar aprobada.')
+        if defect.verification_execution.execution_type != TestExecution.ExecutionType.CONFIRMATION:
+            raise ValidationError('La ejecución de cierre debe ser una prueba de confirmación.')
     return True
 
 
-
 def defect_transition_from_confirmation(defect, execution):
-    """Return the legal defect target produced by a confirmation execution."""
+    if execution.execution_type != TestExecution.ExecutionType.CONFIRMATION:
+        raise ValidationError('Solo una ejecución de confirmación puede actualizar este defecto.')
+    if execution.related_defect_id != defect.pk:
+        raise ValidationError('La ejecución de confirmación debe estar vinculada al defecto que se valida.')
     if execution.result == TestExecution.Result.PASSED:
         return Defect.Status.CLOSED
-    if execution.result == TestExecution.Result.FAILED:
-        return Defect.Status.REOPENED
     return Defect.Status.REOPENED
+
 
 def raise_if_invalid(result):
     if not result.ok:
@@ -117,13 +136,17 @@ def case_changed_after_execution(instance, cleaned_data):
     if not instance.pk:
         return False
     old = TestCase.objects.get(pk=instance.pk)
-    tracked = ('requirement_id', 'title', 'description', 'technique', 'level', 'preconditions', 'test_data', 'steps', 'expected_result', 'version', 'priority')
-    return any(getattr(old, field) != cleaned_data.get(field, getattr(old, field)) for field in tracked)
-
+    tracked = (
+        'requirement_id', 'title', 'description', 'technique', 'level',
+        'preconditions', 'test_data', 'steps', 'expected_result', 'version', 'priority'
+    )
+    return any(
+        getattr(old, field) != cleaned_data.get(field, getattr(old, field))
+        for field in tracked
+    )
 
 
 def case_status_from_execution_result(result):
-    """Map an execution result to the lifecycle state of its test case."""
     mapping = {
         TestExecution.Result.NOT_RUN: TestCase.Status.PENDING,
         TestExecution.Result.RUNNING: TestCase.Status.RUNNING,
@@ -136,17 +159,17 @@ def case_status_from_execution_result(result):
 
 
 def sync_test_case_status_from_execution(test_case, execution):
-    """Synchronize a test case using the central execution-to-case lifecycle rule."""
     target = case_status_from_execution_result(execution.result)
     if test_case.status == target:
         return target
 
-    # Execution outcomes are authoritative, but every resulting state is still
-    # constrained by the lifecycle. A completed/failed/blocked case may be
-    # re-executed through READY -> RUNNING.
     if target == TestCase.Status.RUNNING and test_case.status == TestCase.Status.READY:
         status_transition_for_test_case(test_case, target)
-    elif target in {TestCase.Status.PASSED, TestCase.Status.FAILED, TestCase.Status.BLOCKED} and test_case.status == TestCase.Status.RUNNING:
+    elif target in {
+        TestCase.Status.PASSED,
+        TestCase.Status.FAILED,
+        TestCase.Status.BLOCKED,
+    } and test_case.status == TestCase.Status.RUNNING:
         status_transition_for_test_case(test_case, target)
     elif target == TestCase.Status.PENDING:
         test_case.status = target
@@ -160,6 +183,7 @@ def sync_test_case_status_from_execution(test_case, execution):
     test_case.status = target
     test_case.save(update_fields=['status', 'updated_at'])
     return target
+
 
 def status_transition_for_requirement(requirement, new_status):
     allowed = {
@@ -189,11 +213,6 @@ def status_transition_for_plan(plan, new_status):
 
 
 def status_transition_for_test_case(test_case, new_status):
-    """Validate the lifecycle transitions of a test case.
-
-    Test case execution results are not arbitrary editable states: they are
-    driven by the execution workflow.
-    """
     allowed = {
         TestCase.Status.PENDING: {TestCase.Status.READY},
         TestCase.Status.READY: {TestCase.Status.RUNNING, TestCase.Status.BLOCKED},
@@ -213,9 +232,7 @@ def status_transition_for_test_case(test_case, new_status):
     return True
 
 
-
 def execution_transition_allowed(execution, target):
-    """Validate legal execution-result transitions."""
     allowed = {
         TestExecution.Result.NOT_RUN: {TestExecution.Result.RUNNING},
         TestExecution.Result.RUNNING: {
@@ -231,7 +248,6 @@ def execution_transition_allowed(execution, target):
 
 
 def incident_transition_allowed(incident, target):
-    """Validate the lifecycle of a project risk."""
     allowed = {
         Incident.Status.OPEN: {Incident.Status.ANALYSIS, Incident.Status.MITIGATED},
         Incident.Status.ANALYSIS: {Incident.Status.MITIGATED, Incident.Status.OPEN},
@@ -248,15 +264,28 @@ def incident_transition_allowed(incident, target):
 
 
 def validate_execution_repeat(test_case, execution_type, environment, previous_execution=None):
-    if execution_type != 'NORMAL':
+    if execution_type != TestExecution.ExecutionType.NORMAL:
         return ValidationResult(True)
-    qs = test_case.executions.filter(execution_type='NORMAL', result__in=['NOT_RUN', 'RUNNING', 'PASSED', 'FAILED', 'BLOCKED', 'ERROR'])
+    qs = test_case.executions.filter(
+        execution_type=TestExecution.ExecutionType.NORMAL,
+        result__in=[
+            TestExecution.Result.NOT_RUN,
+            TestExecution.Result.RUNNING,
+            TestExecution.Result.PASSED,
+            TestExecution.Result.FAILED,
+            TestExecution.Result.BLOCKED,
+            TestExecution.Result.ERROR,
+        ],
+    )
     if previous_execution:
         qs = qs.exclude(pk=previous_execution.pk)
     if environment:
         qs = qs.filter(environment=environment)
     if qs.exists():
-        return ValidationResult(False, ('Ya existe una ejecución normal para este caso y ambiente. Usa confirmación o regresión, o registra un motivo de reejecución.',))
+        return ValidationResult(
+            False,
+            ('Ya existe una ejecución normal para este caso y ambiente. Usa confirmación o regresión, o registra un motivo de reejecución.',),
+        )
     return ValidationResult(True)
 
 
@@ -271,4 +300,20 @@ def validate_file_upload(uploaded, allowed_extensions, max_size):
     return ValidationResult(True)
 
 
-__all__ = ['case_status_from_execution_result', 'sync_test_case_status_from_execution', 'case_changed_after_execution', 'defect_transition_allowed', 'defect_transition_from_confirmation', 'execution_transition_allowed', 'incident_transition_allowed', 'raise_if_invalid', 'requirement_can_be_approved', 'status_transition_for_plan', 'status_transition_for_requirement', 'status_transition_for_test_case', 'test_case_readiness', 'validate_test_plan_approval', 'validate_execution_repeat']
+__all__ = [
+    'case_status_from_execution_result',
+    'sync_test_case_status_from_execution',
+    'case_changed_after_execution',
+    'defect_transition_allowed',
+    'defect_transition_from_confirmation',
+    'execution_transition_allowed',
+    'incident_transition_allowed',
+    'raise_if_invalid',
+    'requirement_can_be_approved',
+    'status_transition_for_plan',
+    'status_transition_for_requirement',
+    'status_transition_for_test_case',
+    'test_case_readiness',
+    'validate_test_plan_approval',
+    'validate_execution_repeat',
+]
