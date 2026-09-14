@@ -9,23 +9,49 @@ COMPLETED_RESULTS = [
 ]
 
 
-def calculate_project_metrics(project, requirements=None, rows=None):
-    """Calculate the project-level indicators used by the traceability UI/export."""
-    requirements = list(requirements or project.requirements.all())
-    rows = [row for row in (rows or []) if row['requirement'].project_id == project.pk]
+def _completed_execution_case_ids(project):
+    return set(
+        TestExecution.objects.filter(
+            test_case__test_plan__project=project,
+            result__in=COMPLETED_RESULTS,
+        ).values_list('test_case_id', flat=True)
+    )
 
-    case_ids = {row['case'].pk for row in rows if row['case'] is not None}
-    executed_case_ids = {
-        row['case'].pk
-        for row in rows
-        if row['case'] is not None and row['execution'] is not None
-    }
+
+def _completed_execution_requirement_ids(project):
+    return set(
+        TestExecution.objects.filter(
+            test_case__test_plan__project=project,
+            result__in=COMPLETED_RESULTS,
+            test_case__requirement__isnull=False,
+        ).values_list('test_case__requirement_id', flat=True)
+    )
+
+
+def calculate_project_metrics(project, requirements=None, rows=None):
+    """Calculate the project-level indicators used by the traceability UI/export.
+
+    Coverage is based on the project artifacts actually linked to test cases,
+    while execution coverage considers only completed execution outcomes.
+    The same definitions are used regardless of whether the matrix is built
+    from direct requirement links or explicit traceability links.
+    """
+    requirements = list(requirements or project.requirements.all())
+    scoped_rows = [row for row in (rows or []) if row['requirement'].project_id == project.pk]
+
+    case_ids = {row['case'].pk for row in scoped_rows if row.get('case') is not None}
     traced_requirement_ids = {
-        row['requirement'].pk for row in rows if row['case'] is not None
+        row['requirement'].pk
+        for row in scoped_rows
+        if row.get('case') is not None
     }
-    executed_requirement_ids = {
-        row['requirement'].pk for row in rows if row['execution'] is not None
-    }
+
+    completed_case_ids = _completed_execution_case_ids(project)
+    completed_requirement_ids = _completed_execution_requirement_ids(project)
+
+    executed_case_ids = case_ids & completed_case_ids
+    executed_requirement_ids = traced_requirement_ids & completed_requirement_ids
+
     total_requirements = len(requirements)
     total_test_cases = len(case_ids)
 
