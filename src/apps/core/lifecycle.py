@@ -276,11 +276,24 @@ def validate_execution_repeat(test_case, execution_type, environment, previous_e
             TestExecution.Result.BLOCKED,
             TestExecution.Result.ERROR,
         ],
-    )
+    ).exclude(environment=environment or '')
     if previous_execution:
         qs = qs.exclude(pk=previous_execution.pk)
     if environment:
-        qs = qs.filter(environment=environment)
+        qs = test_case.executions.filter(
+            execution_type=TestExecution.ExecutionType.NORMAL,
+            environment=environment,
+            result__in=[
+                TestExecution.Result.NOT_RUN,
+                TestExecution.Result.RUNNING,
+                TestExecution.Result.PASSED,
+                TestExecution.Result.FAILED,
+                TestExecution.Result.BLOCKED,
+                TestExecution.Result.ERROR,
+            ],
+        )
+        if previous_execution:
+            qs = qs.exclude(pk=previous_execution.pk)
     if qs.exists():
         return ValidationResult(
             False,
