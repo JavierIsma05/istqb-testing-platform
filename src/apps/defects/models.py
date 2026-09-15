@@ -59,9 +59,7 @@ class Defect(TimeStampedModel):
     def clean(self):
         super().clean()
         errors = {}
-        if not self.test_case_id:
-            errors['test_case'] = 'Todo defecto debe asociarse a un caso de prueba.'
-        else:
+        if self.test_case_id:
             case_project_id = self.test_case.test_plan.project_id
             if self.project_id != case_project_id:
                 errors['project'] = 'El defecto debe pertenecer al mismo proyecto que su caso de prueba.'
@@ -71,6 +69,9 @@ class Defect(TimeStampedModel):
                 errors['execution'] = 'La ejecución relacionada debe pertenecer al caso de prueba del defecto.'
             elif self.execution.test_case.test_plan.project_id != self.project_id:
                 errors['execution'] = 'La ejecución relacionada debe pertenecer al mismo proyecto del defecto.'
+        elif self.execution_id and self.project_id:
+            if self.execution.test_case.test_plan.project_id != self.project_id:
+                errors['execution'] = 'La ejecución relacionada debe pertenecer al mismo proyecto del defecto.'
 
         if self.verification_execution_id and self.test_case_id:
             verification = self.verification_execution
@@ -78,6 +79,14 @@ class Defect(TimeStampedModel):
                 errors['verification_execution'] = 'La ejecución de verificación debe ser una prueba de confirmación.'
             elif verification.test_case_id != self.test_case_id:
                 errors['verification_execution'] = 'La confirmación debe pertenecer al caso de prueba del defecto.'
+            elif verification.test_case.test_plan.project_id != self.project_id:
+                errors['verification_execution'] = 'La confirmación debe pertenecer al mismo proyecto del defecto.'
+            elif verification.related_defect_id != self.pk:
+                errors['verification_execution'] = 'La confirmación debe estar vinculada al defecto actual.'
+        elif self.verification_execution_id and self.project_id:
+            verification = self.verification_execution
+            if verification.execution_type != TestExecution.ExecutionType.CONFIRMATION:
+                errors['verification_execution'] = 'La ejecución de verificación debe ser una prueba de confirmación.'
             elif verification.test_case.test_plan.project_id != self.project_id:
                 errors['verification_execution'] = 'La confirmación debe pertenecer al mismo proyecto del defecto.'
             elif verification.related_defect_id != self.pk:
