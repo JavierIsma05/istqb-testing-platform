@@ -71,10 +71,28 @@ class SeleniumBaseTest:
         return self.wait.until(EC.visibility_of_element_located(locator))
 
     def find_clickable(self, locator: tuple[str, str]):
-        return self.wait.until(EC.element_to_be_clickable(locator))
+        """Return the first displayed and enabled matching element.
+
+        Selenium's element_to_be_clickable resolves only the first DOM match.
+        Forms with hidden modal/wizard submit controls can therefore cause false
+        timeouts even when the real submit button is visible. Search all matches
+        on every poll instead.
+        """
+        def visible_and_enabled(driver: WebDriver):
+            for element in driver.find_elements(*locator):
+                try:
+                    if element.is_displayed() and element.is_enabled():
+                        return element
+                except Exception:
+                    continue
+            return False
+
+        return self.wait.until(visible_and_enabled)
 
     def click(self, locator: tuple[str, str]) -> None:
-        self.find_clickable(locator).click()
+        element = self.find_clickable(locator)
+        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+        element.click()
 
     def scroll_into_view(self, locator: tuple[str, str]):
         element = self.find_clickable(locator)
