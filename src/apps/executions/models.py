@@ -70,7 +70,7 @@ class TestExecution(TimeStampedModel):
                 errors['related_defect'] = 'El defecto relacionado debe pertenecer al mismo proyecto del caso de prueba.'
             elif self.execution_type != self.ExecutionType.CONFIRMATION:
                 errors['related_defect'] = 'Un defecto relacionado solo puede asociarse mediante una prueba de confirmación.'
-            elif self.related_defect.status not in {'IN_PROGRESS', 'RESOLVED', 'REOPENED'}:
+            elif self.related_defect.status not in {'IN_PROGRESS', 'RESOLVED', 'REOPENED', 'PENDING_CONFIRMATION'}:
                 errors['related_defect'] = 'La confirmación solo puede ejecutarse sobre un defecto en corrección o pendiente de confirmación.'
         if self.execution_type == self.ExecutionType.CONFIRMATION and not self.related_defect_id:
             errors['related_defect'] = 'Una ejecución de confirmación debe estar vinculada a un defecto.'
@@ -179,8 +179,6 @@ class AutomatedValidationRule(TimeStampedModel):
         if self.test_case_id and self.requirement_id:
             if self.requirement.project_id != self.test_case.test_plan.project_id:
                 errors['requirement'] = 'El requisito debe pertenecer al mismo proyecto del caso de prueba.'
-            if self.requirement.test_plan_id != self.test_case.test_plan_id:
-                errors['requirement'] = 'El requisito debe pertenecer al mismo plan de pruebas del caso de prueba.'
             if self.test_case.requirement_id and self.requirement_id != self.test_case.requirement_id:
                 errors['requirement'] = 'La regla automatizada debe utilizar el requisito principal del caso de prueba.'
         if self.step_number < 1:
