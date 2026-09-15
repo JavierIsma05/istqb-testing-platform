@@ -109,6 +109,12 @@ class TestCase(OwnedModel):
             errors['requirement'] = 'Todo caso de prueba debe cubrir al menos un requisito.'
         elif self.test_plan_id and self.requirement.project_id != self.test_plan.project_id:
             errors['requirement'] = 'El requisito debe pertenecer al mismo proyecto que el plan de pruebas.'
+
+        if self.pk and self.test_plan_id:
+            previous_plan_id = type(self).objects.filter(pk=self.pk).values_list('test_plan_id', flat=True).first()
+            if previous_plan_id and previous_plan_id != self.test_plan_id:
+                errors['test_plan'] = 'El plan de pruebas de un caso existente no puede cambiarse; conserva su trazabilidad histórica.'
+
         if not (self.steps or '').strip():
             errors['steps'] = 'Registra al menos un paso de ejecucion.'
         if errors:
