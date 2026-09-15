@@ -1,9 +1,11 @@
 from django.urls import path
 
-from apps.executions.views import (
+from apps.executions.automated_views import (
     automated_execution_run_view,
     automated_rule_create_view,
     automated_rule_delete_view,
+)
+from apps.executions.views import (
     execution_calendar_view,
     execution_delete_view,
     execution_detail_view,
