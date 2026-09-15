@@ -69,6 +69,10 @@ class TestPlan(OwnedModel):
         if errors:
             raise ValidationError(errors)
 
+    def save(self, *args, **kwargs):
+        self.full_clean(validate_unique=False)
+        return super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
