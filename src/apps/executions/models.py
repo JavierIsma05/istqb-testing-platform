@@ -70,6 +70,10 @@ class TestExecution(TimeStampedModel):
         if self.test_case_id and self.related_defect_id:
             if self.related_defect.test_case_id != self.test_case_id:
                 errors['related_defect'] = 'El defecto relacionado debe pertenecer al mismo caso de prueba.'
+            elif self.execution_type == self.ExecutionType.CONFIRMATION and self.related_defect.status not in {
+                'IN_PROGRESS', 'RESOLVED', 'REOPENED'
+            }:
+                errors['related_defect'] = 'La confirmación solo puede ejecutarse sobre un defecto en corrección o pendiente de confirmación.'
         if self.execution_type == self.ExecutionType.CONFIRMATION and not self.related_defect_id:
             errors['related_defect'] = 'Una ejecución de confirmación debe estar vinculada a un defecto.'
         if self.approval_percentage is not None and self.approval_percentage > 100:
