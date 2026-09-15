@@ -60,7 +60,14 @@ class RequirementForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if user:
             self.fields['project'].queryset = visible_projects_for(user).order_by('name')
+
+        if self.instance.pk:
+            self.fields['project'].disabled = True
+            self.fields['project'].help_text = 'El proyecto es inmutable después de crear el requisito para preservar su trazabilidad histórica.'
+
         project_id = self.data.get('project') if self.is_bound else self.instance.project_id
+        if self.instance.pk and self.fields['project'].disabled:
+            project_id = self.instance.project_id
         queryset = Requirement.objects.filter(project_id=project_id) if project_id else Requirement.objects.none()
         self.fields['code'].required = False
         self.fields['code'].disabled = True
