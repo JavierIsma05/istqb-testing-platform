@@ -112,6 +112,15 @@ class TestStepExecution(TimeStampedModel):
         errors = {}
         if self.step_number < 1:
             errors['step_number'] = 'El número de paso debe ser mayor que cero.'
+        if self.test_execution_id:
+            duplicate_steps = TestStepExecution.objects.filter(
+                test_execution_id=self.test_execution_id,
+                step_number=self.step_number,
+            )
+            if self.pk:
+                duplicate_steps = duplicate_steps.exclude(pk=self.pk)
+            if duplicate_steps.exists():
+                errors['step_number'] = 'Ya existe un resultado para este número de paso en la ejecución.'
         if self.started_at and self.finished_at and self.finished_at < self.started_at:
             errors['finished_at'] = 'La fecha de finalización no puede ser anterior al inicio.'
         if errors:
@@ -177,6 +186,15 @@ class AutomatedValidationRule(TimeStampedModel):
                 errors['requirement'] = 'El requisito debe pertenecer al mismo plan de pruebas del caso de prueba.'
         if self.step_number < 1:
             errors['step_number'] = 'El número de paso debe ser mayor que cero.'
+        if self.test_case_id:
+            duplicate_steps = AutomatedValidationRule.objects.filter(
+                test_case_id=self.test_case_id,
+                step_number=self.step_number,
+            )
+            if self.pk:
+                duplicate_steps = duplicate_steps.exclude(pk=self.pk)
+            if duplicate_steps.exists():
+                errors['step_number'] = 'Ya existe una regla automatizada para este número de paso en el caso.'
         if not 1 <= self.timeout_seconds <= 120:
             errors['timeout_seconds'] = 'El tiempo de espera debe estar entre 1 y 120 segundos.'
         if errors:
