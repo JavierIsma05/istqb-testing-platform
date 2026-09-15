@@ -5,6 +5,8 @@ from django.db import models
 from apps.core.models import OwnedModel
 from apps.requirements.models import Requirement
 from apps.testplans.models import TestPlan
+
+
 class TestCase(OwnedModel):
     class Priority(models.TextChoices):
         LOW = 'LOW', 'Baja'
@@ -111,6 +113,10 @@ class TestCase(OwnedModel):
             errors['steps'] = 'Registra al menos un paso de ejecucion.'
         if errors:
             raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean(validate_unique=False)
+        return super().save(*args, **kwargs)
 
 
 class TestCaseVersion(models.Model):
