@@ -133,7 +133,9 @@ def project_edit_view(request, pk):
 
 @login_required
 def project_detail_view(request, pk):
-    project = get_object_or_404(visible_projects_for(request.user, request=request).prefetch_related('members'), pk=pk)
+    # The detail URL selects the project explicitly; the session's active project
+    # must not hide another project that the current user is already allowed to view.
+    project = get_object_or_404(visible_projects_for(request.user).prefetch_related('members'), pk=pk)
     request.session['active_project_id'] = project.pk
     test_plans = TestPlan.objects.filter(project=project)
     requirements = Requirement.objects.filter(project=project)
