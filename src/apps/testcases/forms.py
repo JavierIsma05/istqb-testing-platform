@@ -1,7 +1,6 @@
 import json
 
 from django import forms
-
 from apps.core.codes import next_code
 from apps.core.permissions import visible_projects_for
 from apps.incidents.models import Incident
@@ -44,7 +43,7 @@ class TestCaseModalForm(forms.ModelForm):
             'custom_technique': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Especifique la técnica personalizada'}),
             'covered_risks': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 4}),
             'preconditions': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Condiciones previas para ejecutar el caso', 'rows': 3}),
-            'test_data': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Usuarios, entradas y datos necesarios para ejecutar el caso', 'rows': 3}),
+            'test_data': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Usuarios, entradas y datos necesarios para la ejecución.', 'rows': 3}),
             'steps': forms.Textarea(attrs={'class': 'form-control', 'placeholder': '1. Abrir el formulario de login\n2. Ingresar credenciales válidas\n3. Confirmar acceso', 'rows': 5}),
             'expected_result': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Descripción del resultado esperado', 'rows': 3}),
             'status': forms.Select(attrs={'class': 'form-select'}),
@@ -59,9 +58,17 @@ class TestCaseModalForm(forms.ModelForm):
         self.fields['requirement'].required = True
         self.fields['status'].disabled = True
         self.fields['status'].help_text = 'El estado se calcula desde la revisión y ejecución del caso.'
+
+        if self.instance.pk:
+            self.fields['test_plan'].disabled = True
+            self.fields['test_plan'].help_text = 'El plan de pruebas es inmutable después de crear el caso para preservar su trazabilidad histórica.'
+
         for field_name in ('level', 'execution_type', 'version'):
             self.fields[field_name].required = False
         test_plan_id = self.data.get('test_plan') if self.is_bound else self.instance.test_plan_id
+        if self.instance.pk and self.fields['test_plan'].disabled:
+            test_plan_id = self.instance.test_plan_id
+            self.fields['test_plan'].initial = self.instance.test_plan_id
         if not test_plan_id and not self.is_bound:
             first_plan = self.fields['test_plan'].queryset.first()
             if first_plan:
