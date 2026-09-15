@@ -1,7 +1,7 @@
 import pytest
 from django.contrib.auth import get_user_model
 
-from apps.executions.models import TestExecution as ExecutionModel
+from apps.executions.models import TestExecution as ExecutionModel, TestStepExecution
 from apps.projects.models import Project
 from apps.requirements.models import Requirement
 from apps.testcases.models import TestCase as CaseModel
@@ -84,4 +84,26 @@ def execution(test_case, user):
         executed_by=user,
         result=ExecutionModel.Result.PASSED,
         notes='Ejecucion completada correctamente.',
+    )
+
+
+@pytest.fixture
+def test_execution(test_case, user):
+    """Alias explícito para las pruebas de integridad del módulo de ejecuciones."""
+    return ExecutionModel.objects.create(
+        test_case=test_case,
+        executed_by=user,
+        result=ExecutionModel.Result.PASSED,
+    )
+
+
+@pytest.fixture
+def test_step_execution(test_execution):
+    return TestStepExecution.objects.create(
+        test_execution=test_execution,
+        step_number=1,
+        action='Paso de prueba',
+        expected_result='Debe completarse correctamente.',
+        obtained_result='Completado.',
+        status=ExecutionModel.Result.PASSED,
     )
