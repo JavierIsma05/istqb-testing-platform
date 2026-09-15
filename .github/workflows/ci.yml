@@ -37,6 +37,7 @@ jobs:
       AUTOMATION_ALLOWED_HOSTS: localhost,127.0.0.1,::1
       SELENIUM_HEADLESS: 'true'
       SELENIUM_TIMEOUT: '15'
+      SELENIUM_BASE_URL: http://127.0.0.1:8000/
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -47,7 +48,26 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - run: python src/manage.py check
       - run: python src/manage.py migrate --noinput
+      - name: Start Django for Selenium tests
+        run: |
+          nohup python src/manage.py runserver 127.0.0.1:8000 --noreload > django-ci.log 2>&1 &
+          python - <<'PY'
+          import time
+          import urllib.request
+          for _ in range(30):
+              try:
+                  with urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=2) as response:
+                      if response.status == 200:
+                          break
+              except Exception:
+                  time.sleep(1)
+          else:
+              print(open('django-ci.log', encoding='utf-8').read())
+              raise SystemExit('Django no inicio correctamente')
+          PY
       - run: pytest
+      - if: always()
+        run: cat django-ci.log || true
 
   docker:
     needs: test
