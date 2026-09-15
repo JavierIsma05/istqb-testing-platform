@@ -21,10 +21,22 @@ def execution_delete_view(request, pk):
     if not request.user.is_superuser and execution.executed_by_id != request.user.id:
         messages.error(request, 'Solo puedes eliminar tus propias ejecuciones.')
         return redirect(f'{reverse("executions:index")}?case={execution.test_case_id}')
-    if execution.review_status != TestExecution.ReviewStatus.PENDING:
+
+    protected = (
+        execution.review_status != TestExecution.ReviewStatus.PENDING
+        or execution.result != TestExecution.Result.NOT_RUN
+        or execution.step_executions.exists()
+        or execution.automated_results.exists()
+        or bool(execution.evidence)
+        or bool(execution.step_results)
+        or bool(execution.actual_result.strip())
+        or bool(execution.technical_log.strip())
+        or execution.related_defect_id is not None
+    )
+    if protected:
         messages.error(
             request,
-            'Una ejecución revisada no puede eliminarse. Registra una nueva ejecución para conservar el historial ISTQB.',
+            'Esta ejecución ya contiene evidencia, resultados o asociaciones de trazabilidad y no puede eliminarse. Registra una nueva ejecución para conservar el historial ISTQB.',
         )
         return redirect(f'{reverse("executions:index")}?case={execution.test_case_id}')
 
