@@ -173,7 +173,7 @@ Requiere tener PostgreSQL instalado y corriendo en tu maquina.
 Asegurate de que `D:\PYTHON\iSTQB_Testing_Platform\.env` tenga tus credenciales:
 
 ```env
-SECRET_KEY=django-insecure-istqb-platform-secret-key
+SECRET_KEY=tu_clave_secreta
 DEBUG=True
 
 DB_NAME=istqb_db
@@ -237,20 +237,20 @@ No requiere tener Python ni PostgreSQL instalados en tu maquina. Solo Docker Des
 1. Descargar de https://www.docker.com/products/docker-desktop/
 2. Ejecutar el instalador
 3. **Reiniciar el computador**
-4. Abrir Docker Desktop y esperar que inicie (el icono en la bandeja del sistema deja de girar)
+4. Abrir Docker Desktop y esperar que inicie.
 
 ### Paso 2: Configurar .env para Docker
 
-El archivo `.env` debe coincidir con las credenciales que usa el contenedor de PostgreSQL:
+El archivo `.env` debe usar valores locales o secretos propios. No publiques contraseñas reales en Git.
 
 ```env
-SECRET_KEY=django-insecure-istqb-platform-secret-key
+SECRET_KEY=tu_clave_secreta
 DEBUG=True
 
 DB_NAME=istqb_db
 DB_USER=postgres
-DB_PASSWORD=postgres    # Coincide con docker-compose.yml
-DB_HOST=localhost        # Docker sobreescribe esto automaticamente a "db"
+DB_PASSWORD=tu_contraseña_local
+DB_HOST=localhost
 DB_PORT=5432
 ```
 
@@ -263,8 +263,6 @@ cd D:\PYTHON\iSTQB_Testing_Platform
 # Construir y levantar los contenedores
 docker compose up --build
 ```
-
-La primera vez tarda varios minutos descargando imagenes e instalando dependencias.
 
 ### Paso 4: En otra terminal (mientras Docker corre)
 
@@ -282,14 +280,6 @@ docker compose exec web python manage.py migrate
 **Crear superusuario:**
 ```bash
 docker compose exec -it web python manage.py createsuperuser
-```
-
-**Cargar datos de prueba (opcional):**
-```bash
-docker compose exec web python manage.py shell -c "
-from apps.users.models import User
-User.objects.create_superuser('admin@unl.edu.ec', 'Admin123!', role='ADMIN')
-"
 ```
 
 ### Paso 5: Acceder a la plataforma
@@ -379,5 +369,9 @@ docker compose exec -it web python manage.py createsuperuser
 | **Estudiante** | Ejecuta pruebas, registra evidencias, defectos e incidentes |
 
 ---
-| pablo.ordonez@unl.edu.ec | Istqb2026.Temp! | Docente | — |
-| francisco@unl.edu.ec | Istqb2026.Temp! | Docente | — |
+
+## Seguridad
+
+- No incluir contraseñas reales, tokens ni claves privadas en archivos versionados.
+- Usar `.env` local para secretos.
+- Para producción, proporcionar `SECRET_KEY`, `ALLOWED_HOSTS` y demás parámetros sensibles mediante variables de entorno.
