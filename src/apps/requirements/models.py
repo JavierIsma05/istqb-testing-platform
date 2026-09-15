@@ -1,7 +1,8 @@
 import re
 
-from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.db import models
 
 from apps.core.models import OwnedModel
 from apps.core.models import TimeStampedModel
@@ -43,6 +44,24 @@ class Requirement(OwnedModel):
     class Meta:
         ordering = ['project', 'code']
         unique_together = ('project', 'code')
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if not self.project_id:
+            errors['project'] = 'El requisito debe pertenecer a un proyecto.'
+        if not (self.code or '').strip():
+            errors['code'] = 'El requisito debe tener un código.'
+        if not (self.title or '').strip():
+            errors['title'] = 'El requisito debe tener un título.'
+        if not (self.description or '').strip():
+            errors['description'] = 'El requisito debe tener una descripción.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean(validate_unique=False)
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.code} - {self.title}'
