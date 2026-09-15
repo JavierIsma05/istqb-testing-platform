@@ -6,7 +6,9 @@ from django.urls import reverse
 from django.contrib.auth.models import AnonymousUser
 
 from apps.projects.models import Project
-from apps.core.permissions import can_manage_artifacts, can_manage_users, is_admin, is_student, is_teacher
+from apps.core.module_views import _visible_objects
+from apps.core.permissions import can_manage_artifacts, can_manage_users, is_admin, is_student, is_teacher, visible_projects_for
+from apps.requirements.models import Requirement
 from apps.users.models import User
 
 
@@ -92,3 +94,41 @@ def test_permisos_de_rol_distinguen_gestion_de_articulos(role, can_manage_artifa
 
     assert can_manage_artifacts(user) is can_manage_artifacts_value
     assert can_manage_users(user) is (role == User.Roles.ADMIN)
+
+
+@pytest.mark.django_db
+def test_scaffold_generico_no_expone_requisitos_de_otro_proyecto(user):
+    owned = Project.objects.create(
+        code='PRJ-OWN-001',
+        name='Proyecto visible',
+        description='Visible para el usuario.',
+        created_by=user,
+    )
+    other_user = User.objects.create_user(
+        email='otro-proyecto@example.edu',
+        password='StrongPass123!',
+        role=User.Roles.STUDENT,
+    )
+    hidden = Project.objects.create(
+        code='PRJ-HID-001',
+        name='Proyecto oculto',
+        description='No debe aparecer.',
+        created_by=other_user,
+    )
+    visible_projects = visible_projects_for(user)
+    Requirement.objects.create(
+        project=owned,
+        code='REQ-OWN-001',
+        title='Requisito visible',
+        description='Contenido visible.',
+    )
+    Requirement.objects.create(
+        project=hidden,
+        code='REQ-HID-001',
+        title='Requisito oculto',
+        description='Contenido que no debe exponerse.',
+    )
+
+    objects = _visible_objects(Requirement, visible_projects, user)
+
+    assert list(objects.values_list('code', flat=True)) == ['REQ-OWN-001']
