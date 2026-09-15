@@ -70,9 +70,11 @@ class TestExecution(TimeStampedModel):
         if self.test_case_id and self.related_defect_id:
             if self.related_defect.test_case_id != self.test_case_id:
                 errors['related_defect'] = 'El defecto relacionado debe pertenecer al mismo caso de prueba.'
-            elif self.execution_type == self.ExecutionType.CONFIRMATION and self.related_defect.status not in {
-                'IN_PROGRESS', 'RESOLVED', 'REOPENED'
-            }:
+            elif self.related_defect.project_id != self.test_case.test_plan.project_id:
+                errors['related_defect'] = 'El defecto relacionado debe pertenecer al mismo proyecto del caso de prueba.'
+            elif self.execution_type != self.ExecutionType.CONFIRMATION:
+                errors['related_defect'] = 'Un defecto relacionado solo puede asociarse mediante una prueba de confirmación.'
+            elif self.related_defect.status not in {'IN_PROGRESS', 'RESOLVED', 'REOPENED'}:
                 errors['related_defect'] = 'La confirmación solo puede ejecutarse sobre un defecto en corrección o pendiente de confirmación.'
         if self.execution_type == self.ExecutionType.CONFIRMATION and not self.related_defect_id:
             errors['related_defect'] = 'Una ejecución de confirmación debe estar vinculada a un defecto.'
@@ -184,6 +186,8 @@ class AutomatedValidationRule(TimeStampedModel):
                 errors['requirement'] = 'El requisito debe pertenecer al mismo proyecto del caso de prueba.'
             if self.requirement.test_plan_id != self.test_case.test_plan_id:
                 errors['requirement'] = 'El requisito debe pertenecer al mismo plan de pruebas del caso de prueba.'
+            if self.test_case.requirement_id and self.requirement_id != self.test_case.requirement_id:
+                errors['requirement'] = 'La regla automatizada debe utilizar el requisito principal del caso de prueba.'
         if self.step_number < 1:
             errors['step_number'] = 'El número de paso debe ser mayor que cero.'
         if self.test_case_id:
@@ -228,8 +232,12 @@ class AutomatedExecutionResult(TimeStampedModel):
     def clean(self):
         errors = {}
         if self.test_execution_id and self.validation_rule_id:
+            if self.test_execution.execution_mode != TestExecution.ExecutionMode.AUTOMATED:
+                errors['test_execution'] = 'El resultado automatizado debe pertenecer a una ejecución automatizada.'
             if self.validation_rule.test_case_id != self.test_execution.test_case_id:
                 errors['validation_rule'] = 'La regla automatizada debe pertenecer al mismo caso de prueba de la ejecución.'
+            elif self.validation_rule.requirement_id != self.test_execution.test_case.requirement_id:
+                errors['validation_rule'] = 'La regla automatizada debe utilizar el requisito principal del caso de prueba.'
         if self.started_at and self.finished_at and self.finished_at < self.started_at:
             errors['finished_at'] = 'La fecha de finalización no puede ser anterior al inicio.'
         if errors:
