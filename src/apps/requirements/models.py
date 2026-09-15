@@ -56,6 +56,12 @@ class Requirement(OwnedModel):
             errors['title'] = 'El requisito debe tener un título.'
         if not (self.description or '').strip():
             errors['description'] = 'El requisito debe tener una descripción.'
+
+        if self.pk and self.project_id:
+            previous_project_id = type(self).objects.filter(pk=self.pk).values_list('project_id', flat=True).first()
+            if previous_project_id and previous_project_id != self.project_id:
+                errors['project'] = 'El proyecto de un requisito existente no puede cambiarse; conserva su trazabilidad histórica.'
+
         if errors:
             raise ValidationError(errors)
 
