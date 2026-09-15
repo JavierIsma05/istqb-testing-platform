@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from apps.audit.services import log_action
 from apps.core.permissions import is_teacher, visible_projects_for
@@ -14,8 +15,9 @@ from .services.automated_runner import run_automated_execution
 
 
 @login_required
+@require_POST
 def automated_rule_create_view(request, case_id):
-    if request.method != 'POST' or is_teacher(request.user):
+    if is_teacher(request.user):
         return redirect('executions:index')
     test_case = get_object_or_404(
         TestCase.objects.select_related('requirement', 'test_plan__project'),
@@ -38,8 +40,9 @@ def automated_rule_create_view(request, case_id):
 
 
 @login_required
+@require_POST
 def automated_rule_delete_view(request, pk):
-    if request.method != 'POST' or is_teacher(request.user):
+    if is_teacher(request.user):
         return redirect('executions:index')
     rule = get_object_or_404(
         AutomatedValidationRule.objects.select_related('test_case__test_plan__project'),
@@ -47,19 +50,29 @@ def automated_rule_delete_view(request, pk):
         test_case__test_plan__project__in=visible_projects_for(request.user, request=request),
     )
     test_case_id = rule.test_case_id
-    if rule.execution_results.exists():
+    had_history = rule.execution_results.exists()
+    if had_history:
         rule.is_active = False
         rule.save(update_fields=['is_active', 'updated_at'])
+        log_action(request.user, 'UPDATE', 'AutomatedValidationRule', rule.pk, {
+            'test_case_id': test_case_id,
+            'action': 'DEACTIVATE_WITH_HISTORY',
+        })
         messages.info(request, 'El paso automatizado tiene historial y fue desactivado en lugar de eliminarse.')
     else:
+        log_action(request.user, 'DELETE', 'AutomatedValidationRule', rule.pk, {
+            'test_case_id': test_case_id,
+            'action': 'DELETE_WITHOUT_HISTORY',
+        })
         rule.delete()
         messages.success(request, 'Paso automatizado eliminado.')
     return redirect(f'{reverse("executions:index")}?case={test_case_id}#automation')
 
 
 @login_required
+@require_POST
 def automated_execution_run_view(request, case_id):
-    if request.method != 'POST' or is_teacher(request.user):
+    if is_teacher(request.user):
         return redirect('executions:index')
     test_case = get_object_or_404(
         TestCase.objects.select_related('requirement', 'test_plan__project'),
@@ -81,7 +94,7 @@ def automated_execution_run_view(request, case_id):
             'source': 'automated_execution',
             'error': str(exc)[:500],
         })
-        messages.error(request, f'La ejecución automatizada no pudo completarse: {exc}')
+        messages.error(request, 'La ejecución automatizada no pudo completarse. Revisa el registro de auditoría o los datos de configuración.')
         return redirect(f'{reverse("executions:index")}?case={test_case.id}#automation')
     sync_test_case_status_from_execution(test_case, execution)
     if execution.result == TestExecution.Result.FAILED:
