@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -31,6 +32,18 @@ DEFAULT_TIMEOUT = int(os.getenv("SELENIUM_TIMEOUT", "10"))
 SCREENSHOTS_DIR = Path(__file__).resolve().parent / "screenshots"
 
 
+def _chromium_binary() -> str | None:
+    """Devuelve un navegador Chromium disponible sin imponer una ruta local."""
+    configured = os.getenv("SELENIUM_BROWSER_BINARY")
+    if configured and Path(configured).exists():
+        return configured
+    for candidate in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable"):
+        path = shutil.which(candidate)
+        if path:
+            return path
+    return None
+
+
 class SeleniumBaseTest:
     """Clase base para evitar duplicacion en las pruebas funcionales."""
 
@@ -40,6 +53,9 @@ class SeleniumBaseTest:
     def setup_method(self) -> None:
         SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
         chrome_options = Options()
+        binary = _chromium_binary()
+        if binary:
+            chrome_options.binary_location = binary
         chrome_options.add_argument("--start-maximized")
         chrome_options.add_argument("--disable-notifications")
         chrome_options.add_argument("--disable-infobars")
