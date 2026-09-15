@@ -24,14 +24,11 @@ class TraceabilityLink(TimeStampedModel):
                 'test_case': 'El caso de prueba debe pertenecer al mismo proyecto que el requisito.',
             })
 
-        if self.test_case.requirement_id and self.test_case.requirement_id != self.requirement_id:
-            raise ValidationError({
-                'test_case': 'El vínculo debe coincidir con el requisito principal del caso de prueba.',
-            })
+        # A test case may cover more than one requirement. Its primary
+        # requirement remains the canonical owner of the case, while additional
+        # links preserve many-to-many traceability for coverage analysis.
 
     def save(self, *args, **kwargs):
-        # Validate project and primary-requirement consistency here, while leaving
-        # duplicate pairs to the database unique constraint so callers receive IntegrityError.
         self.full_clean(validate_unique=False)
         return super().save(*args, **kwargs)
 
