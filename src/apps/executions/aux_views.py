@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.views.decorators.http import require_GET
 
 from apps.audit.services import log_action
 from apps.core.permissions import can_manage_artifacts, is_teacher, visible_projects_for
@@ -128,6 +129,7 @@ def test_data_delete_view(request, pk):
 
 
 @login_required
+@require_GET
 def teacher_api_projects(request):
     if not is_teacher(request.user):
         return JsonResponse({'error': 'No autorizado'}, status=403)
@@ -137,6 +139,7 @@ def teacher_api_projects(request):
 
 
 @login_required
+@require_GET
 def teacher_api_students(request, project_id):
     if not is_teacher(request.user):
         return JsonResponse({'error': 'No autorizado'}, status=403)
@@ -157,12 +160,13 @@ def teacher_api_students(request, project_id):
 
 
 @login_required
+@require_GET
 def teacher_api_cases(request, project_id, student_id):
     if not is_teacher(request.user):
         return JsonResponse({'error': 'No autorizado'}, status=403)
     project = get_object_or_404(visible_projects_for(request.user), pk=project_id)
     student = get_object_or_404(User.objects.all(), pk=student_id, role=User.Roles.STUDENT)
-    if student not in project.members.all():
+    if not project.members.filter(pk=student.pk).exists():
         return JsonResponse({'error': 'El estudiante no pertenece al proyecto'}, status=400)
     cases = TestCase.objects.filter(
         test_plan__project=project,
