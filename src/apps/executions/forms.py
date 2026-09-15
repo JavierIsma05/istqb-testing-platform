@@ -9,6 +9,16 @@ EVIDENCE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf', '.txt',
 MAX_EVIDENCE_SIZE = 10 * 1024 * 1024
 
 
+def _validate_uploaded_file(uploaded, allowed_extensions, label='El archivo'):
+    if not uploaded:
+        return
+    filename = (uploaded.name or '').lower()
+    if not filename.endswith(allowed_extensions):
+        raise forms.ValidationError(f'{label} tiene un formato no permitido.')
+    if uploaded.size > MAX_EVIDENCE_SIZE:
+        raise forms.ValidationError(f'{label} no debe superar 10 MB.')
+
+
 class ExecutionResultForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
     result = forms.ChoiceField(
         label='Estado',
@@ -24,63 +34,23 @@ class ExecutionResultForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
     class Meta:
         model = TestExecution
         fields = (
-            'execution_mode',
-            'execution_type',
-            'related_defect',
-            'planned_date',
-            'result',
-            'actual_result',
-            'test_data',
-            'environment',
-            'notes',
-            'evidence',
+            'execution_mode', 'execution_type', 'related_defect', 'planned_date', 'result',
+            'actual_result', 'test_data', 'environment', 'notes', 'evidence',
         )
         labels = {
-            'execution_mode': 'Modo de ejecucion',
-            'execution_type': 'Tipo de ejecucion',
-            'related_defect': 'Defecto relacionado',
-            'planned_date': 'Fecha de ejecución',
-            'actual_result': 'Resultado obtenido',
-            'test_data': 'Datos de prueba usados',
-            'environment': 'Ambiente de prueba',
-            'notes': 'Observaciones',
-            'evidence': 'Evidencias',
+            'execution_mode': 'Modo de ejecucion', 'execution_type': 'Tipo de ejecucion',
+            'related_defect': 'Defecto relacionado', 'planned_date': 'Fecha de ejecución',
+            'actual_result': 'Resultado obtenido', 'test_data': 'Datos de prueba usados',
+            'environment': 'Ambiente de prueba', 'notes': 'Observaciones', 'evidence': 'Evidencias',
         }
         widgets = {
-            'execution_mode': forms.HiddenInput(),
-            'execution_type': forms.HiddenInput(),
+            'execution_mode': forms.HiddenInput(), 'execution_type': forms.HiddenInput(),
             'related_defect': forms.Select(attrs={'class': 'form-select'}),
-            'planned_date': forms.DateInput(
-                attrs=current_year_date_attrs({'class': 'form-control', 'type': 'date'}),
-                format='%Y-%m-%d',
-            ),
-            'test_data': forms.Textarea(
-                attrs={
-                    'class': 'form-control',
-                    'placeholder': 'Ej. usuario, rol, entradas o datos usados durante la prueba...',
-                    'rows': 3,
-                }
-            ),
-            'environment': forms.TextInput(
-                attrs={
-                    'class': 'form-control',
-                    'placeholder': 'Ej. Chrome 125, Windows 11, ambiente local',
-                }
-            ),
-            'notes': forms.Textarea(
-                attrs={
-                    'class': 'form-control',
-                    'placeholder': 'Registra observaciones, bloqueos o aclaraciones adicionales...',
-                    'rows': 4,
-                }
-            ),
-            'evidence': forms.FileInput(
-                attrs={
-                    'accept': '.png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.log,.csv',
-                    'class': 'form-control execution-file-input',
-                    'data-file-input': '',
-                }
-            ),
+            'planned_date': forms.DateInput(attrs=current_year_date_attrs({'class': 'form-control', 'type': 'date'}), format='%Y-%m-%d'),
+            'test_data': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Ej. usuario, rol, entradas o datos usados durante la prueba...', 'rows': 3}),
+            'environment': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. Chrome 125, Windows 11, ambiente local'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Registra observaciones, bloqueos o aclaraciones adicionales...', 'rows': 4}),
+            'evidence': forms.FileInput(attrs={'accept': '.png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.log,.csv', 'class': 'form-control execution-file-input', 'data-file-input': ''}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -105,9 +75,7 @@ class ExecutionResultForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
             self.fields['notes'].widget.attrs['disabled'] = True
             self.fields['notes'].help_text = 'El comentario queda bloqueado para estudiantes; lo podrá escribir el docente en revisión.'
         if test_case:
-            self.fields['related_defect'].queryset = test_case.test_plan.project.defects.filter(
-                test_case=test_case,
-            ).order_by('-created_at')
+            self.fields['related_defect'].queryset = test_case.test_plan.project.defects.filter(test_case=test_case).order_by('-created_at')
         else:
             self.fields['related_defect'].queryset = self.fields['related_defect'].queryset.none()
         help_texts = {
@@ -131,49 +99,19 @@ class ExecutionResultForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
         execution_type = cleaned_data.get('execution_type')
         related_defect = cleaned_data.get('related_defect')
         actual_result = (cleaned_data.get('actual_result') or '').strip()
-
         if related_defect and self.test_case and related_defect.test_case_id != self.test_case.pk:
-            self.add_error(
-                'related_defect',
-                'El defecto seleccionado debe pertenecer al caso de prueba actual.',
-            )
-
+            self.add_error('related_defect', 'El defecto seleccionado debe pertenecer al caso de prueba actual.')
         if execution_type == TestExecution.ExecutionType.CONFIRMATION and not related_defect:
-            self.add_error(
-                'related_defect',
-                'Selecciona el defecto que se confirma con esta ejecucion.',
-            )
-
-        # Deriva el estado a partir del resultado obtenido (solo para los valores del formulario).
+            self.add_error('related_defect', 'Selecciona el defecto que se confirma con esta ejecucion.')
         if actual_result in {'Cumple', 'No cumple'}:
-            cleaned_data['result'] = (
-                TestExecution.Result.PASSED
-                if actual_result == 'Cumple'
-                else TestExecution.Result.FAILED
-            )
-
-        if result in {
-            TestExecution.Result.PASSED,
-            TestExecution.Result.FAILED,
-            TestExecution.Result.BLOCKED,
-        } and not actual_result:
-            self.add_error(
-                'actual_result',
-                'Registra el resultado obtenido para justificar si el caso aprobo o fallo.',
-            )
-
+            cleaned_data['result'] = TestExecution.Result.PASSED if actual_result == 'Cumple' else TestExecution.Result.FAILED
+        if result in {TestExecution.Result.PASSED, TestExecution.Result.FAILED, TestExecution.Result.BLOCKED} and not actual_result:
+            self.add_error('actual_result', 'Registra el resultado obtenido para justificar si el caso aprobo o fallo.')
         return cleaned_data
 
     def clean_evidence(self):
         evidence = self.cleaned_data.get('evidence')
-        if not evidence:
-            return evidence
-
-        filename = evidence.name.lower()
-        if not filename.endswith(EVIDENCE_EXTENSIONS):
-            raise forms.ValidationError('La evidencia debe ser una imagen, PDF, TXT, LOG o CSV.')
-        if evidence.size > MAX_EVIDENCE_SIZE:
-            raise forms.ValidationError('La evidencia no debe superar 10 MB.')
+        _validate_uploaded_file(evidence, EVIDENCE_EXTENSIONS, 'La evidencia')
         return evidence
 
 
@@ -181,19 +119,10 @@ class ExecutionReviewForm(forms.ModelForm):
     class Meta:
         model = TestExecution
         fields = ('review_status', 'review_notes')
-        labels = {
-            'review_status': 'Revisión docente',
-            'review_notes': 'Comentario del docente',
-        }
+        labels = {'review_status': 'Revisión docente', 'review_notes': 'Comentario del docente'}
         widgets = {
             'review_status': forms.Select(attrs={'class': 'form-select'}),
-            'review_notes': forms.Textarea(
-                attrs={
-                    'class': 'form-control',
-                    'placeholder': 'Indica si la evidencia es suficiente o que debe corregirse...',
-                    'rows': 3,
-                }
-            ),
+            'review_notes': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Indica si la evidencia es suficiente o que debe corregirse...', 'rows': 3}),
         }
 
 
@@ -201,24 +130,28 @@ class StepEvidenceForm(forms.ModelForm):
     class Meta:
         model = TestStepExecution
         fields = ('evidence_file', 'screenshot')
-        labels = {
-            'evidence_file': 'Archivo de evidencia',
-            'screenshot': 'Captura de pantalla',
-        }
+        labels = {'evidence_file': 'Archivo de evidencia', 'screenshot': 'Captura de pantalla'}
         widgets = {
             'evidence_file': forms.FileInput(attrs={'class': 'form-control', 'accept': '.png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.log,.csv'}),
             'screenshot': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
         }
 
+    def clean_evidence_file(self):
+        evidence = self.cleaned_data.get('evidence_file')
+        _validate_uploaded_file(evidence, EVIDENCE_EXTENSIONS, 'El archivo de evidencia')
+        return evidence
+
+    def clean_screenshot(self):
+        screenshot = self.cleaned_data.get('screenshot')
+        _validate_uploaded_file(screenshot, ('.png', '.jpg', '.jpeg', '.gif', '.webp'), 'La captura')
+        return screenshot
+
     def clean(self):
         cleaned_data = super().clean()
         evidence = cleaned_data.get('evidence_file')
         screenshot = cleaned_data.get('screenshot')
-        if not evidence and not screenshot:
+        if not evidence and not screenshot and not self.instance.evidence_file and not self.instance.screenshot:
             raise forms.ValidationError('Adjunta un archivo o una captura para respaldar este paso.')
-        for uploaded in (evidence, screenshot):
-            if uploaded and uploaded.size > MAX_EVIDENCE_SIZE:
-                raise forms.ValidationError('Cada evidencia no debe superar 10 MB.')
         return cleaned_data
 
 
@@ -226,10 +159,7 @@ class StepReviewForm(forms.ModelForm):
     class Meta:
         model = TestStepExecution
         fields = ('status', 'comment')
-        labels = {
-            'status': 'Estado revisado',
-            'comment': 'Comentario docente',
-        }
+        labels = {'status': 'Estado revisado', 'comment': 'Comentario docente'}
         widgets = {
             'status': forms.Select(attrs={'class': 'form-select form-select-sm'}),
             'comment': forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 2, 'placeholder': 'Observación sobre este paso...'}),
@@ -240,10 +170,7 @@ class TestDataForm(forms.ModelForm):
     class Meta:
         model = TestData
         fields = ('key', 'value')
-        labels = {
-            'key': 'Nombre de variable',
-            'value': 'Valor',
-        }
+        labels = {'key': 'Nombre de variable', 'value': 'Valor'}
         widgets = {
             'key': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ej. usuario, clave, url_base'}),
             'value': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ej. javier.aguilar@unl.edu.ec, Test1234, http://localhost:8000'}),
@@ -256,63 +183,20 @@ class TestDataForm(forms.ModelForm):
 
 
 class AutomatedStepForm(forms.ModelForm):
-    name = forms.CharField(
-        label='Nombre del paso',
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional: se genera solo'}),
-    )
-    template = forms.ChoiceField(
-        label='Usar plantilla',
-        required=False,
-        choices=[
-            ('', '-- Seleccionar plantilla --'),
-            ('login', 'Login estándar'),
-            ('search', 'Búsqueda simple'),
-            ('form_submit', 'Envío de formulario'),
-        ],
-        widget=forms.Select(attrs={'class': 'form-select', 'data-template-select': ''}),
-    )
+    name = forms.CharField(label='Nombre del paso', required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional: se genera solo'}))
+    template = forms.ChoiceField(label='Usar plantilla', required=False, choices=[('', '-- Seleccionar plantilla --'), ('login', 'Login estándar'), ('search', 'Búsqueda simple'), ('form_submit', 'Envío de formulario')], widget=forms.Select(attrs={'class': 'form-select', 'data-template-select': ''}))
 
     class Meta:
         model = AutomatedValidationRule
-        fields = (
-            'name',
-            'step_number',
-            'action_type',
-            'target_url',
-            'selector_value',
-            'input_value',
-            'expected_value',
-            'comparison_type',
-            'timeout_seconds',
-            'is_critical',
-        )
-        labels = {
-            'step_number': 'Paso',
-            'action_type': 'Acción',
-            'target_url': 'URL a abrir',
-            'selector_value': 'Selector CSS del elemento',
-            'input_value': 'Dato',
-            'expected_value': 'Resultado esperado',
-            'comparison_type': 'Tipo de comparación',
-            'timeout_seconds': 'Duración en segundos',
-            'is_critical': 'Paso crítico',
-        }
+        fields = ('name', 'step_number', 'action_type', 'target_url', 'selector_value', 'input_value', 'expected_value', 'comparison_type', 'timeout_seconds', 'is_critical')
+        labels = {'step_number': 'Paso', 'action_type': 'Acción', 'target_url': 'URL a abrir', 'selector_value': 'Selector CSS del elemento', 'input_value': 'Dato', 'expected_value': 'Resultado esperado', 'comparison_type': 'Tipo de comparación', 'timeout_seconds': 'Duración en segundos', 'is_critical': 'Paso crítico'}
         widgets = {
             'step_number': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'value': 1}),
             'action_type': forms.Select(attrs={'class': 'form-select'}),
-            'target_url': forms.URLInput(
-                attrs={'class': 'form-control', 'placeholder': 'http://localhost:8000/'}
-            ),
-            'selector_value': forms.TextInput(
-                attrs={'class': 'form-control', 'placeholder': '#usuario, input[name="password"], .btn-login'}
-            ),
-            'input_value': forms.TextInput(
-                attrs={'class': 'form-control', 'placeholder': 'Valor a escribir o seleccionar (acepta {{variable}})' }
-            ),
-            'expected_value': forms.TextInput(
-                attrs={'class': 'form-control', 'placeholder': 'Valor, texto o URL esperada'}
-            ),
+            'target_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'http://localhost:8000/'}),
+            'selector_value': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '#usuario, input[name="password"], .btn-login'}),
+            'input_value': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Valor a escribir o seleccionar (acepta {{variable}})'}),
+            'expected_value': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Valor, texto o URL esperada'}),
             'comparison_type': forms.Select(attrs={'class': 'form-select'}),
             'timeout_seconds': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 60, 'value': 10}),
             'is_critical': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -341,8 +225,6 @@ class AutomatedStepForm(forms.ModelForm):
         self.fields['target_url'].initial = ''
         self.fields['comparison_type'].required = False
         self.fields['comparison_type'].initial = AutomatedValidationRule.ComparisonType.EXACT
-        
-        # Add data attributes for dynamic field visibility
         self.fields['target_url'].widget.attrs['data-action'] = 'OPEN_URL'
         self.fields['selector_value'].widget.attrs['data-action'] = 'CLICK FILL_TEXT VERIFY'
         self.fields['input_value'].widget.attrs['data-action'] = 'FILL_TEXT WAIT'
@@ -356,43 +238,20 @@ class AutomatedStepForm(forms.ModelForm):
         if not action:
             self.add_error('action_type', 'Selecciona una accion para el paso.')
             return cleaned_data
-
         step_number = cleaned_data.get('step_number')
-        if step_number and not cleaned_data.get('name'):
-            label = dict(AutomatedValidationRule.ActionType.choices).get(action, '')
-            cleaned_data['name'] = f'Paso {step_number}: {label}'
-
-        # OPEN_URL: only target_url required
-        if action == AutomatedValidationRule.ActionType.OPEN_URL:
-            if not cleaned_data.get('target_url'):
-                self.add_error('target_url', 'Indica la URL que debe abrir la automatizacion.')
-            if cleaned_data.get('selector_value') or cleaned_data.get('input_value') or cleaned_data.get('expected_value'):
-                self.add_error(None, 'El paso Abrir URL no debe usar selector, dato ni resultado esperado.')
-
-        # FILL_TEXT: selector and input value
-        elif action == AutomatedValidationRule.ActionType.FILL_TEXT:
-            if not cleaned_data.get('selector_value'):
-                self.add_error('selector_value', 'Indica el selector del campo que se debe completar.')
-            if not cleaned_data.get('input_value'):
-                self.add_error('input_value', 'Indica el valor que debe escribirse.')
-
-        # CLICK: selector only
-        elif action == AutomatedValidationRule.ActionType.CLICK:
-            if not cleaned_data.get('selector_value'):
-                self.add_error('selector_value', 'Indica el selector del elemento que se debe pulsar.')
-            if cleaned_data.get('input_value') or cleaned_data.get('expected_value'):
-                self.add_error(None, 'El paso Click no debe usar dato de entrada ni resultado esperado.')
-
-        # VERIFY: selector, expected value, comparison
-        elif action == AutomatedValidationRule.ActionType.VERIFY:
-            if not cleaned_data.get('selector_value'):
-                self.add_error('selector_value', 'Indica el selector del elemento que se debe verificar.')
-            if not cleaned_data.get('expected_value'):
-                self.add_error('expected_value', 'Indica el resultado esperado para la verificacion.')
-
-        # WAIT: timeout only
-        elif action == AutomatedValidationRule.ActionType.WAIT:
-            if cleaned_data.get('selector_value') or cleaned_data.get('input_value') or cleaned_data.get('expected_value'):
-                self.add_error(None, 'El paso Esperar no debe usar selector, dato ni resultado esperado.')
-
+        timeout = cleaned_data.get('timeout_seconds')
+        if step_number is not None and step_number < 1:
+            self.add_error('step_number', 'El número de paso debe ser mayor que cero.')
+        if timeout is not None and not 1 <= timeout <= 120:
+            self.add_error('timeout_seconds', 'El tiempo de espera debe estar entre 1 y 120 segundos.')
+        if action == AutomatedValidationRule.ActionType.OPEN_URL and not cleaned_data.get('target_url'):
+            self.add_error('target_url', 'La acción Abrir URL requiere una dirección.')
+        if action in {AutomatedValidationRule.ActionType.CLICK, AutomatedValidationRule.ActionType.FILL_TEXT, AutomatedValidationRule.ActionType.VERIFY} and not cleaned_data.get('selector_value'):
+            self.add_error('selector_value', 'Esta acción requiere un selector CSS.')
+        if action == AutomatedValidationRule.ActionType.FILL_TEXT and not cleaned_data.get('input_value'):
+            self.add_error('input_value', 'La acción Escribir requiere un dato.')
+        if action == AutomatedValidationRule.ActionType.VERIFY and not cleaned_data.get('expected_value'):
+            self.add_error('expected_value', 'La acción Verificar requiere un resultado esperado.')
+        if action == AutomatedValidationRule.ActionType.WAIT and not timeout:
+            self.add_error('timeout_seconds', 'La acción Esperar requiere una duración.')
         return cleaned_data
