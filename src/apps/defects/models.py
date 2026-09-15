@@ -16,7 +16,7 @@ class Defect(TimeStampedModel):
 
     class Priority(models.TextChoices):
         LOW = 'LOW', 'Baja'
-        MEDIUM = 'Media', 'Media'
+        MEDIUM = 'MEDIUM', 'Media'
         HIGH = 'HIGH', 'Alta'
         CRITICAL = 'CRITICAL', 'Crítica'
 
