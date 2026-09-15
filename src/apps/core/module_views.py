@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.forms import modelform_factory
+from django.http import Http404
 from django.shortcuts import redirect, render
 
 from apps.core.permissions import can_manage_artifacts, is_teacher, redirect_if_teacher_readonly, visible_projects_for
@@ -108,19 +109,79 @@ MODULES = {
 }
 
 
+def _get_module(module_key):
+    module = MODULES.get(module_key)
+    if module is None:
+        raise Http404('Módulo no encontrado')
+    return module
+
+
+def _visible_objects(model, visible_projects, user):
+    if model is Project:
+        return model.objects.filter(pk__in=visible_projects.values('pk'))
+    if model is Requirement:
+        return model.objects.filter(project__in=visible_projects)
+    if model is TestPlan:
+        return model.objects.filter(project__in=visible_projects)
+    if model is TestCase:
+        return model.objects.filter(test_plan__project__in=visible_projects)
+    if model is TestExecution:
+        return model.objects.filter(test_case__test_plan__project__in=visible_projects)
+    if model is Incident:
+        return model.objects.filter(project__in=visible_projects)
+    if model is Defect:
+        return model.objects.filter(project__in=visible_projects)
+    if model is TraceabilityLink:
+        return model.objects.filter(
+            requirement__project__in=visible_projects,
+            test_case__test_plan__project__in=visible_projects,
+        )
+    if model is Report:
+        return model.objects.filter(project__in=visible_projects)
+    if model is Notification:
+        return model.objects.filter(recipient=user)
+    if model is TestingPhase:
+        return model.objects.filter(project__in=visible_projects)
+    return model.objects.none()
+
+
+def _scope_form_fields(form, visible_projects):
+    """Prevent the legacy generic form from selecting objects outside the user's projects."""
+    for name, field in form.fields.items():
+        queryset = getattr(field, 'queryset', None)
+        if queryset is None:
+            continue
+        model = getattr(queryset, 'model', None)
+        if model is Project:
+            field.queryset = queryset.filter(pk__in=visible_projects.values('pk'))
+        elif model is Requirement:
+            field.queryset = queryset.filter(project__in=visible_projects)
+        elif model is TestPlan:
+            field.queryset = queryset.filter(project__in=visible_projects)
+        elif model is TestCase:
+            field.queryset = queryset.filter(test_plan__project__in=visible_projects)
+        elif model is TestExecution:
+            field.queryset = queryset.filter(test_case__test_plan__project__in=visible_projects)
+        elif model is Incident:
+            field.queryset = queryset.filter(project__in=visible_projects)
+        elif model is Defect:
+            field.queryset = queryset.filter(project__in=visible_projects)
+        elif model is TraceabilityLink:
+            field.queryset = queryset.filter(
+                requirement__project__in=visible_projects,
+                test_case__test_plan__project__in=visible_projects,
+            )
+        elif model is Report:
+            field.queryset = queryset.filter(project__in=visible_projects)
+        elif model is TestingPhase:
+            field.queryset = queryset.filter(project__in=visible_projects)
+
+
 @login_required
 def module_index(request, module_key):
-    module = MODULES[module_key]
-    objects = module['model'].objects.all()
+    module = _get_module(module_key)
     visible_projects = visible_projects_for(request.user, request=request)
-
-    if is_teacher(request.user):
-        if module['model'] is Project:
-            objects = objects.filter(id__in=visible_projects.values('id'))
-        elif hasattr(module['model'], 'project'):
-            objects = objects.filter(project__in=visible_projects)
-
-    objects = objects[:25]
+    objects = _visible_objects(module['model'], visible_projects, request.user).order_by('-id')[:25]
 
     return render(
         request,
@@ -137,13 +198,15 @@ def module_index(request, module_key):
 
 @login_required
 def module_create(request, module_key):
-    module = MODULES[module_key]
+    module = _get_module(module_key)
     readonly_redirect = redirect_if_teacher_readonly(request, f"{module['namespace']}:index", module['title'].lower())
     if readonly_redirect:
         return readonly_redirect
 
+    visible_projects = visible_projects_for(request.user, request=request)
     form_class = modelform_factory(module['model'], fields=module['fields'])
     form = form_class(request.POST or None, request.FILES or None)
+    _scope_form_fields(form, visible_projects)
 
     for field in form.fields.values():
         css_class = 'form-select' if getattr(field.widget, 'choices', None) else 'form-control'
