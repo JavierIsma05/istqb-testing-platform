@@ -68,9 +68,14 @@ class TestExecution(TimeStampedModel):
                 errors['related_defect'] = 'El defecto relacionado debe pertenecer al mismo caso de prueba.'
             elif self.related_defect.project_id != self.test_case.test_plan.project_id:
                 errors['related_defect'] = 'El defecto relacionado debe pertenecer al mismo proyecto del caso de prueba.'
-            elif self.execution_type != self.ExecutionType.CONFIRMATION:
-                errors['related_defect'] = 'Un defecto relacionado solo puede asociarse mediante una prueba de confirmación.'
-            elif self.related_defect.status not in {'IN_PROGRESS', 'RESOLVED', 'REOPENED', 'PENDING_CONFIRMATION'}:
+            elif self.execution_type not in {
+                self.ExecutionType.CONFIRMATION,
+                self.ExecutionType.REGRESSION,
+            }:
+                errors['related_defect'] = 'Un defecto relacionado solo puede asociarse mediante una prueba de confirmación o regresión.'
+            elif self.execution_type == self.ExecutionType.CONFIRMATION and self.related_defect.status not in {
+                'IN_PROGRESS', 'RESOLVED', 'REOPENED', 'PENDING_CONFIRMATION'
+            }:
                 errors['related_defect'] = 'La confirmación solo puede ejecutarse sobre un defecto en corrección o pendiente de confirmación.'
         if self.execution_type == self.ExecutionType.CONFIRMATION and not self.related_defect_id:
             errors['related_defect'] = 'Una ejecución de confirmación debe estar vinculada a un defecto.'
@@ -93,7 +98,7 @@ class TestStepExecution(TimeStampedModel):
     test_execution = models.ForeignKey(TestExecution, on_delete=models.CASCADE, related_name='step_executions')
     step_number = models.PositiveIntegerField()
     action = models.TextField()
-    expected_result = models.TextField()
+    expected_result = models.TextField(blank=True)
     obtained_result = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=TestExecution.Result.choices)
     comment = models.TextField(blank=True)
