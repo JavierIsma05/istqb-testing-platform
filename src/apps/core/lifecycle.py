@@ -266,34 +266,27 @@ def incident_transition_allowed(incident, target):
 def validate_execution_repeat(test_case, execution_type, environment, previous_execution=None):
     if execution_type != TestExecution.ExecutionType.NORMAL:
         return ValidationResult(True)
+
+    active_results = [
+        TestExecution.Result.NOT_RUN,
+        TestExecution.Result.RUNNING,
+        TestExecution.Result.PASSED,
+        TestExecution.Result.FAILED,
+        TestExecution.Result.BLOCKED,
+        TestExecution.Result.ERROR,
+    ]
     qs = test_case.executions.filter(
         execution_type=TestExecution.ExecutionType.NORMAL,
-        result__in=[
-            TestExecution.Result.NOT_RUN,
-            TestExecution.Result.RUNNING,
-            TestExecution.Result.PASSED,
-            TestExecution.Result.FAILED,
-            TestExecution.Result.BLOCKED,
-            TestExecution.Result.ERROR,
-        ],
-    ).exclude(environment=environment or '')
+        result__in=active_results,
+    )
+    if environment:
+        qs = qs.filter(environment=environment)
+    else:
+        qs = qs.filter(environment='')
+
     if previous_execution:
         qs = qs.exclude(pk=previous_execution.pk)
-    if environment:
-        qs = test_case.executions.filter(
-            execution_type=TestExecution.ExecutionType.NORMAL,
-            environment=environment,
-            result__in=[
-                TestExecution.Result.NOT_RUN,
-                TestExecution.Result.RUNNING,
-                TestExecution.Result.PASSED,
-                TestExecution.Result.FAILED,
-                TestExecution.Result.BLOCKED,
-                TestExecution.Result.ERROR,
-            ],
-        )
-        if previous_execution:
-            qs = qs.exclude(pk=previous_execution.pk)
+
     if qs.exists():
         return ValidationResult(
             False,
@@ -329,4 +322,5 @@ __all__ = [
     'test_case_readiness',
     'validate_test_plan_approval',
     'validate_execution_repeat',
+    'validate_file_upload',
 ]
