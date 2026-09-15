@@ -109,6 +109,12 @@ class TestStepExecution(TimeStampedModel):
 
     class Meta:
         ordering = ['step_number', 'created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['test_execution', 'step_number'],
+                name='uniq_step_execution_number',
+            ),
+        ]
 
     def clean(self):
         errors = {}
@@ -178,6 +184,12 @@ class AutomatedValidationRule(TimeStampedModel):
 
     class Meta:
         ordering = ['test_case', 'step_number', 'name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['test_case', 'step_number'],
+                name='uniq_automated_rule_step_number',
+            ),
+        ]
 
     def clean(self):
         errors = {}
@@ -201,6 +213,28 @@ class AutomatedValidationRule(TimeStampedModel):
                 errors['step_number'] = 'Ya existe una regla automatizada para este número de paso en el caso.'
         if not 1 <= self.timeout_seconds <= 120:
             errors['timeout_seconds'] = 'El tiempo de espera debe estar entre 1 y 120 segundos.'
+        action = self.action_type
+        if action == self.ActionType.OPEN_URL:
+            if not self.target_url:
+                errors['target_url'] = 'La acción Abrir URL requiere una dirección.'
+        elif action == self.ActionType.FILL_TEXT:
+            if not self.selector_value:
+                errors['selector_value'] = 'La acción Escribir requiere un selector CSS.'
+            if not self.input_value:
+                errors['input_value'] = 'La acción Escribir requiere un dato.'
+        elif action == self.ActionType.CLICK:
+            if not self.selector_value:
+                errors['selector_value'] = 'La acción Click requiere un selector CSS.'
+        elif action == self.ActionType.VERIFY:
+            if not self.selector_value:
+                errors['selector_value'] = 'La acción Verificar requiere un selector CSS.'
+            if not self.expected_value:
+                errors['expected_value'] = 'La acción Verificar requiere un resultado esperado.'
+        elif action == self.ActionType.WAIT:
+            if not self.timeout_seconds:
+                errors['timeout_seconds'] = 'La acción Esperar requiere una duración.'
+        elif action:
+            errors['action_type'] = 'La acción automatizada seleccionada no es válida.'
         if errors:
             raise ValidationError(errors)
 
