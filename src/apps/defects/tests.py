@@ -180,6 +180,7 @@ def test_transicion_de_estado_avanza_por_el_ciclo(client, project, test_case, us
         description='Avanza a traves de las transiciones.',
         severity=Defect.Severity.MEDIUM,
         reported_by=user,
+        assigned_to=user,
     )
     client.force_login(user)
 
@@ -189,9 +190,8 @@ def test_transicion_de_estado_avanza_por_el_ciclo(client, project, test_case, us
         assert response.status_code == 302
         assert defect.status == expected
 
-    defect.assigned_to = user
     defect.resolution = 'Se corrigió la validación y se preparó confirmación.'
-    defect.save(update_fields=['assigned_to', 'resolution', 'updated_at'])
+    defect.save(update_fields=['resolution', 'updated_at'])
     response = client.post(reverse('defects:transition', args=[defect.pk, Defect.Status.PENDING_CONFIRMATION]))
     defect.refresh_from_db()
     assert response.status_code == 302
@@ -221,7 +221,6 @@ def test_usuario_no_puede_modificar_ni_eliminar_defecto_de_proyecto_ajeno(client
     from apps.testcases.models import TestCase
     other_user = get_user_model().objects.create_user(email='foreign-defect@example.edu', password='StrongPass123')
     project = Project.objects.create(code='PRJ-FOREIGN-DEF', name='Proyecto ajeno', created_by=other_user)
-    # A defect only needs project/reporting fields for authorization lookup.
     defect = Defect.objects.create(project=project, code='DEF-999', title='Defecto privado', description='Privado.', reported_by=other_user)
     client.force_login(user)
     response = client.get(reverse('defects:edit', args=[defect.pk]))
