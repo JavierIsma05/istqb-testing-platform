@@ -16,7 +16,6 @@ from .models import Notification
 def get_project_student(project):
     if project.created_by and project.created_by.role == User.Roles.STUDENT:
         return project.created_by
-
     return project.members.filter(role=User.Roles.STUDENT).first()
 
 
@@ -24,23 +23,17 @@ def get_project_student(project):
 def notification_list_view(request):
     status = request.GET.get('status', 'all')
     notifications = request.user.notifications.select_related('sender', 'project')
-
     if status == 'unread':
         notifications = notifications.filter(is_read=False)
     elif status == 'read':
         notifications = notifications.filter(is_read=True)
-
-    return render(
-        request,
-        'notifications/index.html',
-        {
-            'notifications': notifications,
-            'selected_status': status,
-            'total_count': request.user.notifications.count(),
-            'unread_count': request.user.notifications.filter(is_read=False).count(),
-            'read_count': request.user.notifications.filter(is_read=True).count(),
-        },
-    )
+    return render(request, 'notifications/index.html', {
+        'notifications': notifications,
+        'selected_status': status,
+        'total_count': request.user.notifications.count(),
+        'unread_count': request.user.notifications.filter(is_read=False).count(),
+        'read_count': request.user.notifications.filter(is_read=True).count(),
+    })
 
 
 @login_required
@@ -49,7 +42,10 @@ def notification_mark_read_view(request, pk):
     notification = get_object_or_404(Notification, pk=pk, recipient=request.user)
     notification.is_read = True
     notification.save(update_fields=['is_read', 'updated_at'])
-    return redirect(request.POST.get('next') or 'notifications:index')
+    next_url = request.POST.get('next') or reverse('notifications:index')
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        next_url = reverse('notifications:index')
+    return redirect(next_url)
 
 
 @login_required
@@ -78,11 +74,9 @@ def send_project_message_view(request):
         pk=project_id,
     )
     student = get_project_student(project)
-
     if not student:
         messages.error(request, 'Este proyecto no tiene estudiante asignado para recibir el mensaje.')
         return redirect(next_url)
-
     if not message:
         messages.error(request, 'Escribe un mensaje antes de enviarlo.')
         return redirect(next_url)
@@ -95,12 +89,10 @@ def send_project_message_view(request):
         message=message,
         url=reverse('projects:detail', args=[project.pk]),
     )
-    log_action(
-        request.user,
-        'SEND',
-        'Notification',
-        notification.pk,
-        {'project_id': project.pk, 'recipient_id': student.pk, 'title': notification.title},
-    )
+    log_action(request.user, 'SEND', 'Notification', notification.pk, {
+        'project_id': project.pk,
+        'recipient_id': student.pk,
+        'title': notification.title,
+    })
     messages.success(request, f'Mensaje enviado a {student.get_full_name() or student.email}.')
     return redirect(next_url)
