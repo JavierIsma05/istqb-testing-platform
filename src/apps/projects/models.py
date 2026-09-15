@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.core.models import OwnedModel
@@ -28,6 +29,11 @@ class Project(OwnedModel):
 
     class Meta:
         ordering = ['name']
+
+    def clean(self):
+        super().clean()
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError({'end_date': 'La fecha de finalizacion no puede ser anterior a la fecha de inicio.'})
 
     def __str__(self):
         return f'{self.code} - {self.name}'
