@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.core.models import TimeStampedModel
@@ -42,6 +43,20 @@ class Incident(TimeStampedModel):
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.test_plan_id and self.test_plan.project_id != self.project_id:
+            errors['test_plan'] = 'El plan de pruebas debe pertenecer al mismo proyecto que el riesgo.'
+        if self.requirement_id and self.requirement.project_id != self.project_id:
+            errors['requirement'] = 'El requisito debe pertenecer al mismo proyecto que el riesgo.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean(validate_unique=False)
+        return super().save(*args, **kwargs)
 
     @property
     def risk_level(self):
