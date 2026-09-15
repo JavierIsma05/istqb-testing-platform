@@ -35,5 +35,9 @@ class Project(OwnedModel):
         if self.start_date and self.end_date and self.end_date < self.start_date:
             raise ValidationError({'end_date': 'La fecha de finalizacion no puede ser anterior a la fecha de inicio.'})
 
+    def save(self, *args, **kwargs):
+        self.full_clean(validate_unique=False)
+        return super().save(*args, **kwargs)
+
     def __str__(self):
         return f'{self.code} - {self.name}'
