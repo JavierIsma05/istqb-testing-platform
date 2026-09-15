@@ -15,7 +15,7 @@ from apps.incidents.views import MATRIX_ROWS
 from .forms import TestPlanWizardForm
 from .history import record_test_plan_version
 from .models import TestPlan
-from .risks import create_risks_from_payload
+from .risks import sync_risks_from_payload
 
 
 def parse_risks_payload(request):
@@ -49,10 +49,7 @@ def testplan_list_view(request):
         'testplans/index.html',
         {
             'plans': [
-                {
-                    'plan': plan,
-                    'badge': STATUS_BADGES.get(plan.status, 'muted'),
-                }
+                {'plan': plan, 'badge': STATUS_BADGES.get(plan.status, 'muted')}
                 for plan in plans
             ],
             'can_manage': can_manage_artifacts(request.user),
@@ -72,7 +69,7 @@ def testplan_create_view(request):
         plan = form.save(commit=False)
         plan.created_by = request.user
         plan.save()
-        create_risks_from_payload(plan, request.user, parse_risks_payload(request))
+        sync_risks_from_payload(plan, request.user, parse_risks_payload(request))
         clear_draft(request.user, 'testplan', plan.project_id, 0)
         record_test_plan_version(plan, request.user, 'Creación del plan de pruebas')
         log_action(
@@ -94,17 +91,12 @@ def testplan_update_view(request, pk):
     if readonly_redirect:
         return readonly_redirect
 
-    plan = get_object_or_404(
-        TestPlan,
-        pk=pk,
-        project__in=visible_projects_for(request.user, request=request),
-    )
+    plan = get_object_or_404(TestPlan, pk=pk, project__in=visible_projects_for(request.user, request=request))
     form = TestPlanWizardForm(request.POST or None, request.FILES or None, instance=plan, user=request.user)
 
     if request.method == 'POST' and form.is_valid():
         plan = form.save()
-        plan.risks.all().delete()
-        create_risks_from_payload(plan, request.user, parse_risks_payload(request))
+        sync_risks_from_payload(plan, request.user, parse_risks_payload(request))
         clear_draft(request.user, 'testplan', plan.project_id, plan.pk)
         record_test_plan_version(plan, request.user, 'Actualización del plan de pruebas')
         log_action(
@@ -126,13 +118,12 @@ def testplan_delete_view(request, pk):
     if readonly_redirect:
         return readonly_redirect
 
-    plan = get_object_or_404(
-        TestPlan,
-        pk=pk,
-        project__in=visible_projects_for(request.user, request=request),
-    )
+    plan = get_object_or_404(TestPlan, pk=pk, project__in=visible_projects_for(request.user, request=request))
 
     if request.method == 'POST':
+        if plan.versions.exists() or plan.test_cases.exists() or plan.risks.exists():
+            messages.error(request, 'No se puede eliminar este plan porque conserva historial o artefactos asociados. Mantén el registro para preservar la trazabilidad.')
+            return redirect('testplans:index')
         log_action(
             request.user,
             'DELETE',
@@ -150,11 +141,7 @@ def testplan_delete_view(request, pk):
 
 @login_required
 def testplan_transition_view(request, pk):
-    plan = get_object_or_404(
-        TestPlan,
-        pk=pk,
-        project__in=visible_projects_for(request.user, request=request),
-    )
+    plan = get_object_or_404(TestPlan, pk=pk, project__in=visible_projects_for(request.user, request=request))
     if request.method != 'POST':
         messages.error(request, 'La transición debe confirmarse desde el listado.')
         return redirect('testplans:index')
