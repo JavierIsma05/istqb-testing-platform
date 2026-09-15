@@ -7,20 +7,21 @@ LEGACY_COLUMNS = (
 
 
 def remove_remaining_legacy_columns(apps, schema_editor):
-    """Remove obsolete TestPlan columns from databases that missed 0008."""
+    """Remove obsolete TestPlan columns on every supported database backend."""
     connection = schema_editor.connection
     quote = connection.ops.quote_name
-    table = quote("testplans_testplan")
+    table_name = "testplans_testplan"
+    table = quote(table_name)
 
+    # Use Django's backend-agnostic introspection so SQLite test databases and
+    # PostgreSQL production databases execute the same migration safely.
     with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT column_name "
-            "FROM information_schema.columns "
-            "WHERE table_schema = current_schema() "
-            "AND table_name = %s",
-            ["testplans_testplan"],
-        )
-        existing = {row[0] for row in cursor.fetchall()}
+        existing = {
+            column.name
+            for column in connection.introspection.get_table_description(
+                cursor, table_name
+            )
+        }
         for column in LEGACY_COLUMNS:
             if column in existing:
                 cursor.execute(
