@@ -38,6 +38,8 @@ jobs:
       SELENIUM_HEADLESS: 'true'
       SELENIUM_TIMEOUT: '15'
       SELENIUM_BASE_URL: http://127.0.0.1:8000/
+      SELENIUM_EMAIL: qa@example.com
+      SELENIUM_PASSWORD: Istqb2026.Temp!
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,6 +50,26 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - run: python src/manage.py check
       - run: python src/manage.py migrate --noinput
+      - name: Prepare Selenium QA user
+        run: |
+          python src/manage.py shell <<'PY'
+          from apps.users.models import User
+          user, _ = User.objects.get_or_create(
+              email='qa@example.com',
+              defaults={
+                  'first_name': 'QA',
+                  'last_name': 'Automation',
+                  'role': User.Roles.STUDENT,
+              },
+          )
+          user.first_name = 'QA'
+          user.last_name = 'Automation'
+          user.role = User.Roles.STUDENT
+          user.is_active = True
+          user.set_password('Istqb2026.Temp!')
+          user.save()
+          print('Usuario Selenium preparado:', user.email)
+          PY
       - name: Start Django for Selenium tests
         run: |
           nohup python src/manage.py runserver 127.0.0.1:8000 --noreload > django-ci.log 2>&1 &
@@ -76,6 +98,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
