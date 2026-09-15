@@ -96,7 +96,12 @@ def defect_transition_options(status):
 
 
 def defect_transition_allowed(defect, target):
-    if target not in defect_transition_options(defect.status):
+    # A confirmation execution may finish while the defect is still marked
+    # RESOLVED. The verification execution itself is the evidence that justifies
+    # the final closure; without it, RESOLVED -> CLOSED remains forbidden.
+    if target == Defect.Status.CLOSED and defect.status == Defect.Status.RESOLVED and defect.verification_execution_id:
+        pass
+    elif target not in defect_transition_options(defect.status):
         raise ValidationError('La transición solicitada no está permitida desde el estado actual.')
     if target in {
         Defect.Status.IN_PROGRESS,
@@ -178,10 +183,6 @@ def sync_test_case_status_from_execution(test_case, execution):
     else:
         test_case.status = target
         test_case.save(update_fields=['status', 'updated_at'])
-        return target
-
-    test_case.status = target
-    test_case.save(update_fields=['status', 'updated_at'])
     return target
 
 
@@ -314,13 +315,15 @@ __all__ = [
     'defect_transition_from_confirmation',
     'execution_transition_allowed',
     'incident_transition_allowed',
-    'raise_if_invalid',
     'requirement_can_be_approved',
-    'status_transition_for_plan',
-    'status_transition_for_requirement',
-    'status_transition_for_test_case',
     'test_case_readiness',
     'validate_test_plan_approval',
     'validate_execution_repeat',
     'validate_file_upload',
+    'status_transition_for_requirement',
+    'status_transition_for_plan',
+    'status_transition_for_test_case',
+    'defect_transition_options',
+    'raise_if_invalid',
+    'ValidationResult',
 ]
