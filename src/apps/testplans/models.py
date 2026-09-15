@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
 
 from apps.core.models import OwnedModel
 from apps.core.models import TimeStampedModel
@@ -42,6 +43,31 @@ class TestPlan(OwnedModel):
 
     class Meta:
         ordering = ['project', 'name']
+
+    def clean(self):
+        super().clean()
+        errors = {}
+
+        if not 0 <= self.minimum_pass_percentage <= 100:
+            errors['minimum_pass_percentage'] = 'El porcentaje minimo de aprobacion debe estar entre 0 y 100.'
+        if not 0 <= self.minimum_coverage_percentage <= 100:
+            errors['minimum_coverage_percentage'] = 'El porcentaje minimo de cobertura debe estar entre 0 y 100.'
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            errors['end_date'] = 'La fecha de finalizacion no puede ser anterior a la fecha de inicio.'
+
+        project = self.project if self.project_id else None
+        if project:
+            if project.start_date and self.start_date and self.start_date < project.start_date:
+                errors['start_date'] = 'El plan de pruebas no puede iniciar antes que el proyecto.'
+            if project.end_date and self.end_date and self.end_date > project.end_date:
+                errors['end_date'] = 'El plan de pruebas no puede finalizar despues que el proyecto.'
+            if project.start_date and self.end_date and self.end_date < project.start_date:
+                errors['end_date'] = 'El plan de pruebas debe quedar dentro del periodo del proyecto.'
+            if project.end_date and self.start_date and self.start_date > project.end_date:
+                errors['start_date'] = 'El plan de pruebas debe quedar dentro del periodo del proyecto.'
+
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self):
         return self.name
