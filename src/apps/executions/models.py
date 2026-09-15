@@ -35,9 +35,7 @@ class TestExecution(TimeStampedModel):
     test_case = models.ForeignKey(TestCase, on_delete=models.CASCADE, related_name='executions')
     execution_mode = models.CharField(max_length=20, choices=ExecutionMode.choices, default=ExecutionMode.MANUAL)
     execution_type = models.CharField(max_length=20, choices=ExecutionType.choices, default=ExecutionType.NORMAL)
-    related_defect = models.ForeignKey(
-        'defects.Defect', on_delete=models.SET_NULL, null=True, blank=True, related_name='verification_executions'
-    )
+    related_defect = models.ForeignKey('defects.Defect', on_delete=models.SET_NULL, null=True, blank=True, related_name='verification_executions')
     planned_date = models.DateField(null=True, blank=True)
     executed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     executed_at = models.DateTimeField(null=True, blank=True)
@@ -56,9 +54,7 @@ class TestExecution(TimeStampedModel):
     evidence = models.FileField(upload_to='evidence/', null=True, blank=True)
     notes = models.TextField(blank=True)
     review_status = models.CharField(max_length=20, choices=ReviewStatus.choices, default=ReviewStatus.PENDING)
-    reviewed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_executions'
-    )
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_executions')
     reviewed_at = models.DateTimeField(null=True, blank=True)
     review_notes = models.TextField(blank=True)
 
@@ -109,22 +105,14 @@ class TestStepExecution(TimeStampedModel):
 
     class Meta:
         ordering = ['step_number', 'created_at']
-        constraints = [
-            models.UniqueConstraint(
-                fields=['test_execution', 'step_number'],
-                name='uniq_step_execution_number',
-            ),
-        ]
+        constraints = [models.UniqueConstraint(fields=['test_execution', 'step_number'], name='uniq_step_execution_number')]
 
     def clean(self):
         errors = {}
         if self.step_number < 1:
             errors['step_number'] = 'El número de paso debe ser mayor que cero.'
         if self.test_execution_id:
-            duplicate_steps = TestStepExecution.objects.filter(
-                test_execution_id=self.test_execution_id,
-                step_number=self.step_number,
-            )
+            duplicate_steps = TestStepExecution.objects.filter(test_execution_id=self.test_execution_id, step_number=self.step_number)
             if self.pk:
                 duplicate_steps = duplicate_steps.exclude(pk=self.pk)
             if duplicate_steps.exists():
@@ -184,12 +172,7 @@ class AutomatedValidationRule(TimeStampedModel):
 
     class Meta:
         ordering = ['test_case', 'step_number', 'name']
-        constraints = [
-            models.UniqueConstraint(
-                fields=['test_case', 'step_number'],
-                name='uniq_automated_rule_step_number',
-            ),
-        ]
+        constraints = [models.UniqueConstraint(fields=['test_case', 'step_number'], name='uniq_automated_rule_step_number')]
 
     def clean(self):
         errors = {}
@@ -203,10 +186,7 @@ class AutomatedValidationRule(TimeStampedModel):
         if self.step_number < 1:
             errors['step_number'] = 'El número de paso debe ser mayor que cero.'
         if self.test_case_id:
-            duplicate_steps = AutomatedValidationRule.objects.filter(
-                test_case_id=self.test_case_id,
-                step_number=self.step_number,
-            )
+            duplicate_steps = AutomatedValidationRule.objects.filter(test_case_id=self.test_case_id, step_number=self.step_number)
             if self.pk:
                 duplicate_steps = duplicate_steps.exclude(pk=self.pk)
             if duplicate_steps.exists():
@@ -262,6 +242,7 @@ class AutomatedExecutionResult(TimeStampedModel):
 
     class Meta:
         ordering = ['created_at']
+        constraints = [models.UniqueConstraint(fields=['test_execution', 'validation_rule'], name='uniq_automated_result_rule_execution')]
 
     def clean(self):
         errors = {}
@@ -272,6 +253,11 @@ class AutomatedExecutionResult(TimeStampedModel):
                 errors['validation_rule'] = 'La regla automatizada debe pertenecer al mismo caso de prueba de la ejecución.'
             elif self.validation_rule.requirement_id != self.test_execution.test_case.requirement_id:
                 errors['validation_rule'] = 'La regla automatizada debe utilizar el requisito principal del caso de prueba.'
+            duplicate_results = AutomatedExecutionResult.objects.filter(test_execution_id=self.test_execution_id, validation_rule_id=self.validation_rule_id)
+            if self.pk:
+                duplicate_results = duplicate_results.exclude(pk=self.pk)
+            if duplicate_results.exists():
+                errors['validation_rule'] = 'Ya existe un resultado para esta regla en la ejecución.'
         if self.started_at and self.finished_at and self.finished_at < self.started_at:
             errors['finished_at'] = 'La fecha de finalización no puede ser anterior al inicio.'
         if errors:
