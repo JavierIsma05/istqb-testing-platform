@@ -14,9 +14,9 @@ from apps.executions.aux_views import (
     test_data_create_view,
     test_data_delete_view,
 )
+from apps.executions.delete_views import execution_delete_view
 from apps.executions.execution_calendar import execution_calendar_view
 from apps.executions.views import (
-    execution_delete_view,
     execution_detail_view,
     execution_review_detail_view,
     execution_history_view,
