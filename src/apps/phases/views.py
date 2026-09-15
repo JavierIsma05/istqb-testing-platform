@@ -77,10 +77,7 @@ DEFAULT_PHASES = [
 
 
 def ensure_default_phases(project):
-    existing = {
-        phase.order: phase
-        for phase in TestingPhase.objects.filter(project=project)
-    }
+    existing = {phase.order: phase for phase in TestingPhase.objects.filter(project=project)}
     to_create = []
     synced_fields = ['name', 'description', 'entry_criteria', 'exit_criteria']
     for phase_data in DEFAULT_PHASES:
@@ -102,18 +99,10 @@ def ensure_default_phases(project):
 
 def project_criteria_snapshot(project):
     requirements = list(Requirement.objects.filter(project=project).values_list('status', flat=True))
-    plans = list(
-        TestPlan.objects.filter(project=project).values_list(
-            'entry_criteria', 'exit_criteria', 'environment', 'responsibilities'
-        )
-    )
+    plans = list(TestPlan.objects.filter(project=project).values_list('entry_criteria', 'exit_criteria', 'environment', 'responsibilities'))
     risks = list(Incident.objects.filter(project=project).values_list('test_plan_id', flat=True))
     test_cases = list(TestCase.objects.filter(test_plan__project=project).values_list('requirement_id', flat=True))
-    executions = list(
-        TestExecution.objects.filter(test_case__test_plan__project=project).values_list(
-            'actual_result', 'step_results'
-        )
-    )
+    executions = list(TestExecution.objects.filter(test_case__test_plan__project=project).values_list('actual_result', 'step_results'))
     defects = list(Defect.objects.filter(project=project).values_list('execution_id', 'severity', 'status'))
     reports_generated = Report.objects.filter(project=project).exists()
 
@@ -131,10 +120,7 @@ def project_criteria_snapshot(project):
         'executions_results': any(bool(actual_result) and step_results != [] for actual_result, step_results in executions),
         'defects_registered': bool(defects),
         'defects_orphan': any(execution_id is None for execution_id, _severity, _status in defects),
-        'defects_critical_open': any(
-            severity == Defect.Severity.HIGH and status != Defect.Status.CLOSED
-            for _execution_id, severity, status in defects
-        ),
+        'defects_critical_open': any(severity == Defect.Severity.HIGH and status != Defect.Status.CLOSED for _execution_id, severity, status in defects),
         'reports_generated': reports_generated,
     }
 
@@ -144,103 +130,32 @@ def phase_criteria_status(phase, snapshot=None):
         snapshot = project_criteria_snapshot(phase.project)
 
     checks_by_order = {
-        1: [
-            ('Proyecto creado', True),
-            ('Requisitos registrados', snapshot['requirements_registered']),
-            ('Requisitos aprobados o en revisión', snapshot['requirements_reviewed']),
-        ],
-        2: [
-            ('Requisitos registrados', snapshot['requirements_registered']),
-            ('Plan de pruebas registrado', snapshot['plans_registered']),
-            ('Criterios de entrada y salida definidos', snapshot['plans_criteria']),
-            ('Riesgos asociados al plan', snapshot['risks_linked']),
-        ],
-        3: [
-            ('Requisitos disponibles', snapshot['requirements_registered']),
-            ('Casos de prueba creados', snapshot['test_cases_created']),
-            ('Casos vinculados a requisitos', snapshot['cases_linked']),
-        ],
-        4: [
-            ('Casos de prueba disponibles', snapshot['test_cases_created']),
-            ('Ambiente de prueba definido', snapshot['plans_environment']),
-            ('Responsabilidades definidas', snapshot['plans_responsibilities']),
-        ],
-        5: [
-            ('Casos de prueba disponibles', snapshot['test_cases_created']),
-            ('Ejecuciones registradas', snapshot['executions_registered']),
-            ('Resultados obtenidos registrados', snapshot['executions_results']),
-            ('Defectos vinculados a ejecuciones fallidas', not snapshot['defects_orphan']),
-        ],
-        6: [
-            ('Ejecuciones registradas', snapshot['executions_registered']),
-            ('Reportes generados', snapshot['reports_generated']),
-            ('Defectos críticos cerrados o sin pendientes', not snapshot['defects_critical_open']),
-        ],
+        1: [('Proyecto creado', True), ('Requisitos registrados', snapshot['requirements_registered']), ('Requisitos aprobados o en revisión', snapshot['requirements_reviewed'])],
+        2: [('Requisitos registrados', snapshot['requirements_registered']), ('Plan de pruebas registrado', snapshot['plans_registered']), ('Criterios de entrada y salida definidos', snapshot['plans_criteria']), ('Riesgos asociados al plan', snapshot['risks_linked'])],
+        3: [('Requisitos disponibles', snapshot['requirements_registered']), ('Casos de prueba creados', snapshot['test_cases_created']), ('Casos vinculados a requisitos', snapshot['cases_linked'])],
+        4: [('Casos de prueba disponibles', snapshot['test_cases_created']), ('Ambiente de prueba definido', snapshot['plans_environment']), ('Responsabilidades definidas', snapshot['plans_responsibilities'])],
+        5: [('Casos de prueba disponibles', snapshot['test_cases_created']), ('Ejecuciones registradas', snapshot['executions_registered']), ('Resultados obtenidos registrados', snapshot['executions_results']), ('Defectos vinculados a ejecuciones fallidas', not snapshot['defects_orphan'])],
+        6: [('Ejecuciones registradas', snapshot['executions_registered']), ('Reportes generados', snapshot['reports_generated']), ('Defectos críticos cerrados o sin pendientes', not snapshot['defects_critical_open'])],
     }
     checks = checks_by_order.get(phase.order, [])
     completed = sum(1 for _label, is_done in checks if is_done)
     pending = len(checks) - completed
     progress = round((completed / len(checks)) * 100) if checks else phase.progress
     details_by_order = {
-        1: [
-            ('Proyecto creado', 'Proyectos', 'Ver proyecto', 'projects:index'),
-            ('Requisitos registrados', 'Requisitos', 'Registrar requisitos', 'requirements:index'),
-            ('Requisitos aprobados o en revisión', 'Requisitos', 'Revisar requisitos', 'requirements:index'),
-        ],
-        2: [
-            ('Requisitos registrados', 'Requisitos', 'Ver requisitos', 'requirements:index'),
-            ('Plan de pruebas registrado', 'Plan de pruebas', 'Crear plan', 'testplans:index'),
-            ('Criterios de entrada y salida definidos', 'Plan de pruebas', 'Completar plan', 'testplans:index'),
-            ('Riesgos asociados al plan', 'Riesgos', 'Registrar riesgos', 'incidents:index'),
-        ],
-        3: [
-            ('Requisitos disponibles', 'Requisitos', 'Ver requisitos', 'requirements:index'),
-            ('Casos de prueba creados', 'Casos de prueba', 'Crear casos', 'testcases:index'),
-            ('Casos vinculados a requisitos', 'Casos de prueba', 'Vincular casos', 'testcases:index'),
-        ],
-        4: [
-            ('Casos de prueba disponibles', 'Casos de prueba', 'Ver casos', 'testcases:index'),
-            ('Ambiente de prueba definido', 'Plan de pruebas', 'Definir ambiente', 'testplans:index'),
-            ('Responsabilidades definidas', 'Plan de pruebas', 'Definir responsables', 'testplans:index'),
-        ],
-        5: [
-            ('Casos de prueba disponibles', 'Casos de prueba', 'Ver casos', 'testcases:index'),
-            ('Ejecuciones registradas', 'Ejecución', 'Ejecutar pruebas', 'executions:index'),
-            ('Resultados obtenidos registrados', 'Ejecución', 'Completar resultados', 'executions:index'),
-            ('Defectos vinculados a ejecuciones fallidas', 'Defectos', 'Revisar defectos', 'defects:index'),
-        ],
-        6: [
-            ('Ejecuciones registradas', 'Ejecución', 'Ver ejecuciones', 'executions:index'),
-            ('Reportes generados', 'Informes', 'Generar informe', 'reports:index'),
-            ('Defectos críticos cerrados o sin pendientes', 'Defectos', 'Cerrar defectos críticos', 'defects:index'),
-        ],
+        1: [('Proyecto creado', 'Proyectos', 'Ver proyecto', 'projects:index'), ('Requisitos registrados', 'Requisitos', 'Registrar requisitos', 'requirements:index'), ('Requisitos aprobados o en revisión', 'Requisitos', 'Revisar requisitos', 'requirements:index')],
+        2: [('Requisitos registrados', 'Requisitos', 'Ver requisitos', 'requirements:index'), ('Plan de pruebas registrado', 'Plan de pruebas', 'Crear plan', 'testplans:index'), ('Criterios de entrada y salida definidos', 'Plan de pruebas', 'Completar plan', 'testplans:index'), ('Riesgos asociados al plan', 'Riesgos', 'Registrar riesgos', 'incidents:index')],
+        3: [('Requisitos disponibles', 'Requisitos', 'Ver requisitos', 'requirements:index'), ('Casos de prueba creados', 'Casos de prueba', 'Crear casos', 'testcases:index'), ('Casos vinculados a requisitos', 'Casos de prueba', 'Vincular casos', 'testcases:index')],
+        4: [('Casos de prueba disponibles', 'Casos de prueba', 'Ver casos', 'testcases:index'), ('Ambiente de prueba definido', 'Plan de pruebas', 'Definir ambiente', 'testplans:index'), ('Responsabilidades definidas', 'Plan de pruebas', 'Definir responsables', 'testplans:index')],
+        5: [('Casos de prueba disponibles', 'Casos de prueba', 'Ver casos', 'testcases:index'), ('Ejecuciones registradas', 'Ejecución', 'Ejecutar pruebas', 'executions:index'), ('Resultados obtenidos registrados', 'Ejecución', 'Completar resultados', 'executions:index'), ('Defectos vinculados a ejecuciones fallidas', 'Defectos', 'Revisar defectos', 'defects:index')],
+        6: [('Ejecuciones registradas', 'Ejecución', 'Ver ejecuciones', 'executions:index'), ('Reportes generados', 'Informes', 'Generar informe', 'reports:index'), ('Defectos críticos cerrados o sin pendientes', 'Defectos', 'Cerrar defectos críticos', 'defects:index')],
     }
-    details = [
-        {
-            'label': label,
-            'is_done': is_done,
-            'module': module,
-            'action': action,
-            'route_name': route_name,
-        }
-        for (label, is_done), (_detail_label, module, action, route_name)
-        in zip(checks, details_by_order.get(phase.order, []))
-    ]
-
-    return {
-        'checks': checks,
-        'details': details,
-        'completed_tasks': completed,
-        'pending_tasks': pending,
-        'progress': progress,
-        'can_complete': bool(checks) and pending == 0,
-    }
+    details = [{'label': label, 'is_done': is_done, 'module': module, 'action': action, 'route_name': route_name} for (label, is_done), (_detail_label, module, action, route_name) in zip(checks, details_by_order.get(phase.order, []))]
+    return {'checks': checks, 'details': details, 'completed_tasks': completed, 'pending_tasks': pending, 'progress': progress, 'can_complete': bool(checks) and pending == 0}
 
 
 def sync_phase_progress(phase, criteria):
     if phase.status == TestingPhase.Status.DONE:
         return
-
     phase.progress = criteria['progress']
     phase.completed_tasks = criteria['completed_tasks']
     phase.pending_tasks = criteria['pending_tasks']
@@ -253,18 +168,14 @@ def can_start_phase(phase):
 
 
 def phase_redirect_url(request, project_id):
-    return f'{request.POST.get("next") or "/phases/"}?project={project_id}'
+    return f'/phases/?project={project_id}'
 
 
 @login_required
 def phase_list_view(request):
     projects = visible_projects_for(request.user, request=request)
     active_project = get_active_project_for_request(request)
-    selected_project = (
-        projects.filter(pk=request.GET.get('project')).first()
-        or (active_project if active_project and active_project in projects else None)
-        or projects.first()
-    )
+    selected_project = projects.filter(pk=request.GET.get('project')).first() or (active_project if active_project and active_project in projects else None) or projects.first()
     phases = TestingPhase.objects.none()
     phase_items = []
     general_progress = 0
@@ -276,29 +187,12 @@ def phase_list_view(request):
         for phase in phases:
             criteria = phase_criteria_status(phase, snapshot=criteria_snapshot)
             sync_phase_progress(phase, criteria)
-            phase_items.append({
-                'phase': phase,
-                'criteria': criteria,
-                'can_start': can_start_phase(phase),
-            })
-
+            phase_items.append({'phase': phase, 'criteria': criteria, 'can_start': can_start_phase(phase)})
         phase_count = len(phases)
         completed_count = sum(1 for phase in phases if phase.status == TestingPhase.Status.DONE)
         general_progress = round(sum(phase.progress for phase in phases) / phase_count) if phase_count else 0
 
-    return render(
-        request,
-        'phases/index.html',
-        {
-            'projects': projects,
-            'selected_project': selected_project,
-            'phases': phases,
-            'phase_items': phase_items,
-            'general_progress': general_progress,
-            'completed_count': completed_count,
-            'total_phases': len(phases),
-        },
-    )
+    return render(request, 'phases/index.html', {'projects': projects, 'selected_project': selected_project, 'phases': phases, 'phase_items': phase_items, 'general_progress': general_progress, 'completed_count': completed_count, 'total_phases': len(phases)})
 
 
 @login_required
@@ -307,14 +201,11 @@ def phase_advance_view(request, pk):
     readonly_redirect = redirect_if_teacher_readonly(request, 'phases:index', 'fases')
     if readonly_redirect:
         return readonly_redirect
-
     phase = get_object_or_404(TestingPhase, pk=pk, project__in=visible_projects_for(request.user, request=request))
     criteria = phase_criteria_status(phase, snapshot=project_criteria_snapshot(phase.project))
-
     if not can_start_phase(phase):
         messages.error(request, 'Completa la fase anterior antes de iniciar esta fase.')
         return redirect(phase_redirect_url(request, phase.project_id))
-
     if phase.status == TestingPhase.Status.PENDING:
         phase.status = TestingPhase.Status.IN_PROGRESS
         phase.started_at = phase.started_at or timezone.now()
@@ -323,11 +214,9 @@ def phase_advance_view(request, pk):
         log_action(request.user, 'START', 'TestingPhase', phase.pk, {'project_id': phase.project_id, 'order': phase.order})
         messages.success(request, f'Fase "{phase.name}" iniciada correctamente.')
         return redirect(phase_redirect_url(request, phase.project_id))
-
     if not criteria['can_complete']:
         messages.error(request, 'No se puede completar la fase hasta cumplir todos los criterios definidos.')
         return redirect(phase_redirect_url(request, phase.project_id))
-
     completed_at = timezone.now()
     phase.status = TestingPhase.Status.DONE
     phase.progress = 100
@@ -339,12 +228,10 @@ def phase_advance_view(request, pk):
     phase.save(update_fields=['status', 'progress', 'completed_tasks', 'pending_tasks', 'started_at', 'completed_at', 'updated_by', 'updated_at'])
     log_action(request.user, 'COMPLETE', 'TestingPhase', phase.pk, {'project_id': phase.project_id, 'order': phase.order})
     messages.success(request, f'Fase "{phase.name}" completada correctamente.')
-
     next_phase = TestingPhase.objects.filter(project=phase.project, order=phase.order + 1, status=TestingPhase.Status.PENDING).first()
     if next_phase:
         next_phase.status = TestingPhase.Status.IN_PROGRESS
         next_phase.started_at = next_phase.started_at or timezone.now()
         next_phase.updated_by = request.user
         next_phase.save(update_fields=['status', 'started_at', 'updated_by', 'updated_at'])
-
     return redirect(phase_redirect_url(request, phase.project_id))
