@@ -69,7 +69,7 @@ def test_ejecucion_no_puede_vincular_defecto_de_otro_proyecto(test_case, executi
         related_defect=defect,
     )
 
-    with pytest.raises(ValidationError, match='mismo proyecto'):
+    with pytest.raises(ValidationError, match='mismo proyecto del caso'):
         invalid.save()
 
 
@@ -87,6 +87,8 @@ def test_regla_automatizada_debe_usar_requisito_principal(test_case, project):
         step_number=99,
         name='Regla inconsistente',
         action_type=AutomatedValidationRule.ActionType.VERIFY,
+        selector_value='h2',
+        expected_value='Texto esperado',
     )
 
     with pytest.raises(ValidationError, match='requisito principal'):
@@ -101,6 +103,8 @@ def test_resultado_automatizado_debe_pertenecer_a_ejecucion_automatizada(test_ca
         step_number=98,
         name='Regla válida',
         action_type=AutomatedValidationRule.ActionType.VERIFY,
+        selector_value='h2',
+        expected_value='Texto esperado',
     )
     result = AutomatedExecutionResult(
         test_execution=execution,
