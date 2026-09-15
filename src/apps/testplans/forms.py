@@ -12,108 +12,31 @@ DATE_RANGE_ERROR = 'Las fechas del Plan de Pruebas deben estar dentro del perío
 
 
 class TestPlanWizardForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
-    test_types = forms.MultipleChoiceField(
-        label='Tipos de prueba',
-        choices=TestPlan.TestType.choices,
-        required=False,
-        widget=forms.CheckboxSelectMultiple(),
-    )
+    test_types = forms.MultipleChoiceField(label='Tipos de prueba', choices=TestPlan.TestType.choices, required=False, widget=forms.CheckboxSelectMultiple())
 
     class Meta:
         model = TestPlan
-        fields = (
-            'project',
-            'name',
-            'version',
-            'description',
-            'scope',
-            'objective',
-            'strategy',
-            'test_types',
-            'entry_criteria',
-            'exit_criteria',
-            'minimum_pass_percentage',
-            'maximum_critical_defects',
-            'minimum_coverage_percentage',
-            'resources',
-            'environment',
-            'responsibilities',
-            'estimation',
-            'start_date',
-            'end_date',
-            'status',
-        )
-        labels = {
-            'project': 'Proyecto',
-            'name': 'Nombre del Plan',
-            'version': 'Versión',
-            'description': 'Descripción',
-            'scope': 'Alcance',
-            'objective': 'Objetivos',
-            'strategy': 'Enfoque / estrategia de prueba',
-            'test_types': 'Tipos de prueba',
-            'entry_criteria': 'Criterios de Entrada',
-            'exit_criteria': 'Criterios de Salida',
-            'minimum_pass_percentage': 'Aprobación mínima (%)',
-            'maximum_critical_defects': 'Defectos críticos permitidos',
-            'minimum_coverage_percentage': 'Cobertura mínima (%)',
-            'resources': 'Recursos Necesarios',
-            'environment': 'Ambiente de prueba',
-            'responsibilities': 'Responsables y roles',
-            'estimation': 'Estimacion de esfuerzo',
-            'start_date': 'Fecha de Inicio',
-            'end_date': 'Fecha de Finalizacion',
-            'status': 'Estado',
-        }
+        fields = ('project', 'name', 'version', 'description', 'scope', 'objective', 'strategy', 'test_types', 'entry_criteria', 'exit_criteria', 'minimum_pass_percentage', 'maximum_critical_defects', 'minimum_coverage_percentage', 'resources', 'environment', 'responsibilities', 'estimation', 'start_date', 'end_date', 'status')
+        labels = {'project': 'Proyecto', 'name': 'Nombre del Plan', 'version': 'Versión', 'description': 'Descripción', 'scope': 'Alcance', 'objective': 'Objetivos', 'strategy': 'Enfoque / estrategia de prueba', 'test_types': 'Tipos de prueba', 'entry_criteria': 'Criterios de Entrada', 'exit_criteria': 'Criterios de Salida', 'minimum_pass_percentage': 'Aprobación mínima (%)', 'maximum_critical_defects': 'Defectos críticos permitidos', 'minimum_coverage_percentage': 'Cobertura mínima (%)', 'resources': 'Recursos Necesarios', 'environment': 'Ambiente de prueba', 'responsibilities': 'Responsables y roles', 'estimation': 'Estimacion de esfuerzo', 'start_date': 'Fecha de Inicio', 'end_date': 'Fecha de Finalizacion', 'status': 'Estado'}
         widgets = {
             'project': forms.Select(attrs={'class': 'form-select'}),
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Plan de Pruebas v1.0'}),
             'version': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '1.0'}),
-            'description': forms.Textarea(
-                attrs={'class': 'form-control', 'placeholder': 'Descripcion del plan de pruebas...', 'rows': 3}
-            ),
-            'scope': forms.Textarea(
-                attrs={'class': 'form-control', 'placeholder': 'Define funcionalidades incluidas y excluidas...', 'rows': 3}
-            ),
-            'objective': forms.Textarea(
-                attrs={'class': 'form-control', 'placeholder': 'Objetivos principales del plan...', 'rows': 3}
-            ),
-            'strategy': forms.Textarea(
-                attrs={
-                    'class': 'form-control',
-                    'placeholder': 'Ej. pruebas basadas en riesgo, regresion, caja negra, priorizacion por criticidad...',
-                    'rows': 3,
-                }
-            ),
-            'entry_criteria': forms.Textarea(
-                attrs={'class': 'form-control', 'placeholder': 'Condiciones para iniciar las pruebas...', 'rows': 3}
-            ),
-            'exit_criteria': forms.Textarea(
-                attrs={'class': 'form-control', 'placeholder': 'Condiciones para finalizar las pruebas...', 'rows': 3}
-            ),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Descripcion del plan de pruebas...', 'rows': 3}),
+            'scope': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Define funcionalidades incluidas y excluidas...', 'rows': 3}),
+            'objective': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Objetivos principales del plan...', 'rows': 3}),
+            'strategy': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Ej. pruebas basadas en riesgo, regresion, caja negra, priorizacion por criticidad...', 'rows': 3}),
+            'entry_criteria': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Condiciones para iniciar las pruebas...', 'rows': 3}),
+            'exit_criteria': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Condiciones para finalizar las pruebas...', 'rows': 3}),
             'minimum_pass_percentage': forms.NumberInput(attrs={'class': 'form-control', 'min': 0, 'max': 100}),
             'maximum_critical_defects': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
             'minimum_coverage_percentage': forms.NumberInput(attrs={'class': 'form-control', 'min': 0, 'max': 100}),
-            'resources': forms.Textarea(
-                attrs={'class': 'form-control', 'placeholder': 'Herramientas, datos, personas y equipos necesarios...', 'rows': 3}
-            ),
-            'environment': forms.Textarea(
-                attrs={'class': 'form-control', 'placeholder': 'Navegador, sistema operativo, servidor, base de datos, versión...', 'rows': 3}
-            ),
-            'responsibilities': forms.Textarea(
-                attrs={'class': 'form-control', 'placeholder': 'Responsables de diseño, ejecución, revisión y corrección...', 'rows': 3}
-            ),
-            'estimation': forms.Textarea(
-                attrs={'class': 'form-control', 'placeholder': 'Horas, cantidad de casos, ventanas de ejecucion o esfuerzo esperado...', 'rows': 3}
-            ),
-            'start_date': forms.DateInput(
-                attrs=current_year_date_attrs({'class': 'form-control', 'type': 'date'}),
-                format='%Y-%m-%d',
-            ),
-            'end_date': forms.DateInput(
-                attrs=current_year_date_attrs({'class': 'form-control', 'type': 'date'}),
-                format='%Y-%m-%d',
-            ),
+            'resources': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Herramientas, datos, personas y equipos necesarios...', 'rows': 3}),
+            'environment': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Navegador, sistema operativo, servidor, base de datos, versión...', 'rows': 3}),
+            'responsibilities': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Responsables de diseño, ejecución, revisión y corrección...', 'rows': 3}),
+            'estimation': forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'Horas, cantidad de casos, ventanas de ejecucion o esfuerzo esperado...', 'rows': 3}),
+            'start_date': forms.DateInput(attrs=current_year_date_attrs({'class': 'form-control', 'type': 'date'}), format='%Y-%m-%d'),
+            'end_date': forms.DateInput(attrs=current_year_date_attrs({'class': 'form-control', 'type': 'date'}), format='%Y-%m-%d'),
             'status': forms.Select(attrs={'class': 'form-select'}),
         }
 
@@ -123,25 +46,13 @@ class TestPlanWizardForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
         if user:
             self.fields['project'].queryset = visible_projects_for(user).order_by('name')
         projects = self.fields['project'].queryset.only('pk', 'start_date', 'end_date')
-        self.fields['project'].widget.attrs.update({
-            'data-date-ranges': json.dumps({
-                str(project.pk): {
-                    'start': project.start_date.isoformat() if project.start_date else '',
-                    'end': project.end_date.isoformat() if project.end_date else '',
-                }
-                for project in projects
-            }),
-        })
+        self.fields['project'].widget.attrs.update({'data-date-ranges': json.dumps({str(project.pk): {'start': project.start_date.isoformat() if project.start_date else '', 'end': project.end_date.isoformat() if project.end_date else ''} for project in projects})})
         self.fields['start_date'].input_formats = ['%Y-%m-%d']
         self.fields['end_date'].input_formats = ['%Y-%m-%d']
         self.fields['test_types'].initial = self.instance.test_types or [TestPlan.TestType.FUNCTIONAL]
         self.fields['status'].disabled = True
         self.fields['status'].help_text = 'El estado se modifica mediante el flujo de revisión y aprobación del plan.'
-        for field_name, default in {
-            'minimum_pass_percentage': 80,
-            'maximum_critical_defects': 0,
-            'minimum_coverage_percentage': 90,
-        }.items():
+        for field_name, default in {'minimum_pass_percentage': 80, 'maximum_critical_defects': 0, 'minimum_coverage_percentage': 90}.items():
             self.fields[field_name].required = False
             self.fields[field_name].initial = getattr(self.instance, field_name, default)
         help_texts = {
@@ -190,6 +101,11 @@ class TestPlanWizardForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
         project = cleaned_data.get('project')
         start_date = cleaned_data.get('start_date')
         end_date = cleaned_data.get('end_date')
+        if self.instance.pk and project and project.pk != self.instance.project_id:
+            if self.instance.versions.exists() or self.instance.test_cases.exists() or self.instance.risks.exists():
+                self.add_error('project', 'No puedes mover un plan que ya tiene historial o artefactos a otro proyecto. Crea un nuevo plan en el proyecto destino.')
+            else:
+                self.add_error('project', 'El proyecto de un plan existente no puede cambiarse. Esto preserva la integridad de su trazabilidad.')
         if project:
             if start_date and end_date and start_date > end_date:
                 self.add_error('end_date', 'La fecha de finalización no puede ser anterior a la fecha de inicio.')
@@ -197,17 +113,10 @@ class TestPlanWizardForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
                 self.add_error('start_date', DATE_RANGE_ERROR)
             if end_date and project.end_date and end_date > project.end_date:
                 self.add_error('end_date', DATE_RANGE_ERROR)
-            if (
-                project.start_date
-                and project.end_date
-                and project.start_date > project.end_date
-            ):
+            if project.start_date and project.end_date and project.start_date > project.end_date:
                 self.add_error('project', 'El proyecto no tiene un período de fechas válido.')
         if project and not project.requirements.exists():
-            self.add_error(
-                'project',
-                'Primero registra al menos un requisito para este proyecto antes de crear el plan de pruebas.',
-            )
+            self.add_error('project', 'Primero registra al menos un requisito para este proyecto antes de crear el plan de pruebas.')
         for field_name in ('minimum_pass_percentage', 'minimum_coverage_percentage'):
             value = cleaned_data.get(field_name)
             if value is not None and value > 100:
