@@ -6,7 +6,6 @@ from apps.executions.automated_views import (
     automated_rule_delete_view,
 )
 from apps.executions.views import (
-    execution_calendar_view,
     execution_delete_view,
     execution_detail_view,
     execution_review_detail_view,
@@ -20,6 +19,7 @@ from apps.executions.views import (
     test_data_create_view,
     test_data_delete_view,
 )
+from apps.executions.execution_calendar import execution_calendar_view
 
 app_name = 'executions'
 
