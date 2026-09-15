@@ -54,8 +54,12 @@ class Requirement(OwnedModel):
             errors['code'] = 'El requisito debe tener un código.'
         if not (self.title or '').strip():
             errors['title'] = 'El requisito debe tener un título.'
-        if not (self.description or '').strip():
-            errors['description'] = 'El requisito debe tener una descripción.'
+
+        # Requirements are intentionally allowed to be incomplete while they are
+        # being drafted. Completeness is enforced by requirement_can_be_approved()
+        # immediately before the REVIEW -> APPROVED transition.
+        if self.status == self.Status.APPROVED and not (self.description or '').strip():
+            errors['description'] = 'Un requisito aprobado debe tener una descripción.'
 
         if self.pk and self.project_id:
             previous_project_id = type(self).objects.filter(pk=self.pk).values_list('project_id', flat=True).first()
