@@ -16,7 +16,7 @@ class Defect(TimeStampedModel):
 
     class Priority(models.TextChoices):
         LOW = 'LOW', 'Baja'
-        MEDIUM = 'MEDIUM', 'Media'
+        MEDIUM = 'Media', 'Media'
         HIGH = 'HIGH', 'Alta'
         CRITICAL = 'CRITICAL', 'Crítica'
 
@@ -58,43 +58,41 @@ class Defect(TimeStampedModel):
 
     def clean(self):
         super().clean()
+        errors = {}
         if not self.test_case_id:
-            raise ValidationError({'test_case': 'Todo defecto debe asociarse a un caso de prueba.'})
+            errors['test_case'] = 'Todo defecto debe asociarse a un caso de prueba.'
+        else:
+            case_project_id = self.test_case.test_plan.project_id
+            if self.project_id != case_project_id:
+                errors['project'] = 'El defecto debe pertenecer al mismo proyecto que su caso de prueba.'
 
-        case_project_id = self.test_case.test_plan.project_id
-        if self.project_id != case_project_id:
-            raise ValidationError({
-                'project': 'El defecto debe pertenecer al mismo proyecto que su caso de prueba.',
-            })
-
-        if self.execution_id:
+        if self.execution_id and self.test_case_id:
             if self.execution.test_case_id != self.test_case_id:
-                raise ValidationError({
-                    'execution': 'La ejecución relacionada debe pertenecer al caso de prueba del defecto.',
-                })
-            if self.execution.test_case.test_plan.project_id != self.project_id:
-                raise ValidationError({
-                    'execution': 'La ejecución relacionada debe pertenecer al mismo proyecto del defecto.',
-                })
+                errors['execution'] = 'La ejecución relacionada debe pertenecer al caso de prueba del defecto.'
+            elif self.execution.test_case.test_plan.project_id != self.project_id:
+                errors['execution'] = 'La ejecución relacionada debe pertenecer al mismo proyecto del defecto.'
 
-        if self.verification_execution_id:
+        if self.verification_execution_id and self.test_case_id:
             verification = self.verification_execution
             if verification.execution_type != TestExecution.ExecutionType.CONFIRMATION:
-                raise ValidationError({
-                    'verification_execution': 'La ejecución de verificación debe ser una prueba de confirmación.',
-                })
-            if verification.test_case_id != self.test_case_id:
-                raise ValidationError({
-                    'verification_execution': 'La confirmación debe pertenecer al caso de prueba del defecto.',
-                })
-            if verification.test_case.test_plan.project_id != self.project_id:
-                raise ValidationError({
-                    'verification_execution': 'La confirmación debe pertenecer al mismo proyecto del defecto.',
-                })
-            if verification.related_defect_id != self.pk:
-                raise ValidationError({
-                    'verification_execution': 'La confirmación debe estar vinculada al defecto actual.',
-                })
+                errors['verification_execution'] = 'La ejecución de verificación debe ser una prueba de confirmación.'
+            elif verification.test_case_id != self.test_case_id:
+                errors['verification_execution'] = 'La confirmación debe pertenecer al caso de prueba del defecto.'
+            elif verification.test_case.test_plan.project_id != self.project_id:
+                errors['verification_execution'] = 'La confirmación debe pertenecer al mismo proyecto del defecto.'
+            elif verification.related_defect_id != self.pk:
+                errors['verification_execution'] = 'La confirmación debe estar vinculada al defecto actual.'
+
+        if self.status == self.Status.CLOSED:
+            if not self.verification_execution_id:
+                errors['verification_execution'] = 'Un defecto solo puede cerrarse con una ejecución de confirmación aprobada.'
+            elif self.verification_execution.result != TestExecution.Result.PASSED:
+                errors['verification_execution'] = 'El cierre requiere una ejecución de confirmación con resultado aprobado.'
+            elif self.verification_execution.execution_type != TestExecution.ExecutionType.CONFIRMATION:
+                errors['verification_execution'] = 'El cierre requiere una ejecución de confirmación.'
+
+        if errors:
+            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         self.full_clean(validate_unique=False)
