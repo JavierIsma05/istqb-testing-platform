@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from apps.audit.services import log_action
 from apps.core.permissions import (
@@ -14,7 +15,6 @@ from apps.core.permissions import (
 )
 from apps.core.codes import next_code
 from apps.core.lifecycle import defect_transition_allowed, defect_transition_options
-from apps.projects.models import Project
 
 from .forms import DefectForm
 from .history import record_defect_history
@@ -64,23 +64,22 @@ def defect_update_view(request, pk):
     return render(request,'defects/form.html',{'form':form,'title':'Editar Defecto','subtitle':'Actualiza la severidad o la descripción del defecto sin perder su historial ni su vínculo con el caso de prueba.'})
 
 @login_required
+@require_POST
 def defect_delete_view(request, pk):
     readonly_redirect=redirect_if_teacher_readonly(request,'defects:index','defectos')
     if readonly_redirect: return readonly_redirect
     defect=get_object_or_404(Defect,pk=pk,project__in=visible_projects_for(request.user,request=request))
-    if request.method=='POST':
-        if defect.history.exists() or defect.execution_id is not None or defect.verification_execution_id is not None:
-            messages.error(request,'El defecto tiene historial o trazabilidad asociada y no puede eliminarse. Cambia su estado para conservar el registro.'); return redirect('defects:index')
-        log_action(request.user,'DELETE','Defect',defect.pk,{'project_id':defect.project_id,'code':defect.code,'title':defect.title,'status':defect.status}); defect.delete(); messages.success(request,'Defecto eliminado correctamente.')
-    else: messages.error(request,'La eliminacion debe confirmarse desde el listado.')
+    if defect.history.exists() or defect.execution_id is not None or defect.verification_execution_id is not None:
+        messages.error(request,'El defecto tiene historial o trazabilidad asociada y no puede eliminarse. Cambia su estado para conservar el registro.'); return redirect('defects:index')
+    log_action(request.user,'DELETE','Defect',defect.pk,{'project_id':defect.project_id,'code':defect.code,'title':defect.title,'status':defect.status}); defect.delete(); messages.success(request,'Defecto eliminado correctamente.')
     return redirect('defects:index')
 
 @login_required
+@require_POST
 def defect_transition_view(request, pk, status=None):
     readonly_redirect=redirect_if_teacher_readonly(request,'defects:index','defectos')
     if readonly_redirect: return readonly_redirect
     defect=get_object_or_404(Defect,pk=pk,project__in=visible_projects_for(request.user,request=request))
-    if request.method!='POST': messages.error(request,'La transición debe confirmarse desde el listado.'); return redirect('defects:index')
     target=status
     if not target: messages.error(request,'Debes seleccionar un estado de destino para la transición.'); return redirect('defects:index')
     if target == Defect.Status.IN_PROGRESS and not defect.assigned_to: defect.assigned_to=request.user
