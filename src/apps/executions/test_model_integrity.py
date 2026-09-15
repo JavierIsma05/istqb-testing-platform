@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -116,7 +118,7 @@ def test_ejecucion_rechaza_fecha_de_finalizacion_anterior_al_inicio(test_case):
     execution = TestExecution(
         test_case=test_case,
         started_at=start,
-        finished_at=start - timezone.timedelta(minutes=1),
+        finished_at=start - timedelta(minutes=1),
     )
 
     with pytest.raises(ValidationError, match='finalización'):
