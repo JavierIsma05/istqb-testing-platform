@@ -1,5 +1,7 @@
 import re
+
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.core.models import OwnedModel, TimeStampedModel
@@ -31,18 +33,10 @@ class TestExecution(TimeStampedModel):
         NEEDS_FIX = 'NEEDS_FIX', 'Requiere corrección'
 
     test_case = models.ForeignKey(TestCase, on_delete=models.CASCADE, related_name='executions')
-    execution_mode = models.CharField(
-        max_length=20,
-        choices=ExecutionMode.choices,
-        default=ExecutionMode.MANUAL,
-    )
+    execution_mode = models.CharField(max_length=20, choices=ExecutionMode.choices, default=ExecutionMode.MANUAL)
     execution_type = models.CharField(max_length=20, choices=ExecutionType.choices, default=ExecutionType.NORMAL)
     related_defect = models.ForeignKey(
-        'defects.Defect',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='verification_executions',
+        'defects.Defect', on_delete=models.SET_NULL, null=True, blank=True, related_name='verification_executions'
     )
     planned_date = models.DateField(null=True, blank=True)
     executed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
@@ -63,11 +57,7 @@ class TestExecution(TimeStampedModel):
     notes = models.TextField(blank=True)
     review_status = models.CharField(max_length=20, choices=ReviewStatus.choices, default=ReviewStatus.PENDING)
     reviewed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='reviewed_executions',
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_executions'
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
     review_notes = models.TextField(blank=True)
@@ -75,16 +65,30 @@ class TestExecution(TimeStampedModel):
     class Meta:
         ordering = ['-executed_at', '-created_at']
 
+    def clean(self):
+        errors = {}
+        if self.test_case_id and self.related_defect_id:
+            if self.related_defect.test_case_id != self.test_case_id:
+                errors['related_defect'] = 'El defecto relacionado debe pertenecer al mismo caso de prueba.'
+        if self.execution_type == self.ExecutionType.CONFIRMATION and not self.related_defect_id:
+            errors['related_defect'] = 'Una ejecución de confirmación debe estar vinculada a un defecto.'
+        if self.approval_percentage is not None and self.approval_percentage > 100:
+            errors['approval_percentage'] = 'El porcentaje de aprobación no puede superar 100.'
+        if self.started_at and self.finished_at and self.finished_at < self.started_at:
+            errors['finished_at'] = 'La fecha de finalización no puede ser anterior al inicio.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean(validate_unique=False)
+        return super().save(*args, **kwargs)
+
     def __str__(self):
         return f'{self.test_case} - {self.get_result_display()}'
 
 
 class TestStepExecution(TimeStampedModel):
-    test_execution = models.ForeignKey(
-        TestExecution,
-        on_delete=models.CASCADE,
-        related_name='step_executions',
-    )
+    test_execution = models.ForeignKey(TestExecution, on_delete=models.CASCADE, related_name='step_executions')
     step_number = models.PositiveIntegerField()
     action = models.TextField()
     expected_result = models.TextField()
@@ -99,6 +103,19 @@ class TestStepExecution(TimeStampedModel):
 
     class Meta:
         ordering = ['step_number', 'created_at']
+
+    def clean(self):
+        errors = {}
+        if self.step_number < 1:
+            errors['step_number'] = 'El número de paso debe ser mayor que cero.'
+        if self.started_at and self.finished_at and self.finished_at < self.started_at:
+            errors['finished_at'] = 'La fecha de finalización no puede ser anterior al inicio.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean(validate_unique=False)
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.test_execution_id} - Paso {self.step_number}'
@@ -131,11 +148,7 @@ class AutomatedValidationRule(TimeStampedModel):
         REGEX = 'REGEX', 'Expresión regular'
 
     test_case = models.ForeignKey(TestCase, on_delete=models.CASCADE, related_name='automated_rules')
-    requirement = models.ForeignKey(
-        'requirements.Requirement',
-        on_delete=models.CASCADE,
-        related_name='automated_rules',
-    )
+    requirement = models.ForeignKey('requirements.Requirement', on_delete=models.CASCADE, related_name='automated_rules')
     step_number = models.PositiveIntegerField(default=1)
     name = models.CharField(max_length=180)
     action_type = models.CharField(max_length=30, choices=ActionType.choices, blank=True)
@@ -144,42 +157,43 @@ class AutomatedValidationRule(TimeStampedModel):
     selector_value = models.CharField(max_length=500, blank=True)
     input_value = models.TextField(blank=True)
     expected_value = models.CharField(max_length=500, blank=True)
-    comparison_type = models.CharField(
-        max_length=20,
-        choices=ComparisonType.choices,
-        default=ComparisonType.EXACT,
-        blank=True,
-    )
+    comparison_type = models.CharField(max_length=20, choices=ComparisonType.choices, default=ComparisonType.EXACT, blank=True)
     timeout_seconds = models.PositiveSmallIntegerField(default=10)
     is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['test_case', 'step_number', 'name']
 
+    def clean(self):
+        errors = {}
+        if self.test_case_id and self.requirement_id:
+            if self.requirement.project_id != self.test_case.test_plan.project_id:
+                errors['requirement'] = 'El requisito debe pertenecer al mismo proyecto del caso de prueba.'
+            if self.requirement.test_plan_id != self.test_case.test_plan_id:
+                errors['requirement'] = 'El requisito debe pertenecer al mismo plan de pruebas del caso de prueba.'
+        if self.step_number < 1:
+            errors['step_number'] = 'El número de paso debe ser mayor que cero.'
+        if not 1 <= self.timeout_seconds <= 120:
+            errors['timeout_seconds'] = 'El tiempo de espera debe estar entre 1 y 120 segundos.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean(validate_unique=False)
+        return super().save(*args, **kwargs)
+
     def __str__(self):
         return f'{self.test_case.code} - {self.name}'
 
 
 class AutomatedExecutionResult(TimeStampedModel):
-    test_execution = models.ForeignKey(
-        TestExecution,
-        on_delete=models.CASCADE,
-        related_name='automated_results',
-    )
-    validation_rule = models.ForeignKey(
-        AutomatedValidationRule,
-        on_delete=models.CASCADE,
-        related_name='execution_results',
-    )
+    test_execution = models.ForeignKey(TestExecution, on_delete=models.CASCADE, related_name='automated_results')
+    validation_rule = models.ForeignKey(AutomatedValidationRule, on_delete=models.CASCADE, related_name='execution_results')
     status = models.CharField(max_length=20, choices=TestExecution.Result.choices)
     expected_behavior = models.TextField(blank=True)
     actual_behavior = models.TextField(blank=True)
     input_used = models.TextField(blank=True)
-    comparison_type = models.CharField(
-        max_length=20,
-        choices=AutomatedValidationRule.ComparisonType.choices,
-        blank=True,
-    )
+    comparison_type = models.CharField(max_length=20, choices=AutomatedValidationRule.ComparisonType.choices, blank=True)
     technical_log = models.TextField(blank=True)
     screenshot = models.ImageField(upload_to='automation_screenshots/', null=True, blank=True)
     error_message = models.TextField(blank=True)
@@ -188,6 +202,20 @@ class AutomatedExecutionResult(TimeStampedModel):
 
     class Meta:
         ordering = ['created_at']
+
+    def clean(self):
+        errors = {}
+        if self.test_execution_id and self.validation_rule_id:
+            if self.validation_rule.test_case_id != self.test_execution.test_case_id:
+                errors['validation_rule'] = 'La regla automatizada debe pertenecer al mismo caso de prueba de la ejecución.'
+        if self.started_at and self.finished_at and self.finished_at < self.started_at:
+            errors['finished_at'] = 'La fecha de finalización no puede ser anterior al inicio.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean(validate_unique=False)
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.validation_rule.name} - {self.get_status_display()}'
