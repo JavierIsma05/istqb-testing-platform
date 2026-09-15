@@ -5,12 +5,7 @@ from apps.executions.automated_views import (
     automated_rule_create_view,
     automated_rule_delete_view,
 )
-from apps.executions.views import (
-    execution_delete_view,
-    execution_detail_view,
-    execution_review_detail_view,
-    execution_history_view,
-    execution_workspace_view,
+from apps.executions.aux_views import (
     step_evidence_upload_view,
     step_review_detail_view,
     teacher_api_projects,
@@ -20,6 +15,13 @@ from apps.executions.views import (
     test_data_delete_view,
 )
 from apps.executions.execution_calendar import execution_calendar_view
+from apps.executions.views import (
+    execution_delete_view,
+    execution_detail_view,
+    execution_review_detail_view,
+    execution_history_view,
+    execution_workspace_view,
+)
 
 app_name = 'executions'
 
