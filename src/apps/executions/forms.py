@@ -254,4 +254,23 @@ class AutomatedStepForm(forms.ModelForm):
             self.add_error('expected_value', 'La acción Verificar requiere un resultado esperado.')
         if action == AutomatedValidationRule.ActionType.WAIT and not timeout:
             self.add_error('timeout_seconds', 'La acción Esperar requiere una duración.')
+        target_url = cleaned_data.get('target_url')
+        if target_url:
+            try:
+                from .services.automated_runner import validate_automation_url
+                validate_automation_url(target_url)
+            except ValidationError as exc:
+                self.add_error('target_url', exc.message)
         return cleaned_data
+
+    def save(self, commit=True):
+        rule = super().save(commit=False)
+        if not rule.name:
+            action_label = rule.get_action_type_display() or 'Paso'
+            rule.name = f'Paso {rule.step_number}: {action_label}'
+        if self.test_case_id if hasattr(self, 'test_case_id') else False:
+            rule.test_case = self.test_case
+            rule.requirement = self.test_case.requirement
+        if commit:
+            rule.save()
+        return rule
