@@ -56,14 +56,14 @@ jobs:
           from datetime import date
           from apps.users.models import User
           from apps.projects.models import Project
+          from apps.requirements.models import Requirement
+          from apps.testplans.models import TestPlan
+          from apps.testcases.models import TestCase
+          from apps.executions.models import TestExecution
 
           user, _ = User.objects.get_or_create(
               email='qa@example.com',
-              defaults={
-                  'first_name': 'QA',
-                  'last_name': 'Automation',
-                  'role': User.Roles.STUDENT,
-              },
+              defaults={'first_name': 'QA', 'last_name': 'Automation', 'role': User.Roles.STUDENT},
           )
           user.first_name = 'QA'
           user.last_name = 'Automation'
@@ -87,9 +87,88 @@ jobs:
           project.created_by = user
           project.tutor = user
           project.status = Project.Status.ACTIVE
+          project.start_date = date(date.today().year, 1, 1)
+          project.end_date = date(date.today().year, 12, 31)
           project.save()
           project.members.add(user)
-          print('Datos Selenium preparados:', user.email, project.code)
+
+          requirement, _ = Requirement.objects.get_or_create(
+              project=project,
+              code='REQ-E2E-001',
+              defaults={
+                  'title': 'Requisito E2E',
+                  'description': 'El sistema debe permitir ejecutar y registrar una prueba funcional.',
+                  'acceptance_criteria': 'La ejecución se registra correctamente.',
+                  'priority': Requirement.Priority.HIGH,
+                  'status': Requirement.Status.APPROVED,
+                  'created_by': user,
+              },
+          )
+          requirement.title = 'Requisito E2E'
+          requirement.description = 'El sistema debe permitir ejecutar y registrar una prueba funcional.'
+          requirement.status = Requirement.Status.APPROVED
+          requirement.save()
+
+          plan, _ = TestPlan.objects.get_or_create(
+              project=project,
+              name='Plan E2E CI',
+              defaults={
+                  'version': '1.0',
+                  'description': 'Plan auxiliar de Selenium.',
+                  'objective': 'Validar el flujo funcional E2E.',
+                  'scope': 'Flujo de pruebas funcionales.',
+                  'strategy': 'Pruebas funcionales manuales.',
+                  'environment': 'Chrome en Windows',
+                  'responsibilities': 'QA Automation',
+                  'estimation': '1 hora',
+                  'start_date': date(date.today().year, 1, 1),
+                  'end_date': date(date.today().year, 12, 31),
+                  'created_by': user,
+              },
+          )
+          plan.environment = 'Chrome en Windows'
+          plan.start_date = date(date.today().year, 1, 1)
+          plan.end_date = date(date.today().year, 12, 31)
+          plan.save()
+
+          case, _ = TestCase.objects.get_or_create(
+              test_plan=plan,
+              code='TC-E2E-001',
+              defaults={
+                  'requirement': requirement,
+                  'title': 'Caso E2E Login',
+                  'description': 'Caso auxiliar para Selenium.',
+                  'technique': TestCase.Technique.EQUIVALENCE,
+                  'level': TestCase.Level.SYSTEM,
+                  'preconditions': 'Usuario registrado.',
+                  'test_data': 'usuario=qa@example.com',
+                  'steps': 'Abrir login => Se muestra el formulario\nIngresar credenciales validas => El sistema acepta los datos\nEnviar formulario => El usuario accede al dashboard',
+                  'steps_data': [
+                      {'number': 1, 'action': 'Abrir login', 'expected_result': 'Se muestra el formulario'},
+                      {'number': 2, 'action': 'Ingresar credenciales validas', 'expected_result': 'El sistema acepta los datos'},
+                      {'number': 3, 'action': 'Enviar formulario', 'expected_result': 'El usuario accede al dashboard'},
+                  ],
+                  'expected_result': 'El usuario accede al dashboard.',
+                  'priority': TestCase.Priority.HIGH,
+                  'status': TestCase.Status.PENDING,
+                  'created_by': user,
+              },
+          )
+          case.requirement = requirement
+          case.save()
+
+          TestExecution.objects.filter(test_case=case, environment='CI-preexisting').delete()
+          TestExecution.objects.create(
+              test_case=case,
+              execution_type=TestExecution.ExecutionType.NORMAL,
+              execution_mode=TestExecution.ExecutionMode.MANUAL,
+              executed_by=user,
+              result=TestExecution.Result.PASSED,
+              actual_result='Ejecución previa disponible para pruebas de defectos.',
+              environment='CI-preexisting',
+              notes='Ejecución auxiliar para Selenium.',
+          )
+          print('Datos Selenium preparados:', user.email, project.code, requirement.code, plan.name, case.code)
           PY
       - name: Start Django for Selenium tests
         run: |
