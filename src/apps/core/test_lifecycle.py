@@ -316,12 +316,11 @@ def test_confirmacion_no_puede_cerrar_defecto_si_no_es_tipo_confirmacion(project
         resolution='Corrección aplicada.',
         status=Defect.Status.PENDING_CONFIRMATION,
     )
-    execution = TestExecution.objects.create(
-        test_case=test_case,
-        related_defect=defect,
-        execution_type=TestExecution.ExecutionType.NORMAL,
-        result=TestExecution.Result.PASSED,
-    )
 
     with pytest.raises(ValidationError):
-        defect_transition_from_confirmation(defect, execution)
+        TestExecution.objects.create(
+            test_case=test_case,
+            related_defect=defect,
+            execution_type=TestExecution.ExecutionType.NORMAL,
+            result=TestExecution.Result.PASSED,
+        )
