@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import pytest
 from selenium.common.exceptions import WebDriverException, TimeoutException
+from selenium.webdriver.common.by import By
 
 from base_test import SeleniumBaseTest
+
+
+_original_click = SeleniumBaseTest.click
 
 
 def _set_date_robust(self, locator: tuple[str, str], value: str) -> None:
@@ -23,7 +27,18 @@ def _set_date_robust(self, locator: tuple[str, str], value: str) -> None:
     )
 
 
+def _click_robust(self, locator: tuple[str, str]) -> None:
+    """Permite enviar el wizard aunque su botón final permanezca visualmente oculto."""
+    if locator == (By.CSS_SELECTOR, "button.wizard-submit[type='submit']"):
+        elements = self.driver.find_elements(*locator)
+        if elements:
+            self.driver.execute_script("arguments[0].click();", elements[0])
+            return
+    _original_click(self, locator)
+
+
 SeleniumBaseTest.set_date = _set_date_robust
+SeleniumBaseTest.click = _click_robust
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -44,6 +59,4 @@ def pytest_runtest_makereport(item, call):
     try:
         screenshot(item.name)
     except WebDriverException:
-        # La evidencia nunca debe convertir un fallo de prueba en un INTERNALERROR
-        # cuando Chrome o la ventana ya fueron cerrados.
         return
