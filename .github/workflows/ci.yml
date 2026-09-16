@@ -50,10 +50,13 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - run: python src/manage.py check
       - run: python src/manage.py migrate --noinput
-      - name: Prepare Selenium QA user
+      - name: Prepare Selenium QA data
         run: |
           python src/manage.py shell <<'PY'
+          from datetime import date
           from apps.users.models import User
+          from apps.projects.models import Project
+
           user, _ = User.objects.get_or_create(
               email='qa@example.com',
               defaults={
@@ -68,7 +71,25 @@ jobs:
           user.is_active = True
           user.set_password('Istqb2026.Temp!')
           user.save()
-          print('Usuario Selenium preparado:', user.email)
+
+          project, _ = Project.objects.get_or_create(
+              code='E2E-CI',
+              defaults={
+                  'name': 'Proyecto E2E CI',
+                  'description': 'Proyecto auxiliar para pruebas funcionales automatizadas de CI.',
+                  'status': Project.Status.ACTIVE,
+                  'start_date': date(date.today().year, 1, 1),
+                  'end_date': date(date.today().year, 12, 31),
+                  'created_by': user,
+                  'tutor': user,
+              },
+          )
+          project.created_by = user
+          project.tutor = user
+          project.status = Project.Status.ACTIVE
+          project.save()
+          project.members.add(user)
+          print('Datos Selenium preparados:', user.email, project.code)
           PY
       - name: Start Django for Selenium tests
         run: |
