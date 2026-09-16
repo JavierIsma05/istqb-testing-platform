@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Iterable
 
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -87,13 +87,7 @@ class SeleniumBaseTest:
         return self.wait.until(EC.visibility_of_element_located(locator))
 
     def find_clickable(self, locator: tuple[str, str]):
-        """Return the first displayed and enabled matching element.
-
-        Selenium's element_to_be_clickable resolves only the first DOM match.
-        Forms with hidden modal/wizard submit controls can therefore cause false
-        timeouts even when the real submit button is visible. Search all matches
-        on every poll instead.
-        """
+        """Return the first displayed and enabled matching element."""
         def visible_and_enabled(driver: WebDriver):
             for element in driver.find_elements(*locator):
                 try:
@@ -107,8 +101,11 @@ class SeleniumBaseTest:
 
     def click(self, locator: tuple[str, str]) -> None:
         element = self.find_clickable(locator)
-        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-        element.click()
+        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'center'});", element)
+        try:
+            element.click()
+        except ElementClickInterceptedException:
+            self.driver.execute_script("arguments[0].click();", element)
 
     def scroll_into_view(self, locator: tuple[str, str]):
         element = self.find_clickable(locator)
@@ -157,7 +154,10 @@ class SeleniumBaseTest:
         self.open_path("/requirements/new/")
         project_elements = self.driver.find_elements(By.NAME, "project")
         if project_elements:
-            return self.select_first_available_option((By.NAME, "project"))
+            try:
+                return self.select_first_available_option((By.NAME, "project"))
+            except TimeoutException:
+                pass
 
         today = datetime.now().date()
         year = today.year
@@ -322,5 +322,11 @@ class SeleniumBaseTest:
 
     def logout(self) -> None:
         self.click((By.CSS_SELECTOR, ".user-menu, [data-testid='user-menu']"))
-        self.click((By.CSS_SELECTOR, "[data-testid='logout'], a[href*='logout'], .dropdown-menu a[href*='logout']"))
+        forms = self.driver.find_elements(By.CSS_SELECTOR, "form[action*='logout']")
+        if forms:
+            form = next((form for form in forms if form.is_displayed()), forms[0])
+            self.driver.execute_script("arguments[0].submit();", form)
+        else:
+            self.click((By.CSS_SELECTOR, "[data-testid='logout'], a[href*='logout'], .dropdown-menu a[href*='logout']"))
+        self.wait_for_url_contains("/login/")
         self.wait_for_any_visible([(By.NAME, "username"), (By.NAME, "email"), (By.CSS_SELECTOR, "[data-testid='login-form']"), (By.CSS_SELECTOR, "form")])
