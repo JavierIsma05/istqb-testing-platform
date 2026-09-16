@@ -102,6 +102,14 @@ class DefectForm(forms.ModelForm):
             self.add_error('verification_execution', 'La ejecución de confirmación debe estar aprobada.')
         return cleaned_data
 
+    def _post_clean(self):
+        # `project` is intentionally not exposed as a form field; derive it
+        # from the selected test case before ModelForm runs model validation.
+        test_case = self.cleaned_data.get('test_case')
+        if test_case:
+            self.instance.project_id = test_case.test_plan.project_id
+        super()._post_clean()
+
     def save(self, commit=True):
         defect = super().save(commit=False)
         if defect.project_id is None:
