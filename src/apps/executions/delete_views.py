@@ -22,9 +22,12 @@ def execution_delete_view(request, pk):
         messages.error(request, 'Solo puedes eliminar tus propias ejecuciones.')
         return redirect(f'{reverse("executions:index")}?case={execution.test_case_id}')
 
+    if execution.review_status != TestExecution.ReviewStatus.PENDING:
+        messages.error(request, 'Una ejecución revisada no puede eliminarse.')
+        return redirect(f'{reverse("executions:index")}?case={execution.test_case_id}')
+
     protected = (
-        execution.review_status != TestExecution.ReviewStatus.PENDING
-        or execution.result != TestExecution.Result.NOT_RUN
+        execution.result != TestExecution.Result.NOT_RUN
         or execution.step_executions.exists()
         or execution.automated_results.exists()
         or bool(execution.evidence)
