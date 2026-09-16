@@ -96,9 +96,6 @@ def defect_transition_options(status):
 
 
 def defect_transition_allowed(defect, target):
-    # A confirmation execution may finish while the defect is still marked
-    # RESOLVED. The verification execution itself is the evidence that justifies
-    # the final closure; without it, RESOLVED -> CLOSED remains forbidden.
     if target == Defect.Status.CLOSED and defect.status == Defect.Status.RESOLVED and defect.verification_execution_id:
         pass
     elif target not in defect_transition_options(defect.status):
@@ -176,13 +173,16 @@ def sync_test_case_status_from_execution(test_case, execution):
         TestCase.Status.BLOCKED,
     } and test_case.status == TestCase.Status.RUNNING:
         status_transition_for_test_case(test_case, target)
-    elif target == TestCase.Status.PENDING:
-        test_case.status = target
-        test_case.save(update_fields=['status', 'updated_at'])
-        return target
     else:
         test_case.status = target
         test_case.save(update_fields=['status', 'updated_at'])
+        return target
+
+    # The transition validator deliberately validates only the lifecycle rule;
+    # it does not mutate persistence. Persist the synchronized execution state
+    # after a valid transition as well.
+    test_case.status = target
+    test_case.save(update_fields=['status', 'updated_at'])
     return target
 
 
