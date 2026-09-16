@@ -25,14 +25,19 @@ from apps.testplans.models import TestPlan
 
 
 @pytest.mark.django_db
-def test_requisito_incompleto_no_puede_aprobarse(project):
+def test_requisito_incompleto_no_puede_aprobarse(project, user):
+    # La integridad del modelo rechaza una descripción vacía al guardar; para
+    # probar específicamente la regla de aprobación, partimos de un requisito
+    # persistido y evaluamos el objeto con la descripción vacía en memoria.
     requirement = Requirement.objects.create(
         project=project,
         code='REQ-QA-001',
         title='Login',
-        description='',
+        description='Descripción temporal válida.',
         status=Requirement.Status.REVIEW,
+        created_by=user,
     )
+    requirement.description = ''
     result = requirement_can_be_approved(requirement)
     assert not result.ok
     assert any('descripción' in error for error in result.errors)
