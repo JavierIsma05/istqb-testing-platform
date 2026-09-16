@@ -64,10 +64,10 @@ class TestExecution(TimeStampedModel):
     def clean(self):
         errors = {}
         if self.test_case_id and self.related_defect_id:
-            if self.related_defect.test_case_id != self.test_case_id:
-                errors['related_defect'] = 'El defecto relacionado debe pertenecer al mismo caso de prueba.'
-            elif self.related_defect.project_id != self.test_case.test_plan.project_id:
+            if self.related_defect.project_id != self.test_case.test_plan.project_id:
                 errors['related_defect'] = 'El defecto relacionado debe pertenecer al mismo proyecto del caso de prueba.'
+            elif self.related_defect.test_case_id != self.test_case_id:
+                errors['related_defect'] = 'El defecto relacionado debe pertenecer al mismo caso de prueba.'
             elif self.execution_type not in {
                 self.ExecutionType.CONFIRMATION,
                 self.ExecutionType.REGRESSION,
