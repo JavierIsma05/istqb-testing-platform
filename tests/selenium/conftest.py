@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import pytest
 from selenium.common.exceptions import WebDriverException, TimeoutException
-from selenium.webdriver.common.by import By
 
-from .base_test import SeleniumBaseTest
+from base_test import SeleniumBaseTest
 
 
 def _set_date_robust(self, locator: tuple[str, str], value: str) -> None:
@@ -24,9 +23,6 @@ def _set_date_robust(self, locator: tuple[str, str], value: str) -> None:
     )
 
 
-# Los campos de fecha del wizard de planes pueden estar en un panel todavía
-# oculto. La prueba debe poder preparar el formulario sin depender de la
-# visibilidad del panel, pero manteniendo la validación real del formulario.
 SeleniumBaseTest.set_date = _set_date_robust
 
 
