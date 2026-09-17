@@ -129,6 +129,7 @@ class SeleniumBaseTest:
         raise TimeoutException(f"No se renderizo el formulario '{form_name}'. URL actual: {url}. Contenido visible: {body}")
 
     def _bootstrap_executable_case(self) -> str:
+        """Crea un conjunto E2E aislado para evitar que los tests compartan estado."""
         User = get_user_model()
         email = os.getenv("SELENIUM_EMAIL", "qa@example.com")
         password = os.getenv("SELENIUM_PASSWORD", "Istqb2026.Temp!")
@@ -138,59 +139,44 @@ class SeleniumBaseTest:
         user.is_active = True
         user.save(update_fields=["is_active"])
 
-        project = Project.objects.filter(created_by=user, code="E2E-SELENIUM").first()
-        if project is None:
-            today = timezone.localdate()
-            project = Project.objects.create(
-                code="E2E-SELENIUM", name="Proyecto E2E Selenium",
-                description="Proyecto auxiliar para pruebas funcionales automatizadas.",
-                status=Project.Status.ACTIVE, start_date=today.replace(month=1, day=1),
-                end_date=today.replace(month=12, day=31), created_by=user, tutor=user,
-            )
+        suffix = str(time.time_ns())[-10:]
+        today = timezone.localdate()
+        project = Project.objects.create(
+            code=f"E2E-{suffix}", name=f"Proyecto E2E Selenium {suffix}",
+            description="Proyecto auxiliar aislado para pruebas funcionales automatizadas.",
+            status=Project.Status.ACTIVE, start_date=today.replace(month=1, day=1),
+            end_date=today.replace(month=12, day=31), created_by=user, tutor=user,
+        )
         project.members.add(user)
 
-        requirement, _ = Requirement.objects.get_or_create(
-            project=project, code="REQ-SELENIUM-001",
-            defaults={
-                "title": "Requisito E2E Selenium",
-                "description": "El sistema permite registrar una prueba funcional.",
-                "acceptance_criteria": "La prueba puede ejecutarse correctamente.",
-                "priority": Requirement.Priority.HIGH, "status": Requirement.Status.APPROVED,
-                "created_by": user,
-            },
-        )
-        requirement.status = Requirement.Status.APPROVED
-        requirement.description = requirement.description or "El sistema permite registrar una prueba funcional."
-        requirement.save(update_fields=["status", "description", "updated_at"])
-
-        plan, _ = TestPlan.objects.get_or_create(
-            project=project, name="Plan E2E Selenium",
-            defaults={
-                "version": "1.0", "description": "Plan auxiliar para Selenium.",
-                "objective": "Validar el registro funcional de pruebas.", "scope": "Flujo E2E.",
-                "strategy": "Pruebas funcionales manuales.", "environment": "Chrome",
-                "responsibilities": "QA Automation", "estimation": "1 hora",
-                "start_date": project.start_date, "end_date": project.end_date, "created_by": user,
-            },
+        requirement = Requirement.objects.create(
+            project=project, code=f"REQ-{suffix}",
+            title="Requisito E2E Selenium",
+            description="El sistema permite registrar una prueba funcional.",
+            acceptance_criteria="La prueba puede ejecutarse correctamente.",
+            priority=Requirement.Priority.HIGH, status=Requirement.Status.APPROVED,
+            created_by=user,
         )
 
-        case, _ = TestCase.objects.get_or_create(
-            test_plan=plan, code="TC-SELENIUM-001",
-            defaults={
-                "requirement": requirement, "title": "Caso E2E Selenium",
-                "description": "Caso auxiliar para pruebas Selenium.",
-                "technique": TestCase.Technique.EQUIVALENCE, "level": TestCase.Level.SYSTEM,
-                "preconditions": "Usuario registrado.", "test_data": "Datos E2E.",
-                "steps": "Abrir funcionalidad => Se muestra correctamente",
-                "steps_data": [{"number": 1, "action": "Abrir funcionalidad", "expected_result": "Se muestra correctamente"}],
-                "expected_result": "Se muestra correctamente.", "priority": TestCase.Priority.HIGH,
-                "status": TestCase.Status.READY, "created_by": user,
-            },
+        plan = TestPlan.objects.create(
+            project=project, name=f"Plan E2E Selenium {suffix}", version="1.0",
+            description="Plan auxiliar para Selenium.",
+            objective="Validar el registro funcional de pruebas.", scope="Flujo E2E.",
+            strategy="Pruebas funcionales manuales.", environment="Chrome",
+            responsibilities="QA Automation", estimation="1 hora",
+            start_date=project.start_date, end_date=project.end_date, created_by=user,
         )
-        if case.requirement_id != requirement.pk or case.status != TestCase.Status.READY:
-            case.requirement = requirement
-            case.status = TestCase.Status.READY
-            case.save(update_fields=["requirement", "status", "updated_at"])
+
+        case = TestCase.objects.create(
+            test_plan=plan, code=f"TC-{suffix}", requirement=requirement,
+            title="Caso E2E Selenium", description="Caso auxiliar para pruebas Selenium.",
+            technique=TestCase.Technique.EQUIVALENCE, level=TestCase.Level.SYSTEM,
+            preconditions="Usuario registrado.", test_data="Datos E2E.",
+            steps="Abrir funcionalidad => Se muestra correctamente",
+            steps_data=[{"number": 1, "action": "Abrir funcionalidad", "expected_result": "Se muestra correctamente"}],
+            expected_result="Se muestra correctamente.", priority=TestCase.Priority.HIGH,
+            status=TestCase.Status.READY, created_by=user,
+        )
         return str(case.pk)
 
     def ensure_project(self) -> str:
@@ -272,17 +258,9 @@ class SeleniumBaseTest:
         return plan_id
 
     def ensure_test_case(self) -> str:
-        # Never reuse an arbitrary case from the page: the first option may be
-        # pending/blocked and therefore intentionally non-executable. Build a
-        # deterministic approved/READY case and return its id instead.
+        """Devuelve siempre un caso E2E nuevo y ejecutable, sin depender de otros tests."""
         case_id = self._bootstrap_executable_case()
         self.open_path(f"/executions/?case={case_id}")
-        selected = self.driver.find_elements(By.NAME, "test_case")
-        if selected:
-            try:
-                self.select_option((By.NAME, "test_case"), case_id)
-            except Exception:
-                pass
         return case_id
 
     def wait_for_url_contains(self, text: str) -> None:
