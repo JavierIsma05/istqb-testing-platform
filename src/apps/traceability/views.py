@@ -47,7 +47,7 @@ def reopen_test_case_view(request, pk):
         'source': 'traceability_reopen_for_reexecution',
     })
     messages.success(request, f'Caso {test_case.code} reabierto para una nueva ejecución. El historial anterior se conserva.')
-    return redirect(f'/executions/?case={test_case.pk}&project={test_case.test_plan.project_id}#execucion-manual')
+    return redirect(f'/executions/?case={test_case.pk}&project={test_case.test_plan.project_id}')
 
 
 @login_required
