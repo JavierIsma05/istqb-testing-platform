@@ -70,7 +70,6 @@ class SeleniumBaseTest:
         return self.wait.until(EC.visibility_of_element_located(locator))
 
     def find_clickable(self, locator: tuple[str, str]):
-        """Return the first displayed and enabled matching element."""
         def visible_and_enabled(driver: WebDriver):
             for element in driver.find_elements(*locator):
                 try:
@@ -79,7 +78,6 @@ class SeleniumBaseTest:
                 except Exception:
                     continue
             return False
-
         return self.wait.until(visible_and_enabled)
 
     def click(self, locator: tuple[str, str]) -> None:
@@ -128,22 +126,15 @@ class SeleniumBaseTest:
         url = self.driver.current_url
         body = self.driver.find_element(By.TAG_NAME, "body").text.strip().replace("\n", " | ")
         body = body[:700] if body else "<sin contenido visible>"
-        raise TimeoutException(
-            f"No se renderizo el formulario '{form_name}'. URL actual: {url}. "
-            f"Contenido visible: {body}"
-        )
+        raise TimeoutException(f"No se renderizo el formulario '{form_name}'. URL actual: {url}. Contenido visible: {body}")
 
     def _bootstrap_executable_case(self) -> str:
-        """Crea solo la precondicion minima cuando el entorno local no tiene datos QA."""
         User = get_user_model()
-        user = User.objects.filter(email=os.getenv("SELENIUM_EMAIL", "qa@example.com")).first()
+        email = os.getenv("SELENIUM_EMAIL", "qa@example.com")
+        password = os.getenv("SELENIUM_PASSWORD", "Istqb2026.Temp!")
+        user = User.objects.filter(email=email).first()
         if user is None:
-            user = User.objects.create_user(
-                email=os.getenv("SELENIUM_EMAIL", "qa@example.com"),
-                password=os.getenv("SELENIUM_PASSWORD", "Istqb2026.Temp!"),
-                first_name="QA",
-                last_name="Automation",
-            )
+            user = User.objects.create_user(email=email, password=password, first_name="QA", last_name="Automation")
         user.is_active = True
         user.save(update_fields=["is_active"])
 
@@ -151,26 +142,20 @@ class SeleniumBaseTest:
         if project is None:
             today = timezone.localdate()
             project = Project.objects.create(
-                code="E2E-SELENIUM",
-                name="Proyecto E2E Selenium",
+                code="E2E-SELENIUM", name="Proyecto E2E Selenium",
                 description="Proyecto auxiliar para pruebas funcionales automatizadas.",
-                status=Project.Status.ACTIVE,
-                start_date=today.replace(month=1, day=1),
-                end_date=today.replace(month=12, day=31),
-                created_by=user,
-                tutor=user,
+                status=Project.Status.ACTIVE, start_date=today.replace(month=1, day=1),
+                end_date=today.replace(month=12, day=31), created_by=user, tutor=user,
             )
             project.members.add(user)
 
         requirement, _ = Requirement.objects.get_or_create(
-            project=project,
-            code="REQ-SELENIUM-001",
+            project=project, code="REQ-SELENIUM-001",
             defaults={
                 "title": "Requisito E2E Selenium",
                 "description": "El sistema permite registrar una prueba funcional.",
                 "acceptance_criteria": "La prueba puede ejecutarse correctamente.",
-                "priority": Requirement.Priority.HIGH,
-                "status": Requirement.Status.APPROVED,
+                "priority": Requirement.Priority.HIGH, "status": Requirement.Status.APPROVED,
                 "created_by": user,
             },
         )
@@ -179,40 +164,27 @@ class SeleniumBaseTest:
         requirement.save(update_fields=["status", "description", "updated_at"])
 
         plan, _ = TestPlan.objects.get_or_create(
-            project=project,
-            name="Plan E2E Selenium",
+            project=project, name="Plan E2E Selenium",
             defaults={
-                "version": "1.0",
-                "description": "Plan auxiliar para Selenium.",
-                "objective": "Validar el registro funcional de pruebas.",
-                "scope": "Flujo E2E.",
-                "strategy": "Pruebas funcionales manuales.",
-                "environment": "Chrome",
-                "responsibilities": "QA Automation",
-                "estimation": "1 hora",
-                "start_date": project.start_date,
-                "end_date": project.end_date,
-                "created_by": user,
+                "version": "1.0", "description": "Plan auxiliar para Selenium.",
+                "objective": "Validar el registro funcional de pruebas.", "scope": "Flujo E2E.",
+                "strategy": "Pruebas funcionales manuales.", "environment": "Chrome",
+                "responsibilities": "QA Automation", "estimation": "1 hora",
+                "start_date": project.start_date, "end_date": project.end_date, "created_by": user,
             },
         )
 
         case, _ = TestCase.objects.get_or_create(
-            test_plan=plan,
-            code="TC-SELENIUM-001",
+            test_plan=plan, code="TC-SELENIUM-001",
             defaults={
-                "requirement": requirement,
-                "title": "Caso E2E Selenium",
+                "requirement": requirement, "title": "Caso E2E Selenium",
                 "description": "Caso auxiliar para pruebas Selenium.",
-                "technique": TestCase.Technique.EQUIVALENCE,
-                "level": TestCase.Level.SYSTEM,
-                "preconditions": "Usuario registrado.",
-                "test_data": "Datos E2E.",
+                "technique": TestCase.Technique.EQUIVALENCE, "level": TestCase.Level.SYSTEM,
+                "preconditions": "Usuario registrado.", "test_data": "Datos E2E.",
                 "steps": "Abrir funcionalidad => Se muestra correctamente",
                 "steps_data": [{"number": 1, "action": "Abrir funcionalidad", "expected_result": "Se muestra correctamente"}],
-                "expected_result": "Se muestra correctamente.",
-                "priority": TestCase.Priority.HIGH,
-                "status": TestCase.Status.PENDING,
-                "created_by": user,
+                "expected_result": "Se muestra correctamente.", "priority": TestCase.Priority.HIGH,
+                "status": TestCase.Status.PENDING, "created_by": user,
             },
         )
         return str(case.pk)
@@ -225,14 +197,10 @@ class SeleniumBaseTest:
                 return self.select_first_available_option((By.NAME, "project"))
             except TimeoutException:
                 pass
-
-        today = datetime.now().date()
-        year = today.year
-        start_date = today + timedelta(days=1)
-        end_date = datetime(year, 12, 31).date()
+        today = datetime.now().date(); year = today.year
+        start_date = today + timedelta(days=1); end_date = datetime(year, 12, 31).date()
         if start_date.year != year or start_date > end_date:
             start_date = datetime(year, 1, 1).date()
-
         self.open_path("/projects/new/")
         self._require_form((By.NAME, "name"), "creación de proyecto")
         self.type_text((By.NAME, "name"), f"Proyecto E2E {int(time.time())}")
@@ -264,30 +232,21 @@ class SeleniumBaseTest:
         self.open_path("/test-plans/new/")
         project_select = self._require_form((By.NAME, "project"), "creación de plan de pruebas")
         date_ranges_raw = project_select.get_attribute("data-date-ranges") or "{}"
-        try:
-            date_ranges = json.loads(date_ranges_raw)
-        except json.JSONDecodeError:
-            date_ranges = {}
+        try: date_ranges = json.loads(date_ranges_raw)
+        except json.JSONDecodeError: date_ranges = {}
         project_range = date_ranges.get(str(project_id), {})
         start_date = project_range.get("start") or f"{datetime.now().year}-01-01"
         end_date = project_range.get("end") or f"{datetime.now().year}-12-31"
-
         self.select_option((By.NAME, "project"), project_id)
         values = {
-            "name": f"Plan E2E {int(time.time())}",
-            "version": "1.0",
+            "name": f"Plan E2E {int(time.time())}", "version": "1.0",
             "description": "Plan auxiliar para pruebas funcionales automatizadas.",
             "scope": "Validacion funcional de la cadena E2E.",
             "objective": "Verificar la trazabilidad completa desde requisito hasta ejecucion.",
-            "strategy": "Pruebas funcionales manuales.",
-            "entry_criteria": "Requisito registrado y disponible.",
-            "exit_criteria": "Ejecucion registrada con evidencia.",
-            "resources": "Selenium y ambiente local.",
-            "environment": "Chrome y servidor local.",
-            "responsibilities": "Responsable de pruebas E2E.",
-            "estimation": "1 hora.",
-            "minimum_pass_percentage": "80",
-            "maximum_critical_defects": "0",
+            "strategy": "Pruebas funcionales manuales.", "entry_criteria": "Requisito registrado y disponible.",
+            "exit_criteria": "Ejecucion registrada con evidencia.", "resources": "Selenium y ambiente local.",
+            "environment": "Chrome y servidor local.", "responsibilities": "Responsable de pruebas E2E.",
+            "estimation": "1 hora.", "minimum_pass_percentage": "80", "maximum_critical_defects": "0",
             "minimum_coverage_percentage": "90",
         }
         for name, value in values.items():
@@ -295,40 +254,30 @@ class SeleniumBaseTest:
                 element = self.driver.find_element(By.NAME, name)
                 self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles:true})); arguments[0].dispatchEvent(new Event('change', {bubbles:true}));", element, value)
         for name, value in (("start_date", start_date), ("end_date", end_date)):
-            if self.driver.find_elements(By.NAME, name):
-                self.set_date((By.NAME, name), value)
-
+            if self.driver.find_elements(By.NAME, name): self.set_date((By.NAME, name), value)
         for step in range(2, 6):
             self.click((By.CSS_SELECTOR, "[data-wizard-next]"))
             self.wait.until(lambda driver, current=step: driver.find_element(By.CSS_SELECTOR, ".wizard-panel.active").get_attribute("data-step-panel") == str(current))
-
         self.click((By.CSS_SELECTOR, "button.wizard-submit[type='submit']"))
         self.wait_for_text("Plan de pruebas creado correctamente.")
         self.open_path("/test-cases/")
         self.click((By.CSS_SELECTOR, "[data-bs-target='#testCaseModal']"))
         self.find_visible((By.ID, "testCaseModal"))
         plan_id = self.driver.find_element(By.NAME, "test_plan").get_attribute("value")
-        if not plan_id:
-            raise TimeoutException("El formulario de caso no tiene un plan de pruebas seleccionado.")
+        if not plan_id: raise TimeoutException("El formulario de caso no tiene un plan de pruebas seleccionado.")
         return plan_id
 
     def ensure_test_case(self) -> str:
         self.open_path("/executions/")
         existing = self.driver.find_elements(By.CSS_SELECTOR, "select[name='test_case'] option[value]:not([value=''])")
-        if existing:
-            return self.select_first_available_option((By.NAME, "test_case"))
-
-        # El entorno local puede no tener el dataset QA que CI prepara previamente.
-        # Crear una precondicion minima con requisito aprobado evita que dos E2E
-        # dependan del orden de ejecucion del resto de pruebas Selenium.
+        if existing: return self.select_first_available_option((By.NAME, "test_case"))
         case_id = self._bootstrap_executable_case()
         self.open_path(f"/executions/?case={case_id}")
         if self.driver.find_elements(By.NAME, "test_case"):
             try:
                 self.select_option((By.NAME, "test_case"), case_id)
                 return case_id
-            except Exception:
-                pass
+            except Exception: pass
         return case_id
 
     def wait_for_url_contains(self, text: str) -> None:
@@ -344,13 +293,10 @@ class SeleniumBaseTest:
             raise TimeoutException(f"No apareció el texto esperado {text!r}. URL actual: {url}. Contenido visible: {body}") from exc
 
     def wait_for_any_visible(self, locators: Iterable[tuple[str, str]]):
-        locators = list(locators)
-        last_error: Exception | None = None
+        locators = list(locators); last_error: Exception | None = None
         for locator in locators:
-            try:
-                return self.find_visible(locator)
-            except TimeoutException as exc:
-                last_error = exc
+            try: return self.find_visible(locator)
+            except TimeoutException as exc: last_error = exc
         raise TimeoutException(f"No se encontro ningun selector visible: {locators}") from last_error
 
     def print_success(self, module_name: str, test_name: str) -> None:
@@ -364,3 +310,34 @@ class SeleniumBaseTest:
         file_path = SCREENSHOTS_DIR / f"{test_name}_{timestamp}.png"
         self.driver.save_screenshot(str(file_path))
         print(f"[EVIDENCIA] Screenshot generado: {file_path}")
+        return file_path
+
+    def login(self, email: str | None = None, password: str | None = None) -> None:
+        email = email or os.getenv("SELENIUM_EMAIL") or os.getenv("SELENIUM_USERNAME", "qa@example.com")
+        password = password or os.getenv("SELENIUM_PASSWORD", "Istqb2026.Temp!")
+        self.open_path("/login/")
+        self.type_text((By.NAME, "email"), email)
+        self.type_text((By.NAME, "password"), password)
+        self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
+        self.wait_for_url_contains("/dashboard/")
+        self.wait_for_any_visible([
+            (By.CSS_SELECTOR, ".app-sidebar"),
+            (By.CSS_SELECTOR, ".sidebar-nav"),
+            (By.CSS_SELECTOR, ".app-content"),
+        ])
+
+    def logout(self) -> None:
+        self.click((By.CSS_SELECTOR, ".user-menu, [data-testid='user-menu']"))
+        forms = self.driver.find_elements(By.CSS_SELECTOR, "form[action*='logout']")
+        if forms:
+            form = next((form for form in forms if form.is_displayed()), forms[0])
+            self.driver.execute_script("arguments[0].submit();", form)
+        else:
+            self.click((By.CSS_SELECTOR, "[data-testid='logout'], a[href*='logout'], .dropdown-menu a[href*='logout']"))
+        self.wait_for_url_contains("/login/")
+        self.wait_for_any_visible([
+            (By.NAME, "username"),
+            (By.NAME, "email"),
+            (By.CSS_SELECTOR, "[data-testid='login-form']"),
+            (By.CSS_SELECTOR, "form"),
+        ])
