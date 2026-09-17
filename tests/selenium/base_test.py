@@ -184,7 +184,7 @@ class SeleniumBaseTest:
                 "steps": "Abrir funcionalidad => Se muestra correctamente",
                 "steps_data": [{"number": 1, "action": "Abrir funcionalidad", "expected_result": "Se muestra correctamente"}],
                 "expected_result": "Se muestra correctamente.", "priority": TestCase.Priority.HIGH,
-                "status": TestCase.Status.PENDING, "created_by": user,
+                "status": TestCase.Status.READY, "created_by": user,
             },
         )
         if case.requirement_id != requirement.pk or case.status != TestCase.Status.READY:
@@ -272,16 +272,15 @@ class SeleniumBaseTest:
         return plan_id
 
     def ensure_test_case(self) -> str:
-        self.open_path("/executions/")
-        existing = self.driver.find_elements(By.CSS_SELECTOR, "select[name='test_case'] option[value]:not([value=''])")
-        if existing:
-            return self.select_first_available_option((By.NAME, "test_case"))
+        # Never reuse an arbitrary case from the page: the first option may be
+        # pending/blocked and therefore intentionally non-executable. Build a
+        # deterministic approved/READY case and return its id instead.
         case_id = self._bootstrap_executable_case()
         self.open_path(f"/executions/?case={case_id}")
-        if self.driver.find_elements(By.NAME, "test_case"):
+        selected = self.driver.find_elements(By.NAME, "test_case")
+        if selected:
             try:
                 self.select_option((By.NAME, "test_case"), case_id)
-                return case_id
             except Exception:
                 pass
         return case_id
