@@ -26,6 +26,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from apps.executions.models import TestExecution
 from apps.projects.models import Project
 from apps.requirements.models import Requirement
 from apps.testplans.models import TestPlan
@@ -129,7 +130,7 @@ class SeleniumBaseTest:
         raise TimeoutException(f"No se renderizo el formulario '{form_name}'. URL actual: {url}. Contenido visible: {body}")
 
     def _bootstrap_executable_case(self) -> str:
-        """Crea un conjunto E2E aislado y fuerza el usuario QA al rol estudiante."""
+        """Crea un conjunto E2E aislado y una ejecución previa para defectos."""
         User = get_user_model()
         email = os.getenv("SELENIUM_EMAIL", "qa@example.com")
         password = os.getenv("SELENIUM_PASSWORD", "Istqb2026.Temp!")
@@ -181,6 +182,19 @@ class SeleniumBaseTest:
             steps_data=[{"number": 1, "action": "Abrir funcionalidad", "expected_result": "Se muestra correctamente"}],
             expected_result="Se muestra correctamente.", priority=TestCase.Priority.HIGH,
             status=TestCase.Status.READY, created_by=user,
+        )
+        TestExecution.objects.create(
+            test_case=case,
+            execution_mode=TestExecution.ExecutionMode.MANUAL,
+            execution_type=TestExecution.ExecutionType.NORMAL,
+            planned_date=today,
+            executed_by=user,
+            executed_at=timezone.now(),
+            result=TestExecution.Result.PASSED,
+            actual_result="Cumple",
+            test_data="Datos E2E.",
+            environment="Chrome",
+            notes="Ejecución previa creada por Selenium para habilitar el flujo de defectos.",
         )
         return str(case.pk)
 
@@ -263,12 +277,7 @@ class SeleniumBaseTest:
         return plan_id
 
     def ensure_test_case(self) -> str:
-        """Devuelve el caso persistente de CI; localmente conserva el bootstrap aislado."""
-        if os.getenv("CI", "").lower() == "true":
-            case = TestCase.objects.filter(code="TC-E2E-001", test_plan__project__code="E2E-CI").first()
-            if case:
-                return str(case.pk)
-            raise AssertionError("CI no preparo el caso Selenium TC-E2E-001 en el proyecto E2E-CI.")
+        """Crea un caso aislado por prueba; evita depender de datos fuera de la transacción Selenium."""
         case_id = self._bootstrap_executable_case()
         self.open_path(f"/executions/?case={case_id}")
         return case_id
@@ -302,35 +311,4 @@ class SeleniumBaseTest:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         file_path = SCREENSHOTS_DIR / f"{test_name}_{timestamp}.png"
         self.driver.save_screenshot(str(file_path))
-        print(f"[EVIDENCIA] Screenshot generado: {file_path}")
         return file_path
-
-    def login(self, email: str | None = None, password: str | None = None) -> None:
-        email = email or os.getenv("SELENIUM_EMAIL") or os.getenv("SELENIUM_USERNAME", "qa@example.com")
-        password = password or os.getenv("SELENIUM_PASSWORD", "Istqb2026.Temp!")
-        self.open_path("/login/")
-        self.type_text((By.NAME, "email"), email)
-        self.type_text((By.NAME, "password"), password)
-        self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
-        self.wait_for_url_contains("/dashboard/")
-        self.wait_for_any_visible([
-            (By.CSS_SELECTOR, ".app-sidebar"),
-            (By.CSS_SELECTOR, ".sidebar-nav"),
-            (By.CSS_SELECTOR, ".app-content"),
-        ])
-
-    def logout(self) -> None:
-        self.click((By.CSS_SELECTOR, ".user-menu, [data-testid='user-menu']"))
-        forms = self.driver.find_elements(By.CSS_SELECTOR, "form[action*='logout']")
-        if forms:
-            form = next((form for form in forms if form.is_displayed()), forms[0])
-            self.driver.execute_script("arguments[0].submit();", form)
-        else:
-            self.click((By.CSS_SELECTOR, "[data-testid='logout'], a[href*='logout'], .dropdown-menu a[href*='logout']"))
-        self.wait_for_url_contains("/login/")
-        self.wait_for_any_visible([
-            (By.NAME, "username"),
-            (By.NAME, "email"),
-            (By.CSS_SELECTOR, "[data-testid='login-form']"),
-            (By.CSS_SELECTOR, "form"),
-        ])
