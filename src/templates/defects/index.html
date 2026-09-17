@@ -58,21 +58,22 @@
                                     <button class="btn btn-outline-brand btn-sm" type="submit" data-confirm-message="{{ item.primary_confirm|default:'' }}"><i class="bi {{ item.primary_icon|default:'bi-arrow-right-circle' }}"></i> {{ item.primary_label }}</button>
                                 </form>
                             {% endif %}
-                            {% if item.secondary_statuses %}
-                                <details class="defect-more-actions">
-                                    <summary class="btn btn-outline-brand btn-sm"><i class="bi bi-three-dots"></i> Más acciones</summary>
-                                    <div class="defect-more-menu">
-                                        {% for action in item.secondary_statuses %}
-                                            <form method="POST" action="{% url 'defects:transition' item.defect.pk action.status %}">
-                                                {% csrf_token %}
-                                                <button class="dropdown-item" type="submit"><i class="bi {{ action.icon }}"></i> {{ action.label }}</button>
-                                            </form>
-                                        {% endfor %}
-                                    </div>
-                                </details>
-                            {% endif %}
-                            <a class="btn btn-outline-brand btn-sm" href="{% url 'defects:edit' item.defect.pk %}"><i class="bi bi-pencil"></i> Editar</a>
-                            <form method="POST" action="{% url 'defects:delete' item.defect.pk %}">{% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar este defecto no elimina la ejecución relacionada. ¿Deseas continuar?"><i class="bi bi-trash"></i> Eliminar</button></form>
+                            <details class="defect-more-actions">
+                                <summary class="btn btn-outline-brand btn-sm"><i class="bi bi-three-dots"></i> Más acciones</summary>
+                                <div class="defect-more-menu">
+                                    {% for action in item.secondary_statuses %}
+                                        <form method="POST" action="{% url 'defects:transition' item.defect.pk action.status %}">
+                                            {% csrf_token %}
+                                            <button class="dropdown-item" type="submit"><i class="bi {{ action.icon }}"></i> {{ action.label }}</button>
+                                        </form>
+                                    {% endfor %}
+                                    <a class="dropdown-item" href="{% url 'defects:edit' item.defect.pk %}"><i class="bi bi-pencil"></i> Editar defecto</a>
+                                    <form method="POST" action="{% url 'defects:delete' item.defect.pk %}">
+                                        {% csrf_token %}
+                                        <button class="dropdown-item dropdown-item-danger" type="submit" data-confirm-message="Eliminar este defecto no elimina la ejecución relacionada. ¿Deseas continuar?"><i class="bi bi-trash"></i> Eliminar defecto</button>
+                                    </form>
+                                </div>
+                            </details>
                         </div>
                     {% endif %}
                 </div>
@@ -87,9 +88,10 @@
 .defect-more-actions{position:relative;display:inline-block;}
 .defect-more-actions>summary{list-style:none;cursor:pointer;}
 .defect-more-actions>summary::-webkit-details-marker{display:none;}
-.defect-more-menu{position:absolute;right:0;top:calc(100% + .35rem);z-index:20;min-width:210px;padding:.35rem;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(15,47,82,.12);}
+.defect-more-menu{position:absolute;right:0;top:calc(100% + .35rem);z-index:20;min-width:230px;padding:.35rem;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(15,47,82,.12);}
 .defect-more-menu form{margin:0;}
-.defect-more-menu .dropdown-item{display:block;width:100%;padding:.55rem .7rem;border:0;background:transparent;text-align:left;color:var(--ink);border-radius:7px;}
+.defect-more-menu .dropdown-item{display:block;width:100%;padding:.55rem .7rem;border:0;background:transparent;text-align:left;color:var(--ink);border-radius:7px;text-decoration:none;}
 .defect-more-menu .dropdown-item:hover{background:var(--soft);}
+.defect-more-menu .dropdown-item-danger{color:#d6334c;}
 </style>
 {% endblock %}
