@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.db.models import OuterRef, Prefetch, Subquery
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -15,6 +16,7 @@ from apps.testcases.models import TestCase
 from apps.traceability.services import calculate_visible_project_metrics
 
 COMPLETED_RESULTS = [TestExecution.Result.PASSED, TestExecution.Result.FAILED, TestExecution.Result.BLOCKED, TestExecution.Result.ERROR]
+TRACEABILITY_PAGE_SIZE = 5
 
 
 @login_required
@@ -111,8 +113,13 @@ def traceability_matrix_view(request):
     requirement_coverage_percentage = round((len(traced_requirement_ids) / len(requirements)) * 100, 1) if requirements else 0
     execution_coverage_percentage = round((len(requirements_with_completed_execution) / len(requirements)) * 100, 1) if requirements else 0
     project_metrics = calculate_visible_project_metrics(visible_projects, requirements, rows)
+
+    matrix_paginator = Paginator(rows, TRACEABILITY_PAGE_SIZE)
+    matrix_page = matrix_paginator.get_page(request.GET.get('page', 1))
+
     return render(request, 'traceability/index.html', {
-        'rows': rows,
+        'rows': matrix_page,
+        'matrix_page': matrix_page,
         'project_metrics': project_metrics,
         'total_requirements': len(requirements),
         'total_plans': len(plans),
