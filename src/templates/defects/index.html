@@ -9,148 +9,87 @@
         <p>Registro y seguimiento de defectos encontrados</p>
     </div>
     {% if can_manage %}
-        <a class="btn btn-brand" href="{% url 'defects:create' %}">
-            <i class="bi bi-plus-lg"></i>
-            Reportar Defecto
-        </a>
+        <a class="btn btn-brand" href="{% url 'defects:create' %}"><i class="bi bi-plus-lg"></i> Reportar Defecto</a>
     {% endif %}
 </div>
 
-{% if messages %}
-    <div class="project-messages">
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>
-        {% endfor %}
-    </div>
-{% endif %}
+{% if messages %}<div class="project-messages">{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}</div>{% endif %}
 
 <section class="defect-metric-grid">
-    <article class="defect-metric-card danger">
-        <strong>{{ open_count }}</strong>
-        <span>Abiertos</span>
-    </article>
-    <article class="defect-metric-card warning">
-        <strong>{{ in_fix_count }}</strong>
-        <span>En Corrección</span>
-    </article>
-    <article class="defect-metric-card info">
-        <strong>{{ resolved_count }}</strong>
-        <span>Resueltos</span>
-    </article>
-    <article class="defect-metric-card warning">
-        <strong>{{ reopened_count }}</strong>
-        <span>Reabiertos</span>
-    </article>
-    <article class="defect-metric-card success">
-        <strong>{{ closed_count }}</strong>
-        <span>Cerrados</span>
-    </article>
-    <article class="defect-metric-card">
-        <strong>{{ total }}</strong>
-        <span>Total</span>
-    </article>
+    <article class="defect-metric-card danger"><strong>{{ open_count }}</strong><span>Abiertos</span></article>
+    <article class="defect-metric-card warning"><strong>{{ in_fix_count }}</strong><span>En Corrección</span></article>
+    <article class="defect-metric-card info"><strong>{{ resolved_count }}</strong><span>Resueltos</span></article>
+    <article class="defect-metric-card warning"><strong>{{ reopened_count }}</strong><span>Reabiertos</span></article>
+    <article class="defect-metric-card success"><strong>{{ closed_count }}</strong><span>Cerrados</span></article>
+    <article class="defect-metric-card"><strong>{{ total }}</strong><span>Total</span></article>
 </section>
 
 <section class="defects-filter-card">
     <form method="GET" class="defects-filters">
-        <div class="search-control">
-            <i class="bi bi-search"></i>
-            <input type="search" name="q" value="{{ query }}" placeholder="Buscar defectos...">
-        </div>
-        <select name="project" aria-label="Proyecto">
-            <option value="">Todos los proyectos</option>
-            {% for project in projects %}
-                <option value="{{ project.id }}" {% if selected_project == project.id|stringformat:'s' %}selected{% endif %}>{{ project.name }}</option>
-            {% endfor %}
-        </select>
-        <select name="status" aria-label="Estado">
-            <option value="">Todos los estados</option>
-            {% for value, label in status_choices %}
-                <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
-        <button class="btn btn-outline-brand" type="submit">
-            <i class="bi bi-funnel"></i>
-            Filtros
-        </button>
+        <div class="search-control"><i class="bi bi-search"></i><input type="search" name="q" value="{{ query }}" placeholder="Buscar defectos..."></div>
+        <select name="project" aria-label="Proyecto"><option value="">Todos los proyectos</option>{% for project in projects %}<option value="{{ project.id }}" {% if selected_project == project.id|stringformat:'s' %}selected{% endif %}>{{ project.name }}</option>{% endfor %}</select>
+        <select name="status" aria-label="Estado"><option value="">Todos los estados</option>{% for value, label in status_choices %}<option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+        <button class="btn btn-outline-brand" type="submit"><i class="bi bi-funnel"></i> Filtros</button>
     </form>
 </section>
 
 <section class="defects-list-card">
     <h3>Defectos Registrados</h3>
-
     <div class="defect-list">
         {% for item in items %}
             <article class="defect-row">
-                <div class="defect-icon defect-icon-{{ item.severity_badge }}">
-                    <i class="bi bi-bug"></i>
-                </div>
+                <div class="defect-icon defect-icon-{{ item.severity_badge }}"><i class="bi bi-bug"></i></div>
                 <div class="defect-main">
-                    <div class="defect-title-line">
-                        <span class="defect-code">{{ item.defect.code }}</span>
-                        <strong>{{ item.defect.title }}</strong>
-                    </div>
+                    <div class="defect-title-line"><span class="defect-code">{{ item.defect.code }}</span><strong>{{ item.defect.title }}</strong></div>
                     <p class="defect-meta">
-                        <span class="defect-meta-pill defect-meta-{{ item.severity_badge }}">
-                            Severidad: {{ item.defect.get_severity_display }}
-                        </span>
-                        {% if item.defect.test_case %}
-                            <span>
-                                Caso: {{ item.defect.test_case.code }}
-                            </span>
-                        {% endif %}
-                        {% if item.defect.execution %}
-                            <span>
-                                Ejecución #{{ item.defect.execution.id }} - {{ item.defect.execution.get_execution_mode_display }}
-                            </span>
-                        {% endif %}
+                        <span class="defect-meta-pill defect-meta-{{ item.severity_badge }}">Severidad: {{ item.defect.get_severity_display }}</span>
+                        {% if item.defect.test_case %}<span>Caso: {{ item.defect.test_case.code }}</span>{% endif %}
+                        {% if item.defect.execution %}<span>Ejecución #{{ item.defect.execution.id }} - {{ item.defect.execution.get_execution_mode_display }}</span>{% endif %}
                         <span>Historial: {{ item.defect.history_count }}</span>
                     </p>
                 </div>
                 <div class="list-row-actions">
-                    <span class="defect-status defect-status-{{ item.badge }}">
-                        {{ item.defect.get_status_display }}
-                    </span>
+                    <span class="defect-status defect-status-{{ item.badge }}">{{ item.defect.get_status_display }}</span>
                     {% if can_manage %}
-                        <div class="manage-actions" aria-label="Gestionar defecto">
-                            {% if item.next_statuses %}
-                                <div class="defect-transition-actions">
-                                    {% for next_status in item.next_statuses %}
-                                        <form method="POST" action="{% url 'defects:transition' item.defect.pk next_status %}">
-                                            {% csrf_token %}
-                                            <button class="btn btn-outline-brand btn-sm" type="submit">
-                                                <i class="bi bi-arrow-right-circle"></i>
-                                                Cambiar a {{ next_status|lower }}
-                                            </button>
-                                        </form>
-                                    {% endfor %}
-                                </div>
+                        <div class="manage-actions" aria-label="Acciones del defecto">
+                            {% if item.primary_status %}
+                                <form method="POST" action="{% url 'defects:transition' item.defect.pk item.primary_status %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-outline-brand btn-sm" type="submit" data-confirm-message="{{ item.primary_confirm|default:'' }}"><i class="bi {{ item.primary_icon|default:'bi-arrow-right-circle' }}"></i> {{ item.primary_label }}</button>
+                                </form>
                             {% endif %}
-                            <a class="btn btn-outline-brand btn-sm" href="{% url 'defects:edit' item.defect.pk %}">
-                                <i class="bi bi-pencil"></i>
-                                Editar
-                            </a>
-                            <form method="POST" action="{% url 'defects:delete' item.defect.pk %}">
-                                {% csrf_token %}
-                                <button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar este defecto no elimina la ejecucion relacionada. Deseas continuar?">
-                                    <i class="bi bi-trash"></i>
-                                    Eliminar
-                                </button>
-                            </form>
+                            {% if item.secondary_statuses %}
+                                <details class="defect-more-actions">
+                                    <summary class="btn btn-outline-brand btn-sm"><i class="bi bi-three-dots"></i> Más acciones</summary>
+                                    <div class="defect-more-menu">
+                                        {% for action in item.secondary_statuses %}
+                                            <form method="POST" action="{% url 'defects:transition' item.defect.pk action.status %}">
+                                                {% csrf_token %}
+                                                <button class="dropdown-item" type="submit"><i class="bi {{ action.icon }}"></i> {{ action.label }}</button>
+                                            </form>
+                                        {% endfor %}
+                                    </div>
+                                </details>
+                            {% endif %}
+                            <a class="btn btn-outline-brand btn-sm" href="{% url 'defects:edit' item.defect.pk %}"><i class="bi bi-pencil"></i> Editar</a>
+                            <form method="POST" action="{% url 'defects:delete' item.defect.pk %}">{% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar este defecto no elimina la ejecución relacionada. ¿Deseas continuar?"><i class="bi bi-trash"></i> Eliminar</button></form>
                         </div>
                     {% endif %}
                 </div>
             </article>
         {% empty %}
-            <div class="empty-projects">
-                <i class="bi bi-bug"></i>
-                <h3>No hay defectos registrados</h3>
-                <p>Reporta el primer defecto encontrado durante la ejecución de pruebas.</p>
-                {% if can_manage %}
-                    <a class="btn btn-brand" href="{% url 'defects:create' %}">Reportar Defecto</a>
-                {% endif %}
-            </div>
+            <div class="empty-projects"><i class="bi bi-bug"></i><h3>No hay defectos registrados</h3><p>Reporta el primer defecto encontrado durante la ejecución de pruebas.</p>{% if can_manage %}<a class="btn btn-brand" href="{% url 'defects:create' %}">Reportar Defecto</a>{% endif %}</div>
         {% endfor %}
     </div>
 </section>
+
+<style>
+.defect-more-actions{position:relative;display:inline-block;}
+.defect-more-actions>summary{list-style:none;cursor:pointer;}
+.defect-more-actions>summary::-webkit-details-marker{display:none;}
+.defect-more-menu{position:absolute;right:0;top:calc(100% + .35rem);z-index:20;min-width:210px;padding:.35rem;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(15,47,82,.12);}
+.defect-more-menu form{margin:0;}
+.defect-more-menu .dropdown-item{display:block;width:100%;padding:.55rem .7rem;border:0;background:transparent;text-align:left;color:var(--ink);border-radius:7px;}
+.defect-more-menu .dropdown-item:hover{background:var(--soft);}
+</style>
 {% endblock %}
