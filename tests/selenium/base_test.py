@@ -278,9 +278,7 @@ class SeleniumBaseTest:
 
     def ensure_test_case(self) -> str:
         """Crea siempre un caso E2E nuevo, ejecutable y con una ejecución previa."""
-        case_id = self._bootstrap_executable_case()
-        self.open_path(f"/executions/?case={case_id}")
-        return case_id
+        return self._bootstrap_executable_case()
 
     def wait_for_url_contains(self, text: str) -> None:
         self.wait.until(EC.url_contains(text))
