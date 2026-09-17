@@ -238,7 +238,7 @@ def incident_transition_allowed(incident, target):
         Incident.Status.CLOSED: {Incident.Status.ANALYSIS},
     }
     if target not in allowed.get(incident.status, set()):
-        raise ValidationError('La transición del riesgo no está permitida desde el resultado actual.')
+        raise ValidationError('La transición del riesgo no está permitida desde el estado actual.')
     if target == Incident.Status.MITIGATED and not (incident.mitigation_strategy or '').strip():
         raise ValidationError('Registra la estrategia de mitigación antes de marcar el riesgo como mitigado.')
     if target == Incident.Status.CLOSED and not (incident.mitigation_strategy or '').strip():
@@ -249,8 +249,7 @@ def incident_transition_allowed(incident, target):
 def validate_execution_repeat(test_case, execution_type, environment, previous_execution=None):
     if execution_type != TestExecution.ExecutionType.NORMAL:
         return ValidationResult(True)
-    # READY después de una reapertura explícita desde trazabilidad autoriza una nueva ejecución normal.
-    if test_case.status == TestCase.Status.READY and test_case.executions.filter(execution_type=TestExecution.ExecutionType.NORMAL).exists():
+    if test_case.reexecution_requested:
         return ValidationResult(True)
     active_results = [
         TestExecution.Result.NOT_RUN,
