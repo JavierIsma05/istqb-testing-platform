@@ -7,9 +7,7 @@
     <div><h2>Matriz de Trazabilidad</h2><p>Requisito → Plan de Pruebas → Caso de Prueba → Ejecución → Resultado → Defecto</p></div>
     <div><a class="btn btn-outline-primary" href="{% url 'traceability:export-indicators-csv' %}"><i class="bi bi-download"></i> Exportar indicadores CSV</a></div>
 </div>
-
 {% if messages %}<div class="project-messages">{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}</div>{% endif %}
-
 <section class="traceability-metric-grid">
     <article class="traceability-metric-card"><div><span>Requisitos</span><strong>{{ total_requirements }}</strong></div><i class="bi bi-file-earmark-text"></i></article>
     <article class="traceability-metric-card"><div><span>Planes de Prueba</span><strong>{{ total_plans }}</strong></div><i class="bi bi-journal-text"></i></article>
@@ -22,32 +20,25 @@
     <article class="traceability-metric-card"><div><span>Trazabilidad integral</span><strong>{{ end_to_end_traceability_percentage }}%</strong><small>{{ end_to_end_traced_requirements }}/{{ total_requirements }} con cadena requisito → caso → ejecución</small></div><i class="bi bi-link-45deg"></i></article>
     <article class="traceability-metric-card"><div><span>Casos ejecutados</span><strong>{{ test_case_execution_coverage_percentage }}%</strong><small>{{ executed_test_cases }}/{{ total_test_cases }} con al menos una ejecución completada</small></div><i class="bi bi-check2-square"></i></article>
 </section>
-
 <section class="traceability-card">
     <h3>Indicadores por proyecto</h3><p class="text-muted mb-3">Cada fila usa exclusivamente los artefactos del proyecto correspondiente.</p>
-    <div class="table-responsive"><table class="table traceability-table align-middle mb-0"><thead><tr><th>Proyecto</th><th>Requisitos</th><th>Casos</th><th>Ejecuciones</th><th>Cobertura de requisitos</th><th>Cobertura de ejecución</th><th>Casos ejecutados</th></tr></thead><tbody>
-        {% for metric in project_metrics %}<tr><td><strong>{{ metric.project.code }}</strong><br><small>{{ metric.project.name }}</small></td><td>{{ metric.total_requirements }}</td><td>{{ metric.total_test_cases }}</td><td>{{ metric.total_executions }}</td><td>{{ metric.requirement_coverage_percentage }}%</td><td>{{ metric.execution_coverage_percentage }}%</td><td>{{ metric.test_case_execution_coverage_percentage }}%</td></tr>
-        {% empty %}<tr><td colspan="7" class="text-center text-muted py-4">No hay proyectos visibles.</td></tr>{% endfor %}
-    </tbody></table></div>
+    <div class="table-responsive"><table class="table traceability-table align-middle mb-0"><thead><tr><th>Proyecto</th><th>Requisitos</th><th>Casos</th><th>Ejecuciones</th><th>Cobertura de requisitos</th><th>Cobertura de ejecución</th><th>Casos ejecutados</th></tr></thead><tbody>{% for metric in project_metrics %}<tr><td><strong>{{ metric.project.code }}</strong><br><small>{{ metric.project.name }}</small></td><td>{{ metric.total_requirements }}</td><td>{{ metric.total_test_cases }}</td><td>{{ metric.total_executions }}</td><td>{{ metric.requirement_coverage_percentage }}%</td><td>{{ metric.execution_coverage_percentage }}%</td><td>{{ metric.test_case_execution_coverage_percentage }}%</td></tr>{% empty %}<tr><td colspan="7" class="text-center text-muted py-4">No hay proyectos visibles.</td></tr>{% endfor %}</tbody></table></div>
 </section>
-
 <section class="traceability-card">
     <h3>Matriz de Trazabilidad</h3>
     <p class="text-muted mb-3">La matriz conserva el historial de ejecuciones. Si un caso ya terminó y necesita una nueva validación, se reabre aquí sin sobrescribir la ejecución anterior.</p>
     <div class="table-responsive"><table class="table traceability-table align-middle mb-0"><thead><tr><th>Requisito</th><th>Plan de Pruebas</th><th>Caso de Prueba</th><th>Ejecución</th><th>Tipo</th><th>Resultado</th><th>Defecto</th><th>Acción</th><th>Justificación</th></tr></thead><tbody>
-        {% for row in rows %}
-            <tr>
-                <td><a class="trace-pill requirement-pill" href="{% url 'requirements:edit' row.requirement.pk %}">{{ row.requirement.code }}</a></td>
-                <td>{% if row.plan %}<a class="trace-pill plan-pill" href="{% url 'testplans:edit' row.plan.pk %}">{{ row.plan.name }}</a>{% else %}<span class="text-muted">—</span>{% endif %}</td>
-                <td>{% if row.case %}<div class="trace-pill-list"><a class="trace-pill testcase-pill" href="{% url 'testcases:detail' row.case.pk %}"><i class="bi bi-test-tube"></i>{{ row.case.code }}</a></div>{% else %}<span class="text-muted">—</span>{% endif %}</td>
-                <td>{% if row.execution %}<a class="trace-pill execution-pill" href="{% url 'executions:history' row.case.pk %}"><i class="bi bi-play-circle"></i>Ejecución #{{ row.execution.id }}</a>{% else %}<span class="text-muted">—</span>{% endif %}</td>
-                <td>{% if row.execution %}<span class="trace-pill">{{ row.execution.get_execution_type_display }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
-                <td>{% if row.execution %}<span class="trace-pill result-pill result-{{ row.execution.result|lower }}">{{ row.execution.get_result_display }}</span>{% else %}<span class="trace-pill result-pill result-not_run">Pendiente</span>{% endif %}</td>
-                <td>{% if row.defects %}<div class="trace-pill-list">{% for defect in row.defects %}<a class="trace-pill defect-pill" href="{% url 'defects:edit' defect.pk %}"><i class="bi bi-bug"></i>{{ defect.code }}</a>{% endfor %}</div>{% else %}<span class="text-muted">—</span>{% endif %}</td>
-                <td>{% if can_manage and row.case and row.execution and row.case.status in 'PASSED FAILED BLOCKED' %}<form method="POST" action="{% url 'traceability:reopen-test-case' row.case.pk %}">{% csrf_token %}<button class="btn btn-outline-brand btn-sm" type="submit" data-confirm-message="El caso se reabrirá para una nueva ejecución y se conservará el historial anterior."><i class="bi bi-arrow-clockwise"></i> Reabrir para ejecutar</button></form>{% elif row.case and row.case.status == 'READY' %}<span class="text-muted">Listo para ejecutar</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
-                <td>{% if row.rationale %}{{ row.rationale }}{% else %}<span class="text-muted">Sin justificación</span>{% endif %}</td>
-            </tr>
-        {% empty %}<tr><td colspan="9" class="text-center text-muted py-5">No hay requisitos para mostrar en la matriz.</td></tr>{% endfor %}
+        {% for row in rows %}<tr>
+            <td><a class="trace-pill requirement-pill" href="{% url 'requirements:edit' row.requirement.pk %}">{{ row.requirement.code }}</a></td>
+            <td>{% if row.plan %}<a class="trace-pill plan-pill" href="{% url 'testplans:edit' row.plan.pk %}">{{ row.plan.name }}</a>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{% if row.case %}<div class="trace-pill-list"><a class="trace-pill testcase-pill" href="{% url 'testcases:detail' row.case.pk %}"><i class="bi bi-test-tube"></i>{{ row.case.code }}</a></div>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{% if row.execution %}<a class="trace-pill execution-pill" href="{% url 'executions:history' row.case.pk %}"><i class="bi bi-play-circle"></i>Ejecución #{{ row.execution.id }}</a>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{% if row.execution %}<span class="trace-pill">{{ row.execution.get_execution_type_display }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{% if row.execution %}<span class="trace-pill result-pill result-{{ row.execution.result|lower }}">{{ row.execution.get_result_display }}</span>{% else %}<span class="trace-pill result-pill result-not_run">Pendiente</span>{% endif %}</td>
+            <td>{% if row.defects %}<div class="trace-pill-list">{% for defect in row.defects %}<a class="trace-pill defect-pill" href="{% url 'defects:edit' defect.pk %}"><i class="bi bi-bug"></i>{{ defect.code }}</a>{% endfor %}</div>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{% if can_manage and row.case and row.execution and row.case.status == 'PASSED' or can_manage and row.case and row.execution and row.case.status == 'FAILED' or can_manage and row.case and row.execution and row.case.status == 'BLOCKED' %}<form method="POST" action="{% url 'traceability:reopen-test-case' row.case.pk %}">{% csrf_token %}<button class="btn btn-outline-brand btn-sm" type="submit" data-confirm-message="El caso se reabrirá para una nueva ejecución y se conservará el historial anterior."><i class="bi bi-arrow-clockwise"></i> Reabrir para ejecutar</button></form>{% elif row.case and row.case.status == 'READY' %}<span class="text-muted">Listo para ejecutar</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{% if row.rationale %}{{ row.rationale }}{% else %}<span class="text-muted">Sin justificación</span>{% endif %}</td>
+        </tr>{% empty %}<tr><td colspan="9" class="text-center text-muted py-5">No hay requisitos para mostrar en la matriz.</td></tr>{% endfor %}
     </tbody></table></div>
 </section>
 {% endblock %}
