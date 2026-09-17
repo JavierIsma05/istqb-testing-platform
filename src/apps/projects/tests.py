@@ -160,17 +160,26 @@ def test_formulario_rechaza_fechas_de_otro_anio():
 
 
 @pytest.mark.django_db
-def test_eliminar_proyecto_con_automatizaciones_preserva_historial(client, project, test_case, execution):
+def test_eliminar_proyecto_con_automatizaciones_elimina_toda_la_informacion_asociada(client, project, test_case, execution):
     from apps.executions.models import AutomatedExecutionResult, AutomatedValidationRule
     rule = AutomatedValidationRule.objects.create(test_case=test_case, requirement=test_case.requirement, step_number=1, name='Verificar login', action_type=AutomatedValidationRule.ActionType.VERIFY, target_url='https://example.com/login', selector_value='body', expected_value='Bienvenido')
     execution.execution_mode = execution.ExecutionMode.AUTOMATED
     execution.save(update_fields=['execution_mode'])
-    AutomatedExecutionResult.objects.create(test_execution=execution, validation_rule=rule, status=execution.result)
+    result = AutomatedExecutionResult.objects.create(test_execution=execution, validation_rule=rule, status=execution.result)
+    test_case_id = test_case.pk
+    execution_id = execution.pk
+    rule_id = rule.pk
+    result_id = result.pk
+    project_id = project.pk
     client.force_login(project.created_by)
     response = client.post(reverse('projects:delete', args=[project.pk]))
     assert response.status_code == 302
-    assert Project.objects.filter(pk=project.pk).exists()
-    assert AutomatedExecutionResult.objects.filter(validation_rule=rule).exists()
+    assert response['Location'] == reverse('projects:index')
+    assert not Project.objects.filter(pk=project_id).exists()
+    assert not TestExecution.objects.filter(pk=execution_id).exists()
+    assert not AutomatedValidationRule.objects.filter(pk=rule_id).exists()
+    assert not AutomatedExecutionResult.objects.filter(pk=result_id).exists()
+    assert not TestCase.objects.filter(pk=test_case_id).exists()
 
 
 @pytest.mark.django_db
@@ -224,7 +233,7 @@ def test_propietario_puede_eliminar_su_proyecto(client, user, project):
 
 @pytest.mark.django_db
 def test_administrador_puede_eliminar_proyecto_visible(client, project):
-    admin = get_user_model().objects.create_user(email='admin-delete@example.edu', password='StrongPass123', role=get_user_model().Roles.ADMIN)
+    admin = get_user_model().objects.create_user(email='admin-delete@example.com', password='StrongPass123', role=get_user_model().Roles.ADMIN)
     client.force_login(admin)
     response = client.post(reverse('projects:delete', args=[project.pk]))
     assert response.status_code == 302
