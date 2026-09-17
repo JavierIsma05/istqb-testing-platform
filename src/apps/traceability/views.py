@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db.models import OuterRef, Prefetch, Subquery
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.audit.services import log_action
@@ -47,7 +48,13 @@ def reopen_test_case_view(request, pk):
         'source': 'traceability_reopen_for_reexecution',
     })
     messages.success(request, f'Caso {test_case.code} reabierto para una nueva ejecución. El historial anterior se conserva.')
-    return redirect(f'/executions/?case={test_case.pk}&project={test_case.test_plan.project_id}')
+
+    execution_url = f'{reverse("executions:index")}?case={test_case.pk}&project={test_case.test_plan.project_id}'
+    if test_case.execution_type == TestCase.ExecutionType.AUTOMATED:
+        execution_url += '#automation'
+    else:
+        execution_url += '#execucion-manual'
+    return redirect(execution_url)
 
 
 @login_required
