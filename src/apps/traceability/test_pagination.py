@@ -35,6 +35,7 @@ def test_matriz_pagina_cada_cinco_registros(client, user, requirement):
     assert not third_page.context['matrix_page'].has_next
 
 
+@pytest.mark.django_db
 def test_matriz_paginada_muestra_controles_solo_cuando_hay_mas_de_una_pagina(client, user, requirement):
     client.force_login(user)
     response = client.get(reverse('traceability:index'))
