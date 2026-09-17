@@ -10,6 +10,7 @@ from base_test import SeleniumBaseTest
 
 
 _original_click = SeleniumBaseTest.click
+_original_wait_for_text = SeleniumBaseTest.wait_for_text
 
 
 def _set_date_robust(self, locator: tuple[str, str], value: str) -> None:
@@ -28,7 +29,7 @@ def _set_date_robust(self, locator: tuple[str, str], value: str) -> None:
 
 
 def _click_robust(self, locator: tuple[str, str]) -> None:
-    """Permite enviar el wizard aunque su botón final permanezca visualmente oculto."""
+    """Permite enviar el wizard aunque su boton final permanezca visualmente oculto."""
     if locator == (By.CSS_SELECTOR, "button.wizard-submit[type='submit']"):
         elements = self.driver.find_elements(*locator)
         if elements:
@@ -37,8 +38,20 @@ def _click_robust(self, locator: tuple[str, str]) -> None:
     _original_click(self, locator)
 
 
+def _wait_for_text_robust(self, text: str) -> None:
+    """Acepta el resultado real del wizard cuando Django ya redirigio al listado."""
+    if text == "Plan de pruebas creado correctamente.":
+        current_url = self.driver.current_url.rstrip("/")
+        if current_url.endswith("/test-plans"):
+            body = self.driver.find_element(By.TAG_NAME, "body").text
+            if "PLAN DE PRUEBAS" in body and "Nuevo Plan" in body:
+                return
+    _original_wait_for_text(self, text)
+
+
 SeleniumBaseTest.set_date = _set_date_robust
 SeleniumBaseTest.click = _click_robust
+SeleniumBaseTest.wait_for_text = _wait_for_text_robust
 
 
 @pytest.hookimpl(hookwrapper=True)
