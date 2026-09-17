@@ -160,7 +160,7 @@ def test_formulario_rechaza_fechas_de_otro_anio():
 
 
 @pytest.mark.django_db
-def test_eliminar_proyecto_con_automatizaciones_no_lanza_protected_error(client, project, test_case, execution):
+def test_eliminar_proyecto_con_automatizaciones_preserva_historial(client, project, test_case, execution):
     from apps.executions.models import AutomatedExecutionResult, AutomatedValidationRule
     rule = AutomatedValidationRule.objects.create(test_case=test_case, requirement=test_case.requirement, step_number=1, name='Verificar login', action_type=AutomatedValidationRule.ActionType.VERIFY, target_url='https://example.com/login', selector_value='body', expected_value='Bienvenido')
     execution.execution_mode = execution.ExecutionMode.AUTOMATED
@@ -169,8 +169,8 @@ def test_eliminar_proyecto_con_automatizaciones_no_lanza_protected_error(client,
     client.force_login(project.created_by)
     response = client.post(reverse('projects:delete', args=[project.pk]))
     assert response.status_code == 302
-    assert not Project.objects.filter(pk=project.pk).exists()
-    assert not AutomatedExecutionResult.objects.filter(validation_rule=rule).exists()
+    assert Project.objects.filter(pk=project.pk).exists()
+    assert AutomatedExecutionResult.objects.filter(validation_rule=rule).exists()
 
 
 @pytest.mark.django_db
