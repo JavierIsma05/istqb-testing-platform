@@ -40,5 +40,28 @@
             <td>{% if row.rationale %}{{ row.rationale }}{% else %}<span class="text-muted">Sin justificación</span>{% endif %}</td>
         </tr>{% empty %}<tr><td colspan="9" class="text-center text-muted py-5">No hay requisitos para mostrar en la matriz.</td></tr>{% endfor %}
     </tbody></table></div>
+
+    {% if matrix_page.paginator.num_pages > 1 %}
+    <nav class="mt-4" aria-label="Paginación de la matriz de trazabilidad">
+        <ul class="pagination justify-content-center mb-0">
+            {% if matrix_page.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ matrix_page.previous_page_number }}" aria-label="Página anterior">Anterior</a></li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+            {% endif %}
+
+            {% for page_num in matrix_page.paginator.page_range %}
+            <li class="page-item{% if page_num == matrix_page.number %} active{% endif %}"><a class="page-link" href="?page={{ page_num }}" aria-label="Página {{ page_num }}">{{ page_num }}</a></li>
+            {% endfor %}
+
+            {% if matrix_page.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ matrix_page.next_page_number }}" aria-label="Página siguiente">Siguiente</a></li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+            {% endif %}
+        </ul>
+        <p class="text-center text-muted small mt-2 mb-0">Mostrando {{ matrix_page.start_index }}–{{ matrix_page.end_index }} de {{ matrix_page.paginator.count }} registros</p>
+    </nav>
+    {% endif %}
 </section>
 {% endblock %}
