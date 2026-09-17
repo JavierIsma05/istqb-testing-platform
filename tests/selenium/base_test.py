@@ -147,7 +147,7 @@ class SeleniumBaseTest:
                 status=Project.Status.ACTIVE, start_date=today.replace(month=1, day=1),
                 end_date=today.replace(month=12, day=31), created_by=user, tutor=user,
             )
-            project.members.add(user)
+        project.members.add(user)
 
         requirement, _ = Requirement.objects.get_or_create(
             project=project, code="REQ-SELENIUM-001",
@@ -187,6 +187,10 @@ class SeleniumBaseTest:
                 "status": TestCase.Status.PENDING, "created_by": user,
             },
         )
+        if case.requirement_id != requirement.pk or case.status != TestCase.Status.READY:
+            case.requirement = requirement
+            case.status = TestCase.Status.READY
+            case.save(update_fields=["requirement", "status", "updated_at"])
         return str(case.pk)
 
     def ensure_project(self) -> str:
@@ -270,14 +274,16 @@ class SeleniumBaseTest:
     def ensure_test_case(self) -> str:
         self.open_path("/executions/")
         existing = self.driver.find_elements(By.CSS_SELECTOR, "select[name='test_case'] option[value]:not([value=''])")
-        if existing: return self.select_first_available_option((By.NAME, "test_case"))
+        if existing:
+            return self.select_first_available_option((By.NAME, "test_case"))
         case_id = self._bootstrap_executable_case()
         self.open_path(f"/executions/?case={case_id}")
         if self.driver.find_elements(By.NAME, "test_case"):
             try:
                 self.select_option((By.NAME, "test_case"), case_id)
                 return case_id
-            except Exception: pass
+            except Exception:
+                pass
         return case_id
 
     def wait_for_url_contains(self, text: str) -> None:
