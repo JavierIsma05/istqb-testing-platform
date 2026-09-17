@@ -172,6 +172,11 @@ def project_delete_view(request, pk):
             Q(testcase_id__in=project_test_case_ids) | Q(incident_id__in=project_incident_ids)
         ).delete()
 
+    # Delete the project's Incidents explicitly after removing every risk-link
+    # row. This prevents PostgreSQL from encountering the Incident FK before
+    # the M2M through-table cleanup is visible during Project's cascade.
+    project.incidents.all().delete()
+
     log_action(request.user, 'DELETE', 'Project', project.pk, {'code': project_code, 'name': project_name, 'status': project.status})
     project.delete()
     request.session.pop('active_project_id', None)
