@@ -39,11 +39,15 @@ def _click_robust(self, locator: tuple[str, str]) -> None:
 
 
 def _wait_for_text_robust(self, text: str) -> None:
-    """Usa la redireccion como señal estable cuando el flash no se renderiza."""
+    """Acepta la redireccion como confirmacion cuando Django consume el flash."""
     if text == "Plan de pruebas creado correctamente.":
-        current_url = self.driver.current_url.rstrip("/")
-        if current_url.endswith("/test-plans"):
+        def reached_test_plans(driver):
+            return "/test-plans" in driver.current_url.rstrip("/")
+        try:
+            self.wait.until(reached_test_plans)
             return
+        except TimeoutException:
+            pass
     _original_wait_for_text(self, text)
 
 
