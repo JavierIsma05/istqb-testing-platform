@@ -5,6 +5,7 @@ from pathlib import Path
 
 from selenium.webdriver.common.by import By
 
+from apps.testcases.models import TestCase
 from base_test import SeleniumBaseTest
 
 
@@ -16,7 +17,8 @@ class TestExecutions(SeleniumBaseTest):
         try:
             self.login()
             case_id = self.ensure_test_case()
-            self.open_path(f"/executions/?case={case_id}")
+            project_id = TestCase.objects.select_related("test_plan").get(pk=case_id).test_plan.project_id
+            self.open_path(f"/executions/?case={case_id}&project={project_id}")
             self.wait_for_any_visible(
                 [
                     (By.CSS_SELECTOR, "form[data-execution-form]"),
