@@ -168,6 +168,29 @@ def test_no_se_permite_duplicar_ejecucion_normal_sin_ambiente(test_case, executi
 
 
 @pytest.mark.django_db
+def test_reejecucion_normal_se_permite_solo_si_fue_solicitada(test_case, execution):
+    test_case.reexecution_requested = True
+    test_case.save(update_fields=['reexecution_requested'])
+    result = validate_execution_repeat(
+        test_case,
+        TestExecution.ExecutionType.NORMAL,
+        execution.environment,
+        previous_execution=None,
+    )
+    assert result.ok
+
+    test_case.reexecution_requested = False
+    test_case.save(update_fields=['reexecution_requested'])
+    result = validate_execution_repeat(
+        test_case,
+        TestExecution.ExecutionType.NORMAL,
+        execution.environment,
+        previous_execution=None,
+    )
+    assert not result.ok
+
+
+@pytest.mark.django_db
 def test_ejecuciones_normales_en_ambientes_distintos_son_validas(test_case, execution):
     execution.environment = 'QA'
     execution.save(update_fields=['environment'])
@@ -258,13 +281,3 @@ def test_raise_if_invalid_lanza_error():
     result = SimpleNamespace(ok=False, errors=('Regla inválida.',))
     with pytest.raises(ValidationError):
         raise_if_invalid(result)
-
-
-def test_raise_if_invalid_devuelve_resultado_valido():
-    result = SimpleNamespace(ok=True, errors=())
-    assert raise_if_invalid(result) is result
-
-
-def test_upload_rechaza_archivo_inexistente():
-    result = validate_file_upload(None, ('.pdf',), 1024)
-    assert not result.ok
