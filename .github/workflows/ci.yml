@@ -59,7 +59,6 @@ jobs:
           from apps.requirements.models import Requirement
           from apps.testplans.models import TestPlan
           from apps.testcases.models import TestCase
-          from apps.executions.models import TestExecution
 
           user, _ = User.objects.get_or_create(
               email='qa@example.com',
@@ -157,18 +156,6 @@ jobs:
           case.requirement = requirement
           case.status = TestCase.Status.READY
           case.save()
-
-          TestExecution.objects.filter(test_case=case, environment='CI-preexisting').delete()
-          TestExecution.objects.create(
-              test_case=case,
-              execution_type=TestExecution.ExecutionType.NORMAL,
-              execution_mode=TestExecution.ExecutionMode.MANUAL,
-              executed_by=user,
-              result=TestExecution.Result.PASSED,
-              actual_result='Ejecución previa disponible para pruebas de defectos.',
-              environment='CI-preexisting',
-              notes='Ejecución auxiliar para Selenium.',
-          )
           print('Datos Selenium preparados:', user.email, project.code, requirement.code, plan.name, case.code)
           PY
       - name: Start Django for Selenium tests
