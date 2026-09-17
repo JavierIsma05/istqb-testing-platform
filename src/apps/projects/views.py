@@ -159,18 +159,10 @@ def project_delete_view(request, pk):
         messages.error(request, 'Solo el propietario del proyecto o un administrador puede eliminarlo.')
         return redirect('projects:detail', pk=project.pk)
 
-    has_artifacts = (
-        project.test_plans.exists()
-        or project.requirements.exists()
-        or project.defects.exists()
-        or TestExecution.objects.filter(test_case__test_plan__project=project).exists()
-    )
-    if has_artifacts:
-        messages.error(request, 'No se puede eliminar un proyecto que contiene requisitos, planes, ejecuciones o defectos. Conserva el proyecto para preservar su historial y trazabilidad.')
-        return redirect('projects:detail', pk=project.pk)
-
     project_name = project.name
-    log_action(request.user, 'DELETE', 'Project', project.pk, {'code': project.code, 'name': project.name, 'status': project.status})
+    project_code = project.code
+    log_action(request.user, 'DELETE', 'Project', project.pk, {'code': project_code, 'name': project_name, 'status': project.status})
     project.delete()
-    messages.success(request, f'El proyecto "{project_name}" fue eliminado.')
+    request.session.pop('active_project_id', None)
+    messages.success(request, f'El proyecto "{project_name}" fue eliminado junto con toda su información asociada.')
     return redirect('projects:index')
