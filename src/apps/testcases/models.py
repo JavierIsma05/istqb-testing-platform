@@ -70,6 +70,10 @@ class TestCase(OwnedModel):
         choices=ExecutionType.choices,
         default=ExecutionType.MANUAL,
     )
+    reexecution_requested = models.BooleanField(
+        default=False,
+        help_text='Indica que el caso fue reabierto explícitamente desde la matriz para una nueva ejecución.',
+    )
 
     class Meta:
         ordering = ['test_plan', 'code']
