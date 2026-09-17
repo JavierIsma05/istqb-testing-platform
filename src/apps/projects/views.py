@@ -133,8 +133,6 @@ def project_edit_view(request, pk):
 
 @login_required
 def project_detail_view(request, pk):
-    # The detail URL selects the project explicitly; the session's active project
-    # must not hide another project that the current user is already allowed to view.
     project = get_object_or_404(visible_projects_for(request.user).prefetch_related('members'), pk=pk)
     request.session['active_project_id'] = project.pk
     test_plans = TestPlan.objects.filter(project=project)
@@ -162,11 +160,17 @@ def project_delete_view(request, pk):
     project_name = project.name
     project_code = project.code
 
-    # Explicitly remove project-local many-to-many risk links first. Django's
-    # collector does not traverse M2M relations when cascading the project,
-    # while the Incident rows are deleted through Project.CASCADE.
-    for test_case in TestCase.objects.filter(test_plan__project=project).iterator():
-        test_case.covered_risks.clear()
+    # Remove every M2M row that can keep an Incident alive while the project
+    # cascade is deleting its TestCases and Incidents. Filtering by both sides
+    # also handles legacy/orphaned rows that still reference an Incident from
+    # this project even if the corresponding TestCase is no longer reachable.
+    covered_risks_through = TestCase.covered_risks.through
+    project_test_case_ids = list(TestCase.objects.filter(test_plan__project=project).values_list('pk', flat=True))
+    project_incident_ids = list(project.incidents.values_list('pk', flat=True))
+    if project_test_case_ids or project_incident_ids:
+        covered_risks_through.objects.filter(
+            Q(testcase_id__in=project_test_case_ids) | Q(incident_id__in=project_incident_ids)
+        ).delete()
 
     log_action(request.user, 'DELETE', 'Project', project.pk, {'code': project_code, 'name': project_name, 'status': project.status})
     project.delete()
