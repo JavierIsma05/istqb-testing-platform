@@ -52,6 +52,16 @@ SeleniumBaseTest.click = _click_robust
 SeleniumBaseTest.wait_for_text = _wait_for_text_robust
 
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(config, items):
+    """Permite que los tests Selenium preparen datos en la BD compartida con Django."""
+    database_marker = pytest.mark.django_db(transaction=True)
+    for item in items:
+        path = str(getattr(item, "fspath", "")).replace("\\", "/")
+        if "/tests/selenium/" in path:
+            item.add_marker(database_marker)
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     """Captura una evidencia si Selenium sigue disponible cuando falla una prueba."""
