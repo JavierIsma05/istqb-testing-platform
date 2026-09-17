@@ -170,10 +170,12 @@ def sync_test_case_status_from_execution(test_case, execution):
         status_transition_for_test_case(test_case, target)
     else:
         test_case.status = target
-        test_case.save(update_fields=['status', 'updated_at'])
+        test_case.reexecution_requested = False
+        test_case.save(update_fields=['status', 'reexecution_requested', 'updated_at'])
         return target
     test_case.status = target
-    test_case.save(update_fields=['status', 'updated_at'])
+    test_case.reexecution_requested = False
+    test_case.save(update_fields=['status', 'reexecution_requested', 'updated_at'])
     return target
 
 
