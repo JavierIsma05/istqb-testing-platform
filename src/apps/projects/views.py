@@ -161,6 +161,14 @@ def project_delete_view(request, pk):
 
     project_name = project.name
     project_code = project.code
+
+    # Django's deletion collector does not cascade through many-to-many
+    # intermediary rows before deleting the related Incident objects. Clear
+    # these project-local links explicitly so PostgreSQL can delete the risks
+    # and then the project without violating the intermediary FK constraint.
+    test_case_ids = TestCase.objects.filter(test_plan__project=project).values_list('pk', flat=True)
+    TestCase.covered_risks.through.objects.filter(testcase_id__in=test_case_ids).delete()
+
     log_action(request.user, 'DELETE', 'Project', project.pk, {'code': project_code, 'name': project_name, 'status': project.status})
     project.delete()
     request.session.pop('active_project_id', None)
