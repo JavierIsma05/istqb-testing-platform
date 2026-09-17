@@ -3,6 +3,8 @@ from django.utils import timezone
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 
+from apps.executions.models import TestExecution
+from apps.testcases.models import TestCase
 from apps.projects.forms import ProjectForm
 from apps.projects.models import Project
 
@@ -171,6 +173,8 @@ def test_eliminar_proyecto_con_automatizaciones_elimina_toda_la_informacion_asoc
     rule_id = rule.pk
     result_id = result.pk
     project_id = project.pk
+    plan_id = test_case.test_plan_id
+    requirement_id = test_case.requirement_id
     client.force_login(project.created_by)
     response = client.post(reverse('projects:delete', args=[project.pk]))
     assert response.status_code == 302
@@ -180,6 +184,8 @@ def test_eliminar_proyecto_con_automatizaciones_elimina_toda_la_informacion_asoc
     assert not AutomatedValidationRule.objects.filter(pk=rule_id).exists()
     assert not AutomatedExecutionResult.objects.filter(pk=result_id).exists()
     assert not TestCase.objects.filter(pk=test_case_id).exists()
+    assert not project.test_plans.model.objects.filter(pk=plan_id).exists()
+    assert not project.requirements.model.objects.filter(pk=requirement_id).exists()
 
 
 @pytest.mark.django_db
