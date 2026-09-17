@@ -19,19 +19,26 @@ class TestExecutions(SeleniumBaseTest):
             case_id = self.ensure_test_case()
             project_id = TestCase.objects.select_related("test_plan").get(pk=case_id).test_plan.project_id
             self.open_path(f"/executions/?case={case_id}&project={project_id}")
+
+            # El workspace tiene dos modos. Seleccionamos manual de forma explicita
+            # para que el E2E no dependa del modo persistido/default del caso.
+            self.click((By.CSS_SELECTOR, "[data-execution-mode-tab='manual']"))
             self.wait_for_any_visible(
                 [
                     (By.CSS_SELECTOR, "form[data-execution-form]"),
-                    (By.CSS_SELECTOR, ".execution-manual"),
                     (By.CSS_SELECTOR, "input[name='actual_result']"),
                 ]
             )
 
             body = self.driver.find_element(By.TAG_NAME, "body").text
+            if "Modo lectura" in body and "Registrar Resultado" not in body:
+                raise AssertionError(
+                    "Selenium inicio sesión en modo lectura; el usuario QA debe conservar el rol STUDENT."
+                )
             if "No se puede ejecutar" in body or "requisito" in body.lower() and "aprob" in body.lower():
                 raise AssertionError(
                     "El caso E2E requiere aprobación docente antes de ejecutar. "
-                    "Configura las credenciales docentes de Selenium para automatizar esa precondición."
+                    "La precondición debe quedar satisfecha en el bootstrap de Selenium."
                 )
 
             self.click((By.CSS_SELECTOR, "label[for='id_actual_result_cumple']"))
