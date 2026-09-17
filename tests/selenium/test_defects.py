@@ -12,8 +12,8 @@ class TestDefects(SeleniumBaseTest):
 
         try:
             self.login()
-            self.ensure_test_case()
-            self.open_path("/defects/new/")
+            case_id = self.ensure_test_case()
+            self.open_path(f"/defects/new/?case={case_id}")
             self.select_first_available_option((By.NAME, "test_case"))
             self.type_text((By.NAME, "title"), "DEF-SEL-001 Mensaje de validacion")
             self.type_text((By.NAME, "description"), "Defecto de ejemplo registrado por Selenium.")
