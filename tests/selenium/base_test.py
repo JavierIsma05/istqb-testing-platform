@@ -277,7 +277,7 @@ class SeleniumBaseTest:
         return plan_id
 
     def ensure_test_case(self) -> str:
-        """Crea un caso aislado por prueba; evita depender de datos fuera de la transacción Selenium."""
+        """Crea siempre un caso E2E nuevo, ejecutable y con una ejecución previa."""
         case_id = self._bootstrap_executable_case()
         self.open_path(f"/executions/?case={case_id}")
         return case_id
@@ -311,4 +311,35 @@ class SeleniumBaseTest:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         file_path = SCREENSHOTS_DIR / f"{test_name}_{timestamp}.png"
         self.driver.save_screenshot(str(file_path))
+        print(f"[EVIDENCIA] Screenshot generado: {file_path}")
         return file_path
+
+    def login(self, email: str | None = None, password: str | None = None) -> None:
+        email = email or os.getenv("SELENIUM_EMAIL") or os.getenv("SELENIUM_USERNAME", "qa@example.com")
+        password = password or os.getenv("SELENIUM_PASSWORD", "Istqb2026.Temp!")
+        self.open_path("/login/")
+        self.type_text((By.NAME, "email"), email)
+        self.type_text((By.NAME, "password"), password)
+        self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
+        self.wait_for_url_contains("/dashboard/")
+        self.wait_for_any_visible([
+            (By.CSS_SELECTOR, ".app-sidebar"),
+            (By.CSS_SELECTOR, ".sidebar-nav"),
+            (By.CSS_SELECTOR, ".app-content"),
+        ])
+
+    def logout(self) -> None:
+        self.click((By.CSS_SELECTOR, ".user-menu, [data-testid='user-menu']"))
+        forms = self.driver.find_elements(By.CSS_SELECTOR, "form[action*='logout']")
+        if forms:
+            form = next((form for form in forms if form.is_displayed()), forms[0])
+            self.driver.execute_script("arguments[0].submit();", form)
+        else:
+            self.click((By.CSS_SELECTOR, "[data-testid='logout'], a[href*='logout'], .dropdown-menu a[href*='logout']"))
+        self.wait_for_url_contains("/login/")
+        self.wait_for_any_visible([
+            (By.NAME, "username"),
+            (By.NAME, "email"),
+            (By.CSS_SELECTOR, "[data-testid='login-form']"),
+            (By.CSS_SELECTOR, "form"),
+        ])
