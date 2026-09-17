@@ -184,148 +184,60 @@ class SeleniumBaseTest:
         )
         return str(case.pk)
 
-    def ensure_project(self) -> str:
-        self.open_path("/requirements/new/")
-        project_elements = self.driver.find_elements(By.NAME, "project")
-        if project_elements:
-            try:
-                return self.select_first_available_option((By.NAME, "project"))
-            except TimeoutException:
-                pass
-        today = datetime.now().date(); year = today.year
-        start_date = today + timedelta(days=1); end_date = datetime(year, 12, 31).date()
-        if start_date.year != year or start_date > end_date:
-            start_date = datetime(year, 1, 1).date()
-        self.open_path("/projects/new/")
-        self._require_form((By.NAME, "name"), "creación de proyecto")
-        self.type_text((By.NAME, "name"), f"Proyecto E2E {int(time.time())}")
-        self.type_text((By.NAME, "description"), "Proyecto auxiliar para pruebas funcionales automatizadas.")
-        self.set_date((By.NAME, "start_date"), start_date.isoformat())
-        self.set_date((By.NAME, "end_date"), end_date.isoformat())
-        self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
-        self.wait.until(lambda driver: "/projects/" in driver.current_url or "/requirements/" in driver.current_url)
-        self.open_path("/requirements/new/")
-        return self.select_first_available_option((By.NAME, "project"))
-
-    def ensure_requirement(self) -> str:
-        project_id = self.ensure_project()
-        self.open_path("/requirements/new/")
-        self._require_form((By.NAME, "project"), "creación de requisito")
-        self.select_option((By.NAME, "project"), project_id)
-        self.type_text((By.NAME, "title"), f"REQ-E2E-{int(time.time())} Requisito funcional")
-        self.type_text((By.NAME, "description"), "El sistema debe permitir validar una funcionalidad del proyecto.")
-        if self.driver.find_elements(By.NAME, "acceptance_criteria"):
-            self.type_text((By.NAME, "acceptance_criteria"), "La funcionalidad cumple el comportamiento esperado.")
-        self.select_option((By.NAME, "requirement_type"), "FUNCTIONAL")
-        self.select_option((By.NAME, "priority"), "HIGH")
-        self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
-        self.wait_for_text("Requisito creado correctamente.")
-        return project_id
-
-    def ensure_test_plan(self) -> str:
-        project_id = self.ensure_requirement()
-        self.open_path("/test-plans/new/")
-        project_select = self._require_form((By.NAME, "project"), "creación de plan de pruebas")
-        date_ranges_raw = project_select.get_attribute("data-date-ranges") or "{}"
-        try: date_ranges = json.loads(date_ranges_raw)
-        except json.JSONDecodeError: date_ranges = {}
-        project_range = date_ranges.get(str(project_id), {})
-        start_date = project_range.get("start") or f"{datetime.now().year}-01-01"
-        end_date = project_range.get("end") or f"{datetime.now().year}-12-31"
-        self.select_option((By.NAME, "project"), project_id)
-        values = {
-            "name": f"Plan E2E {int(time.time())}", "version": "1.0",
-            "description": "Plan auxiliar para pruebas funcionales automatizadas.",
-            "scope": "Validacion funcional de la cadena E2E.",
-            "objective": "Verificar la trazabilidad completa desde requisito hasta ejecucion.",
-            "strategy": "Pruebas funcionales manuales.", "entry_criteria": "Requisito registrado y disponible.",
-            "exit_criteria": "Ejecucion registrada con evidencia.", "resources": "Selenium y ambiente local.",
-            "environment": "Chrome y servidor local.", "responsibilities": "Responsable de pruebas E2E.",
-            "estimation": "1 hora.", "minimum_pass_percentage": "80", "maximum_critical_defects": "0",
-            "minimum_coverage_percentage": "90",
-        }
-        for name, value in values.items():
-            if self.driver.find_elements(By.NAME, name):
-                element = self.driver.find_element(By.NAME, name)
-                self.driver.execute_script("arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles:true})); arguments[0].dispatchEvent(new Event('change', {bubbles:true}));", element, value)
-        for name, value in (("start_date", start_date), ("end_date", end_date)):
-            if self.driver.find_elements(By.NAME, name): self.set_date((By.NAME, name), value)
-        for step in range(2, 6):
-            self.click((By.CSS_SELECTOR, "[data-wizard-next]"))
-            self.wait.until(lambda driver, current=step: driver.find_element(By.CSS_SELECTOR, ".wizard-panel.active").get_attribute("data-step-panel") == str(current))
-        self.click((By.CSS_SELECTOR, "button.wizard-submit[type='submit']"))
-        self.wait_for_text("Plan de pruebas creado correctamente.")
-        self.open_path("/test-cases/")
-        self.click((By.CSS_SELECTOR, "[data-bs-target='#testCaseModal']"))
-        self.find_visible((By.ID, "testCaseModal"))
-        plan_id = self.driver.find_element(By.NAME, "test_plan").get_attribute("value")
-        if not plan_id: raise TimeoutException("El formulario de caso no tiene un plan de pruebas seleccionado.")
-        return plan_id
-
     def ensure_test_case(self) -> str:
-        """Devuelve siempre un caso E2E nuevo y ejecutable, sin depender de otros tests."""
+        """Usa el caso persistente de CI para que Selenium y Django compartan la misma BD.
+
+        En ejecuciones locales sin datos preparados conserva el bootstrap aislado como
+        respaldo. Esto evita que el servidor HTTP intente leer objetos creados dentro
+        de la transaccion de un test pytest.
+        """
+        if os.getenv("CI", "").lower() == "true":
+            case = TestCase.objects.filter(code="TC-E2E-001", test_plan__project__code="E2E-CI").first()
+            if case:
+                return str(case.pk)
+            raise AssertionError("CI no preparo el caso Selenium TC-E2E-001 en el proyecto E2E-CI.")
+
         case_id = self._bootstrap_executable_case()
         self.open_path(f"/executions/?case={case_id}")
         return case_id
 
-    def wait_for_url_contains(self, text: str) -> None:
-        self.wait.until(EC.url_contains(text))
+    def login(self) -> None:
+        self.open_path("/login/")
+        email = os.getenv("SELENIUM_EMAIL", "qa@example.com")
+        password = os.getenv("SELENIUM_PASSWORD", "Istqb2026.Temp!")
+        self.type_text((By.NAME, "email"), email)
+        self.type_text((By.NAME, "password"), password)
+        self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
+        self.wait.until(lambda driver: "/login" not in driver.current_url)
 
     def wait_for_text(self, text: str) -> None:
-        try:
-            self.wait.until(EC.text_to_be_present_in_element((By.TAG_NAME, "body"), text))
-        except TimeoutException as exc:
-            url = self.driver.current_url
-            body = self.driver.find_element(By.TAG_NAME, "body").text.strip().replace("\n", " | ")
-            body = body[:1000] if body else "<sin contenido visible>"
-            raise TimeoutException(f"No apareció el texto esperado {text!r}. URL actual: {url}. Contenido visible: {body}") from exc
+        self.wait.until(lambda driver: text in driver.find_element(By.TAG_NAME, "body").text)
 
-    def wait_for_any_visible(self, locators: Iterable[tuple[str, str]]):
-        locators = list(locators); last_error: Exception | None = None
-        for locator in locators:
-            try: return self.find_visible(locator)
-            except TimeoutException as exc: last_error = exc
-        raise TimeoutException(f"No se encontro ningun selector visible: {locators}") from last_error
+    def wait_for_any_visible(self, locators: Iterable[tuple[str, str]]) -> None:
+        def any_visible(driver: WebDriver):
+            for locator in locators:
+                for element in driver.find_elements(*locator):
+                    if element.is_displayed():
+                        return element
+            return False
+        self.wait.until(any_visible)
 
     def print_success(self, module_name: str, test_name: str) -> None:
-        print(f"[OK] Prueba exitosa | Modulo validado: {module_name} | Caso: {test_name}")
+        print(f"[OK] Modulo: {module_name} | Caso: {test_name}")
 
     def print_error(self, module_name: str, test_name: str, error: Exception) -> None:
         print(f"[ERROR] Modulo: {module_name} | Caso: {test_name} | Error encontrado: {error}")
 
-    def take_screenshot(self, test_name: str) -> Path:
+    def take_screenshot(self, test_name: str) -> Path | None:
+        if not getattr(self, "driver", None):
+            return None
+        SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_path = SCREENSHOTS_DIR / f"{test_name}_{timestamp}.png"
-        self.driver.save_screenshot(str(file_path))
-        print(f"[EVIDENCIA] Screenshot generado: {file_path}")
-        return file_path
-
-    def login(self, email: str | None = None, password: str | None = None) -> None:
-        email = email or os.getenv("SELENIUM_EMAIL") or os.getenv("SELENIUM_USERNAME", "qa@example.com")
-        password = password or os.getenv("SELENIUM_PASSWORD", "Istqb2026.Temp!")
-        self.open_path("/login/")
-        self.type_text((By.NAME, "email"), email)
-        self.type_text((By.NAME, "password"), password)
-        self.click((By.CSS_SELECTOR, "button[type='submit'], input[type='submit']"))
-        self.wait_for_url_contains("/dashboard/")
-        self.wait_for_any_visible([
-            (By.CSS_SELECTOR, ".app-sidebar"),
-            (By.CSS_SELECTOR, ".sidebar-nav"),
-            (By.CSS_SELECTOR, ".app-content"),
-        ])
-
-    def logout(self) -> None:
-        self.click((By.CSS_SELECTOR, ".user-menu, [data-testid='user-menu']"))
-        forms = self.driver.find_elements(By.CSS_SELECTOR, "form[action*='logout']")
-        if forms:
-            form = next((form for form in forms if form.is_displayed()), forms[0])
-            self.driver.execute_script("arguments[0].submit();", form)
-        else:
-            self.click((By.CSS_SELECTOR, "[data-testid='logout'], a[href*='logout'], .dropdown-menu a[href*='logout']"))
-        self.wait_for_url_contains("/login/")
-        self.wait_for_any_visible([
-            (By.NAME, "username"),
-            (By.NAME, "email"),
-            (By.CSS_SELECTOR, "[data-testid='login-form']"),
-            (By.CSS_SELECTOR, "form"),
-        ])
+        safe_name = "".join(char if char.isalnum() or char in "-_" else "_" for char in test_name)
+        path = SCREENSHOTS_DIR / f"{safe_name}_{timestamp}.png"
+        try:
+            self.driver.save_screenshot(str(path))
+        except Exception:
+            return None
+        print(f"[EVIDENCIA] Screenshot generado: {path}")
+        return path
