@@ -129,15 +129,20 @@ class SeleniumBaseTest:
         raise TimeoutException(f"No se renderizo el formulario '{form_name}'. URL actual: {url}. Contenido visible: {body}")
 
     def _bootstrap_executable_case(self) -> str:
-        """Crea un conjunto E2E aislado para evitar que los tests compartan estado."""
+        """Crea un conjunto E2E aislado y fuerza el usuario QA al rol estudiante."""
         User = get_user_model()
         email = os.getenv("SELENIUM_EMAIL", "qa@example.com")
         password = os.getenv("SELENIUM_PASSWORD", "Istqb2026.Temp!")
         user = User.objects.filter(email=email).first()
         if user is None:
             user = User.objects.create_user(email=email, password=password, first_name="QA", last_name="Automation")
+        user.first_name = "QA"
+        user.last_name = "Automation"
+        if hasattr(User, "Roles"):
+            user.role = User.Roles.STUDENT
         user.is_active = True
-        user.save(update_fields=["is_active"])
+        user.set_password(password)
+        user.save(update_fields=["first_name", "last_name", "role", "is_active", "password"])
 
         suffix = str(time.time_ns())[-10:]
         today = timezone.localdate()
