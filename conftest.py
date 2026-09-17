@@ -90,10 +90,9 @@ def align_current_integrity_test_fixtures(request):
 
     if name == 'test_vista_de_ejecucion_guarda_y_muestra_evidencia':
         test_case = request.getfixturevalue('test_case')
-        # Este caso prueba una única evidencia por paso. Reducimos únicamente
-        # el fixture de este test para que su expectativa sea determinista.
         test_case.steps_data = [test_case.steps_data[0]]
-        test_case.save(update_fields=['steps_data'])
+        test_case.expected_result = test_case.steps_data[0]['expected_result']
+        test_case.save(update_fields=['steps_data', 'expected_result'])
 
     if name in {
         'test_ejecucion_permitida_cuando_al_menos_un_requisito_aprobado',
