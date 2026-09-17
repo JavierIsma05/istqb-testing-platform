@@ -150,11 +150,12 @@ jobs:
                   ],
                   'expected_result': 'El usuario accede al dashboard.',
                   'priority': TestCase.Priority.HIGH,
-                  'status': TestCase.Status.PENDING,
+                  'status': TestCase.Status.READY,
                   'created_by': user,
               },
           )
           case.requirement = requirement
+          case.status = TestCase.Status.READY
           case.save()
 
           TestExecution.objects.filter(test_case=case, environment='CI-preexisting').delete()
