@@ -55,3 +55,46 @@ class TestExecutions(SeleniumBaseTest):
         except Exception as error:
             self.print_error(module_name, test_name, error)
             raise
+
+    def test_separar_paneles_manual_y_automatizado(self):
+        module_name = "Modos de ejecución"
+        test_name = "separar paneles manual y automatizado"
+
+        try:
+            self.login()
+            case_id = self.ensure_test_case()
+            project_id = TestCase.objects.select_related("test_plan").get(pk=case_id).test_plan.project_id
+            self.open_path(f"/executions/?case={case_id}&project={project_id}")
+
+            manual_panel = self.driver.find_element(By.CSS_SELECTOR, "[data-execution-mode-panel='manual']")
+            automated_panel = self.driver.find_element(By.CSS_SELECTOR, "[data-execution-mode-panel='automated']")
+            automated_tab = self.driver.find_element(By.CSS_SELECTOR, "[data-execution-mode-tab='automated']")
+            manual_tab = self.driver.find_element(By.CSS_SELECTOR, "[data-execution-mode-tab='manual']")
+
+            self.click((By.CSS_SELECTOR, "[data-execution-mode-tab='manual']"))
+            if not manual_panel.is_displayed():
+                raise AssertionError("El panel manual debe estar visible al seleccionar ejecución manual.")
+            if automated_panel.is_displayed():
+                raise AssertionError("El panel automatizado no debe mostrarse junto al panel manual.")
+
+            self.click((By.CSS_SELECTOR, "[data-execution-mode-tab='automated']"))
+            if manual_panel.is_displayed():
+                raise AssertionError("El panel manual no debe mostrarse al seleccionar ejecución automatizada.")
+            if not automated_panel.is_displayed():
+                raise AssertionError("El panel automatizado debe ocupar el panel de resultados al seleccionarlo.")
+            if self.driver.find_elements(By.CSS_SELECTOR, "[data-execution-mode-panel='automated'] form[data-execution-form]"):
+                raise AssertionError("El formulario de ejecución manual no debe pertenecer al panel automatizado.")
+
+            # Volver a manual debe restaurar exclusivamente su panel.
+            self.click((By.CSS_SELECTOR, "[data-execution-mode-tab='manual']"))
+            if not manual_panel.is_displayed() or automated_panel.is_displayed():
+                raise AssertionError("Los paneles de ejecución no se alternan de forma exclusiva.")
+            if not manual_tab.get_attribute("aria-pressed") == "true":
+                raise AssertionError("La pestaña manual debe quedar marcada como activa.")
+            if not automated_tab.get_attribute("aria-pressed") == "false":
+                raise AssertionError("La pestaña automatizada debe quedar inactiva al volver a manual.")
+
+            self.print_success(module_name, test_name)
+        except Exception as error:
+            self.print_error(module_name, test_name, error)
+            raise
