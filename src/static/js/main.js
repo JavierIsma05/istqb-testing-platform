@@ -303,96 +303,63 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     var sidebarGroups = Array.prototype.slice.call(document.querySelectorAll('[data-sidebar-group-toggle]'));
-    var sidebarElement = document.querySelector('[data-sidebar-user]');
-    var sidebarUserKey = sidebarElement ? sidebarElement.getAttribute('data-sidebar-user') : 'anonymous';
-    var sidebarGroupStorageKey = 'istqb-sidebar-groups-' + (sidebarUserKey || 'anonymous');
-    var defaultSidebarGroups = {
-        inicio: true,
-        diseno: false,
-        ejecucion: false,
-        informes: false
-    };
 
-    function readSidebarGroups() {
-        try {
-            var saved = JSON.parse(localStorage.getItem(sidebarGroupStorageKey) || 'null');
-            return saved && typeof saved === 'object' ? saved : Object.assign({}, defaultSidebarGroups);
-        } catch (error) {
-            return Object.assign({}, defaultSidebarGroups);
-        }
+    function isSidebarCondensed() {
+        return root.classList.contains('sidebar-collapsed') || isMobileSidebar();
     }
 
-    function saveSidebarGroups(state) {
-        try {
-            localStorage.setItem(sidebarGroupStorageKey, JSON.stringify(state));
-        } catch (error) {}
-    }
-
-    function setSidebarGroup(toggle, isOpen) {
-        var group = toggle.closest('[data-sidebar-group]');
-        var menu = group ? group.querySelector('.sidebar-group-menu') : null;
-
-        if (!group || !menu) {
-            return;
-        }
-
-        menu.classList.toggle('open', isOpen);
-        toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    }
-
-    function syncSidebarGroups() {
-        var state = readSidebarGroups();
-
+    function closeSidebarPopovers() {
         sidebarGroups.forEach(function (toggle) {
             var group = toggle.closest('[data-sidebar-group]');
-            var key = group ? group.getAttribute('data-sidebar-group') : '';
             var menu = group ? group.querySelector('.sidebar-group-menu') : null;
 
-            if (!key || !menu) {
-                return;
+            if (menu) {
+                menu.classList.remove('open');
             }
-
-            var hasActiveChild = !!menu.querySelector('a.active');
-
-            // En la primera visita se abre solo Inicio. Si el usuario vuelve a
-            // una sección concreta, esa sección se abre para mantener visible
-            // el elemento activo.
-            var isOpen = Object.prototype.hasOwnProperty.call(state, key)
-                ? !!state[key]
-                : !!defaultSidebarGroups[key];
-
-            if (hasActiveChild && !Object.prototype.hasOwnProperty.call(state, key)) {
-                isOpen = true;
-            }
-
-            setSidebarGroup(toggle, isOpen);
         });
     }
 
     sidebarGroups.forEach(function (toggle) {
-        toggle.addEventListener('click', function () {
-            var group = toggle.closest('[data-sidebar-group]');
-            var key = group ? group.getAttribute('data-sidebar-group') : '';
+        toggle.setAttribute('aria-expanded', 'false');
 
-            if (!key) {
+        toggle.addEventListener('click', function () {
+            if (!isSidebarCondensed()) {
                 return;
             }
 
-            var menu = group.querySelector('.sidebar-group-menu');
-            var isOpen = !menu.classList.contains('open');
+            var group = toggle.closest('[data-sidebar-group]');
+            var menu = group ? group.querySelector('.sidebar-group-menu') : null;
 
-            setSidebarGroup(toggle, isOpen);
+            if (!menu) {
+                return;
+            }
 
-            var state = readSidebarGroups();
-            state[key] = isOpen;
-            saveSidebarGroups(state);
+            var isOpen = menu.classList.toggle('open');
+            toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
 
-            // Abrir una sección no cierra las demás: el usuario controla
-            // independientemente cada acordeón.
+            // En modo condensado el popover se abre por click/tap.
+            // El hover sigue funcionando por CSS para escritorio.
+            sidebarGroups.forEach(function (otherToggle) {
+                if (otherToggle === toggle) {
+                    return;
+                }
+                var otherGroup = otherToggle.closest('[data-sidebar-group]');
+                var otherMenu = otherGroup ? otherGroup.querySelector('.sidebar-group-menu') : null;
+                if (otherMenu) {
+                    otherMenu.classList.remove('open');
+                    otherToggle.setAttribute('aria-expanded', 'false');
+                }
+            });
         });
     });
 
-    syncSidebarGroups();
+    document.addEventListener('click', function (event) {
+        var item = event.target.closest('.sidebar-group-menu a');
+
+        if (item) {
+            closeSidebarPopovers();
+        }
+    });
 
     var wizard = document.querySelector('.wizard-page');
 
