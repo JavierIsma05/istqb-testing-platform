@@ -6444,3 +6444,86 @@ textarea.form-control {
         padding: 7px 9px;
     }
 }
+
+
+@media (max-width: 760px) {
+    /* En pantallas pequeñas el sidebar es siempre una rail vertical de 60px. */
+    .app-shell,
+    .sidebar-collapsed .app-shell {
+        display: grid;
+        grid-template-columns: 60px minmax(0, 1fr);
+        min-height: 100vh;
+        padding-top: 0;
+    }
+
+    .app-sidebar,
+    .sidebar-collapsed .app-sidebar {
+        align-self: start;
+        background: var(--panel);
+        border-bottom: 0;
+        border-right: 1px solid var(--line);
+        box-shadow: none;
+        height: 100vh;
+        left: auto;
+        overflow: visible;
+        padding: 10px 6px;
+        position: sticky;
+        right: auto;
+        top: 0;
+        width: 60px;
+    }
+
+    .sidebar-brand,
+    .sidebar-collapsed .sidebar-brand {
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+        justify-content: center;
+        margin: 0 -6px 10px;
+        min-height: 38px;
+        padding: 0 6px 10px;
+    }
+
+    .brand-mark,
+    .sidebar-collapsed .brand-mark {
+        height: 30px;
+        width: 30px;
+    }
+
+    .sidebar-brand > span:not(.brand-mark),
+    .sidebar-collapsed .sidebar-brand > span:not(.brand-mark),
+    .sidebar-toggle,
+    .sidebar-collapsed .sidebar-toggle,
+    .sidebar-mobile-toggle {
+        display: none;
+    }
+
+    .sidebar-group-toggle,
+    .sidebar-collapsed .sidebar-group-toggle {
+        justify-content: center;
+        min-height: 38px;
+        padding: 7px 4px;
+    }
+
+    .sidebar-group-toggle > i:first-child {
+        font-size: 18px;
+    }
+
+    .sidebar-group-toggle span,
+    .sidebar-group-chevron,
+    .sidebar-collapsed .sidebar-group-toggle span,
+    .sidebar-collapsed .sidebar-group-chevron {
+        display: none;
+    }
+
+    .sidebar-group-menu,
+    .sidebar-collapsed .sidebar-group-menu {
+        left: calc(100% + 6px);
+        min-width: 180px;
+        top: 0;
+    }
+
+    .sidebar-group-menu a {
+        min-height: 34px;
+        padding: 7px 9px;
+    }
+}
