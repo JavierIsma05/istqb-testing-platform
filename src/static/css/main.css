@@ -6256,3 +6256,191 @@ textarea.form-control {
     display: flex;
     gap: 0.5rem;
 }
+
+
+/* Sidebar compacto: 200px expandido / 60px condensado */
+.app-shell {
+    grid-template-columns: 200px minmax(0, 1fr);
+    transition: grid-template-columns 220ms ease;
+}
+
+.sidebar-collapsed .app-shell {
+    grid-template-columns: 60px minmax(0, 1fr);
+}
+
+.app-sidebar {
+    box-sizing: border-box;
+    overflow: visible;
+    width: 200px;
+    transition: width 220ms ease, padding 220ms ease;
+}
+
+.sidebar-collapsed .app-sidebar {
+    padding-left: 7px;
+    padding-right: 7px;
+    width: 60px;
+}
+
+.sidebar-collapsed .sidebar-brand {
+    justify-content: center;
+    margin-left: -7px;
+    margin-right: -7px;
+    padding-left: 7px;
+    padding-right: 7px;
+}
+
+.sidebar-collapsed .sidebar-brand > span:not(.brand-mark) {
+    display: none;
+}
+
+.sidebar-collapsed .sidebar-toggle {
+    margin: 0;
+    position: absolute;
+    right: 2px;
+    top: 2px;
+}
+
+.sidebar-collapsed .sidebar-nav {
+    gap: 4px;
+}
+
+.sidebar-collapsed .sidebar-group {
+    position: relative;
+}
+
+.sidebar-collapsed .sidebar-group-toggle {
+    justify-content: center;
+    min-height: 42px;
+    padding: 9px 6px;
+}
+
+.sidebar-collapsed .sidebar-group-toggle span,
+.sidebar-collapsed .sidebar-group-chevron {
+    display: none;
+}
+
+.sidebar-collapsed .sidebar-group-toggle > i:first-child {
+    font-size: 19px;
+    margin: 0;
+}
+
+.sidebar-collapsed .sidebar-group-menu {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 14px 34px rgba(11, 49, 95, 0.18);
+    display: none !important;
+    gap: 2px;
+    left: calc(100% + 8px);
+    min-width: 190px;
+    padding: 7px;
+    position: absolute;
+    top: 0;
+    z-index: 3000;
+}
+
+.sidebar-collapsed .sidebar-group:hover .sidebar-group-menu,
+.sidebar-collapsed .sidebar-group:focus-within .sidebar-group-menu,
+.sidebar-collapsed .sidebar-group-menu.open {
+    display: grid !important;
+}
+
+.sidebar-collapsed .sidebar-group-menu a {
+    min-height: 36px;
+    padding: 8px 10px;
+}
+
+.sidebar-collapsed .sidebar-group-menu a span {
+    display: inline-block;
+}
+
+.sidebar-collapsed .sidebar-group-menu a i {
+    flex: 0 0 18px;
+    font-size: 16px;
+    width: 18px;
+}
+
+.sidebar-collapsed .sidebar-mobile-toggle {
+    display: none;
+}
+
+@media (max-width: 760px) {
+    .app-shell,
+    .sidebar-collapsed .app-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .app-sidebar,
+    .sidebar-collapsed .app-sidebar {
+        width: 60px;
+        overflow: visible;
+        padding: 8px 6px;
+    }
+
+    .sidebar-brand,
+    .sidebar-collapsed .sidebar-brand {
+        justify-content: center;
+        margin: 0 -6px 8px;
+        padding: 0 6px 8px;
+    }
+
+    .sidebar-brand > span:not(.brand-mark),
+    .sidebar-collapsed .sidebar-brand > span:not(.brand-mark) {
+        display: none;
+    }
+
+    .sidebar-toggle,
+    .sidebar-collapsed .sidebar-toggle {
+        display: none;
+    }
+
+    .sidebar-nav {
+        gap: 3px;
+    }
+
+    .sidebar-group-toggle,
+    .sidebar-collapsed .sidebar-group-toggle {
+        justify-content: center;
+        min-height: 38px;
+        padding: 7px 4px;
+    }
+
+    .sidebar-group-toggle span,
+    .sidebar-group-chevron,
+    .sidebar-collapsed .sidebar-group-toggle span,
+    .sidebar-collapsed .sidebar-group-chevron {
+        display: none;
+    }
+
+    .sidebar-group-menu,
+    .sidebar-collapsed .sidebar-group-menu {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        box-shadow: 0 12px 28px rgba(11, 49, 95, 0.18);
+        display: none !important;
+        left: calc(100% + 6px);
+        min-width: 180px;
+        padding: 6px;
+        position: absolute;
+        top: 0;
+        z-index: 3000;
+    }
+
+    .sidebar-group {
+        position: relative;
+    }
+
+    .sidebar-group:hover .sidebar-group-menu,
+    .sidebar-group:focus-within .sidebar-group-menu,
+    .sidebar-group-menu.open,
+    .sidebar-collapsed .sidebar-group:hover .sidebar-group-menu,
+    .sidebar-collapsed .sidebar-group:focus-within .sidebar-group-menu,
+    .sidebar-collapsed .sidebar-group-menu.open {
+        display: grid !important;
+    }
+
+    .sidebar-group-menu a {
+        padding: 7px 9px;
+    }
+}
