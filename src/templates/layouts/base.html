@@ -19,7 +19,7 @@
                 document.documentElement.classList.add('theme-dark');
             }
 
-            if (localStorage.getItem('istqb-sidebar') === 'collapsed') {
+            if (localStorage.getItem('istqb-sidebar-{{ request.user.pk|default:'anonymous' }}') === 'collapsed') {
                 document.documentElement.classList.add('sidebar-collapsed');
             }
         })();
