@@ -360,6 +360,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (item) {
             closeSidebarPopovers();
+            return;
+        }
+
+        if (isSidebarCondensed() && !event.target.closest('.sidebar-group')) {
+            closeSidebarPopovers();
         }
     });
 
