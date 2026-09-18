@@ -804,18 +804,6 @@ a {
     width: 18px;
 }
 
-.sidebar-collapsed .sidebar-section-label {
-    font-size: 0;
-    justify-content: center;
-    margin-left: 0;
-    margin-right: 0;
-}
-
-.sidebar-collapsed .sidebar-section-label::before {
-    font-size: 16px;
-    margin-right: 0;
-}
-
 .sidebar-mobile-toggle {
     display: none;
     margin: 10px auto 0;
