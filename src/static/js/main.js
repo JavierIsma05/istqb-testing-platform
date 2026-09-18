@@ -232,6 +232,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var sidebarToggles = Array.prototype.slice.call(document.querySelectorAll('[data-sidebar-toggle]'));
     var sidebarToggleIcon = document.querySelector('[data-sidebar-toggle-icon]');
+    var sidebarElement = document.querySelector('[data-sidebar-user]');
+    var sidebarStorageKey = 'istqb-sidebar-' + (sidebarElement ? sidebarElement.getAttribute('data-sidebar-user') : 'anonymous');
     var mobileSidebarQuery = window.matchMedia ? window.matchMedia('(max-width: 760px)') : null;
 
     function isMobileSidebar() {
@@ -243,7 +245,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var isMobileOpen = root.classList.contains('mobile-sidebar-open');
 
         if (!isMobileSidebar()) {
-            localStorage.setItem('istqb-sidebar', isCollapsed ? 'collapsed' : 'expanded');
+            localStorage.setItem(sidebarStorageKey, isCollapsed ? 'collapsed' : 'expanded');
         }
 
         sidebarToggles.forEach(function (toggle) {
