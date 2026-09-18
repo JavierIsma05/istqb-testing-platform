@@ -303,7 +303,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     var sidebarGroups = Array.prototype.slice.call(document.querySelectorAll('[data-sidebar-group-toggle]'));
-    var sidebarGroupStorageKey = 'istqb-sidebar-groups-' + '{{ request.user.pk|default:"anonymous" }}';
+    var sidebarElement = document.querySelector('[data-sidebar-user]');
+    var sidebarUserKey = sidebarElement ? sidebarElement.getAttribute('data-sidebar-user') : 'anonymous';
+    var sidebarGroupStorageKey = 'istqb-sidebar-groups-' + (sidebarUserKey || 'anonymous');
     var defaultSidebarGroups = {
         inicio: true,
         diseno: false,
