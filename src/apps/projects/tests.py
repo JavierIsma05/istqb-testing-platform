@@ -249,3 +249,35 @@ def test_administrador_puede_eliminar_proyecto_visible(client, project):
     response = client.post(reverse('projects:delete', args=[project.pk]))
     assert response.status_code == 302
     assert not Project.objects.filter(pk=project.pk).exists()
+
+
+@pytest.mark.django_db
+def test_admin_elimina_proyecto_con_riesgo_y_sus_datos_asociados(project, test_case, execution):
+    from django.contrib import admin
+    from django.test import RequestFactory
+    from apps.projects.admin import ProjectAdmin
+
+    risk = Incident.objects.create(
+        project=project,
+        requirement=test_case.requirement,
+        test_plan=test_case.test_plan,
+        code='INC-ADMIN-DELETE-001',
+        title='Riesgo para borrado desde admin',
+        description='Verifica que el borrado masivo del admin elimine tambien la relacion M2M.'
+    )
+    test_case.covered_risks.add(risk)
+    project_id = project.pk
+    risk_id = risk.pk
+    test_case_id = test_case.pk
+    execution_id = execution.pk
+
+    request = RequestFactory().post('/admin/projects/project/')
+    ProjectAdmin(Project, admin.site).delete_queryset(
+        request,
+        Project.objects.filter(pk=project.pk),
+    )
+
+    assert not Project.objects.filter(pk=project_id).exists()
+    assert not Incident.objects.filter(pk=risk_id).exists()
+    assert not TestCase.objects.filter(pk=test_case_id).exists()
+    assert not TestExecution.objects.filter(pk=execution_id).exists()
