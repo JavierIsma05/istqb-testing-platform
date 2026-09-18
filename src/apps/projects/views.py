@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import connection, transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -167,18 +168,34 @@ def project_delete_view(request, pk):
     covered_risks_through = TestCase.covered_risks.through
     project_test_case_ids = list(TestCase.objects.filter(test_plan__project=project).values_list('pk', flat=True))
     project_incident_ids = list(project.incidents.values_list('pk', flat=True))
-    if project_test_case_ids or project_incident_ids:
-        covered_risks_through.objects.filter(
-            Q(testcase_id__in=project_test_case_ids) | Q(incident_id__in=project_incident_ids)
-        ).delete()
 
-    # Delete the project's Incidents explicitly after removing every risk-link
-    # row. This prevents PostgreSQL from encountering the Incident FK before
-    # the M2M through-table cleanup is visible during Project's cascade.
-    project.incidents.all().delete()
+    # PostgreSQL must see the M2M rows removed before deleting an Incident.
+    # Use direct SQL here because Django's Collector can reorder/defer deletes
+    # when legacy relations are involved.
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            if project_test_case_ids or project_incident_ids:
+                conditions = []
+                params = []
+                if project_test_case_ids:
+                    conditions.append('testcase_id = ANY(%s)')
+                    params.append(project_test_case_ids)
+                if project_incident_ids:
+                    conditions.append('incident_id = ANY(%s)')
+                    params.append(project_incident_ids)
+                cursor.execute(
+                    f'DELETE FROM "{covered_risks_through._meta.db_table}" WHERE ' + ' OR '.join(conditions),
+                    params,
+                )
 
-    log_action(request.user, 'DELETE', 'Project', project.pk, {'code': project_code, 'name': project_name, 'status': project.status})
-    project.delete()
+            if project_incident_ids:
+                cursor.execute(
+                    'DELETE FROM "incidents_incident" WHERE id = ANY(%s)',
+                    [project_incident_ids],
+                )
+
+        log_action(request.user, 'DELETE', 'Project', project.pk, {'code': project_code, 'name': project_name, 'status': project.status})
+        project.delete()
     request.session.pop('active_project_id', None)
     messages.success(request, f'El proyecto "{project_name}" fue eliminado junto con toda su información asociada.')
     return redirect('projects:index')
