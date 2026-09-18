@@ -303,38 +303,90 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     var sidebarGroups = Array.prototype.slice.call(document.querySelectorAll('[data-sidebar-group-toggle]'));
+    var sidebarGroupStorageKey = 'istqb-sidebar-groups-' + '{{ request.user.pk|default:"anonymous" }}';
+    var defaultSidebarGroups = {
+        inicio: true,
+        diseno: false,
+        ejecucion: false,
+        informes: false
+    };
+
+    function readSidebarGroups() {
+        try {
+            var saved = JSON.parse(localStorage.getItem(sidebarGroupStorageKey) || 'null');
+            return saved && typeof saved === 'object' ? saved : Object.assign({}, defaultSidebarGroups);
+        } catch (error) {
+            return Object.assign({}, defaultSidebarGroups);
+        }
+    }
+
+    function saveSidebarGroups(state) {
+        try {
+            localStorage.setItem(sidebarGroupStorageKey, JSON.stringify(state));
+        } catch (error) {}
+    }
+
+    function setSidebarGroup(toggle, isOpen) {
+        var group = toggle.closest('[data-sidebar-group]');
+        var menu = group ? group.querySelector('.sidebar-group-menu') : null;
+
+        if (!group || !menu) {
+            return;
+        }
+
+        menu.classList.toggle('open', isOpen);
+        toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
 
     function syncSidebarGroups() {
-        sidebarGroups.forEach(function (toggle) {
-            var menu = toggle.parentElement.querySelector('.sidebar-group-menu');
+        var state = readSidebarGroups();
 
-            if (!menu) {
+        sidebarGroups.forEach(function (toggle) {
+            var group = toggle.closest('[data-sidebar-group]');
+            var key = group ? group.getAttribute('data-sidebar-group') : '';
+            var menu = group ? group.querySelector('.sidebar-group-menu') : null;
+
+            if (!key || !menu) {
                 return;
             }
 
             var hasActiveChild = !!menu.querySelector('a.active');
 
-            menu.classList.toggle('open', hasActiveChild);
-            toggle.setAttribute('aria-expanded', hasActiveChild ? 'true' : 'false');
+            // En la primera visita se abre solo Inicio. Si el usuario vuelve a
+            // una sección concreta, esa sección se abre para mantener visible
+            // el elemento activo.
+            var isOpen = Object.prototype.hasOwnProperty.call(state, key)
+                ? !!state[key]
+                : !!defaultSidebarGroups[key];
+
+            if (hasActiveChild && !Object.prototype.hasOwnProperty.call(state, key)) {
+                isOpen = true;
+            }
+
+            setSidebarGroup(toggle, isOpen);
         });
     }
 
     sidebarGroups.forEach(function (toggle) {
         toggle.addEventListener('click', function () {
-            if (root.classList.contains('sidebar-collapsed') && !isMobileSidebar()) {
-                root.classList.remove('sidebar-collapsed');
-                renderSidebarState();
+            var group = toggle.closest('[data-sidebar-group]');
+            var key = group ? group.getAttribute('data-sidebar-group') : '';
+
+            if (!key) {
                 return;
             }
 
-            var menu = toggle.parentElement.querySelector('.sidebar-group-menu');
+            var menu = group.querySelector('.sidebar-group-menu');
+            var isOpen = !menu.classList.contains('open');
 
-            if (!menu) {
-                return;
-            }
+            setSidebarGroup(toggle, isOpen);
 
-            var isOpen = menu.classList.toggle('open');
-            toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            var state = readSidebarGroups();
+            state[key] = isOpen;
+            saveSidebarGroups(state);
+
+            // Abrir una sección no cierra las demás: el usuario controla
+            // independientemente cada acordeón.
         });
     });
 
