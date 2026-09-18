@@ -74,6 +74,10 @@ class TestCase(OwnedModel):
         default=False,
         help_text='Indica que el caso fue reabierto explícitamente desde la matriz para una nueva ejecución.',
     )
+    requirement_needs_revalidation = models.BooleanField(
+        default=False,
+        help_text='Indica si el requisito asociado necesita revalidación tras cambios.',
+    )
 
     class Meta:
         ordering = ['test_plan', 'code']

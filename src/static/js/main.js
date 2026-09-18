@@ -241,25 +241,25 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function renderSidebarState() {
-        var isCollapsed = root.classList.contains('sidebar-collapsed');
+        var isCondensed = root.classList.contains('sidebar-collapsed');
         var isMobileOpen = root.classList.contains('mobile-sidebar-open');
 
         if (!isMobileSidebar()) {
-            localStorage.setItem(sidebarStorageKey, isCollapsed ? 'collapsed' : 'expanded');
+            localStorage.setItem('istqb-sidebar', isCondensed ? 'condensed' : 'expanded');
         }
 
         sidebarToggles.forEach(function (toggle) {
             var label = isMobileSidebar()
-                ? (isMobileOpen ? 'Cerrar menu' : 'Abrir menu')
-                : (isCollapsed ? 'Expandir menu' : 'Minimizar menu');
+                ? (isMobileOpen ? 'Cerrar menú' : 'Abrir menú')
+                : (isCondensed ? 'Expandir menú' : 'Condensar menú');
             toggle.setAttribute('title', label);
             toggle.setAttribute('aria-label', label);
             toggle.setAttribute('aria-expanded', isMobileSidebar() && isMobileOpen ? 'true' : 'false');
         });
 
         if (sidebarToggleIcon) {
-            sidebarToggleIcon.classList.toggle('bi-chevron-left', !isCollapsed && !isMobileSidebar());
-            sidebarToggleIcon.classList.toggle('bi-chevron-right', isCollapsed && !isMobileSidebar());
+            sidebarToggleIcon.classList.toggle('bi-chevron-left', !isCondensed && !isMobileSidebar());
+            sidebarToggleIcon.classList.toggle('bi-chevron-right', isCondensed && !isMobileSidebar());
             sidebarToggleIcon.classList.toggle('bi-list', isMobileSidebar() && !isMobileOpen);
             sidebarToggleIcon.classList.toggle('bi-x-lg', isMobileSidebar() && isMobileOpen);
         }
@@ -271,7 +271,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (isMobileSidebar()) {
                     root.classList.toggle('mobile-sidebar-open');
                 } else {
+                    var wasCondensed = root.classList.contains('sidebar-collapsed');
                     root.classList.toggle('sidebar-collapsed');
+                    if (!wasCondensed) {
+                        setTimeout(syncSidebarGroups, 220);
+                    }
                 }
                 renderSidebarState();
             });
@@ -297,8 +301,24 @@ document.addEventListener('DOMContentLoaded', function () {
         if (mobileSidebarQuery && mobileSidebarQuery.addEventListener) {
             mobileSidebarQuery.addEventListener('change', function () {
                 root.classList.remove('mobile-sidebar-open');
+                var wasMobile = root.classList.contains('sidebar-collapsed');
+                if (isMobileSidebar()) {
+                    root.classList.add('sidebar-collapsed');
+                } else {
+                    root.classList.remove('sidebar-collapsed');
+                    if (wasMobile) {
+                        setTimeout(syncSidebarGroups, 220);
+                    }
+                }
                 renderSidebarState();
             });
+        }
+
+        var savedSidebarState = localStorage.getItem('istqb-sidebar');
+        if (savedSidebarState === 'condensed' && !isMobileSidebar()) {
+            root.classList.add('sidebar-collapsed');
+        } else if (isMobileSidebar()) {
+            root.classList.add('sidebar-collapsed');
         }
 
         renderSidebarState();
@@ -314,6 +334,41 @@ document.addEventListener('DOMContentLoaded', function () {
         sidebarGroups.forEach(function (toggle) {
             var group = toggle.closest('[data-sidebar-group]');
             var menu = group ? group.querySelector('.sidebar-group-menu') : null;
+            if (menu) {
+                menu.classList.remove('open');
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+
+    function saveSidebarGroups(state) {
+        try {
+            localStorage.setItem(sidebarGroupStorageKey, JSON.stringify(state));
+        } catch (error) {}
+    }
+
+    function setSidebarGroup(toggle, isOpen) {
+        var group = toggle.closest('[data-sidebar-group]');
+        var menu = group ? group.querySelector('.sidebar-group-menu') : null;
+
+        if (!group || !menu) {
+            return;
+        }
+
+        menu.classList.toggle('open', isOpen);
+        toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+
+    function syncSidebarGroups() {
+        var isCondensed = root.classList.contains('sidebar-collapsed') && !isMobileSidebar();
+        if (isCondensed) {
+            return;
+        }
+        var state = readSidebarGroups();
+
+        sidebarGroups.forEach(function (toggle) {
+            var group = toggle.closest('[data-sidebar-group]');
+            var menu = group ? group.querySelector('.sidebar-group-menu') : null;
 
             if (menu) {
                 menu.classList.remove('open');
@@ -325,7 +380,7 @@ document.addEventListener('DOMContentLoaded', function () {
         toggle.setAttribute('aria-expanded', 'false');
 
         toggle.addEventListener('click', function () {
-            if (!isSidebarCondensed()) {
+            if (root.classList.contains('sidebar-collapsed') && !isMobileSidebar()) {
                 return;
             }
 
@@ -339,8 +394,6 @@ document.addEventListener('DOMContentLoaded', function () {
             var isOpen = menu.classList.toggle('open');
             toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
 
-            // En modo condensado el popover se abre por click/tap.
-            // El hover sigue funcionando por CSS para escritorio.
             sidebarGroups.forEach(function (otherToggle) {
                 if (otherToggle === toggle) {
                     return;
@@ -711,9 +764,8 @@ document.addEventListener('DOMContentLoaded', function () {
         renderStepFields();
     }
 
-    // Template selector for automated steps
     var templateSelect = document.querySelector('[data-template-select]');
-    
+
     if (templateSelect) {
         var templates = {
             'login': {
@@ -745,7 +797,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         };
 
-        templateSelect.addEventListener('change', function() {
+        templateSelect.addEventListener('change', function () {
             var template = templates[templateSelect.value];
             if (!template) return;
 
@@ -765,7 +817,6 @@ document.addEventListener('DOMContentLoaded', function () {
             if (comparisonField) comparisonField.value = template.comparison_type;
             if (timeoutField) timeoutField.value = template.timeout_seconds;
 
-            // Trigger the action type change to update field visibility
             if (actionField) {
                 var event = new Event('change', { bubbles: true });
                 actionField.dispatchEvent(event);
@@ -1143,4 +1194,122 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     initFormDrafts();
+});
+
+/* ========================================
+   REPORT CARDS - EXPANDIBLE CARDS
+   ======================================== */
+
+function initReportCards() {
+    var cards = document.querySelectorAll('.report-card');
+    if (!cards.length) return;
+
+    cards.forEach(function (card) {
+        var expandBtn = card.querySelector('.report-card__expand-btn');
+        var expanded = card.querySelector('.report-card__expanded');
+        var moreBtn = card.querySelector('.report-card__more-btn');
+
+        if (expandBtn && expanded) {
+            expandBtn.addEventListener('click', function () {
+                var isExpanded = expandBtn.getAttribute('aria-expanded') === 'true';
+                expandBtn.setAttribute('aria-expanded', !isExpanded);
+                expanded.hidden = isExpanded;
+
+                if (!isExpanded) {
+                    expanded.style.maxHeight = expanded.scrollHeight + 'px';
+                    requestAnimationFrame(function () {
+                        expanded.style.maxHeight = '500px';
+                    });
+                } else {
+                    expanded.style.maxHeight = '0';
+                }
+            });
+        }
+
+        if (moreBtn) {
+            moreBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var isExpanded = moreBtn.getAttribute('aria-expanded') === 'true';
+                moreBtn.setAttribute('aria-expanded', !isExpanded);
+
+                var dropdown = card.querySelector('.report-card__more-dropdown');
+                if (!dropdown) {
+                    dropdown = createMoreDropdown(card, moreBtn);
+                    card.appendChild(dropdown);
+                }
+                dropdown.hidden = isExpanded;
+            });
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        document.querySelectorAll('.report-card__more-dropdown:not([hidden])').forEach(function (dropdown) {
+            if (!dropdown.contains(e.target) && !dropdown.previousElementSibling.contains(e.target)) {
+                dropdown.hidden = true;
+                var moreBtn = dropdown.closest('.report-card').querySelector('.report-card__more-btn');
+                if (moreBtn) moreBtn.setAttribute('aria-expanded', 'false');
+            }
+        });
+    });
+}
+
+function createMoreDropdown(card, trigger) {
+    var cardData = {
+        type: card.dataset.reportType,
+        projectId: card.dataset.projectId,
+        hasReport: card.classList.contains('report-card--generated'),
+    };
+
+    var dropdown = document.createElement('div');
+    dropdown.className = 'report-card__more-dropdown';
+    dropdown.setAttribute('role', 'menu');
+    dropdown.hidden = true;
+
+    var items = [];
+
+    if (cardData.hasReport) {
+        items.push(
+            '<button type="button" class="dropdown-item" role="menuitem" data-action="regenerate"><i class="bi bi-arrow-clockwise"></i> Regenerar</button>',
+            '<button type="button" class="dropdown-item" role="menuitem" data-action="delete"><i class="bi bi-trash"></i> Eliminar</button>'
+        );
+    } else {
+        items.push(
+            '<button type="button" class="dropdown-item" role="menuitem" data-action="generate"><i class="bi bi-file-earmark-plus"></i> Generar</button>'
+        );
+    }
+
+    dropdown.innerHTML = '<div class="dropdown-menu-inner">' + items.join('') + '</div>';
+
+    dropdown.querySelectorAll('[data-action]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var action = this.dataset.action;
+            handleReportAction(cardData, action);
+            dropdown.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+        });
+    });
+
+    return dropdown;
+}
+
+function handleReportAction(cardData, action) {
+    var baseUrl = '/reports/plan-report/?type=' + cardData.type;
+
+    switch (action) {
+        case 'generate':
+        case 'regenerate':
+            window.location.href = baseUrl;
+            break;
+        case 'delete':
+            if (confirm('¿Eliminar este informe?')) {
+                var card = document.querySelector('.report-card[data-report-type="' + cardData.type + '"][data-project-id="' + cardData.projectId + '"]');
+                var deleteBtn = card ? card.querySelector('.report-card__expanded form[action*="/delete/"] button') : null;
+                if (deleteBtn) deleteBtn.click();
+            }
+            break;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    initReportCards();
 });

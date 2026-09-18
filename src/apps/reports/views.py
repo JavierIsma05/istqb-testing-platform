@@ -2270,7 +2270,6 @@ def plan_report_pdf_view(request, pk, section):
 
 
 @login_required
-@login_required
 def quality_metrics_view(request):
     projects = visible_projects_for(request.user, request=request).order_by('name')
     selected_id = request.GET.get('project') or request.session.get('active_project_id')
@@ -2332,6 +2331,93 @@ def quality_metrics_pdf_view(request):
     return response
 
 
+def _get_latest_report_for_type(project, report_type):
+    """Get the latest generated report for a project and type.
+    
+    Maps the report card type to the actual Report model ReportType.
+    """
+    type_map = {
+        'plan': Report.ReportType.SUMMARY,
+        'casos': Report.ReportType.COVERAGE,
+        'ejecuciones': Report.ReportType.EXECUTION,
+        'defectos': Report.ReportType.DEFECTS,
+        'final': Report.ReportType.FINAL,
+    }
+    model_type = type_map.get(report_type, report_type)
+    return Report.objects.filter(
+        project=project,
+        report_type=model_type
+    ).select_related('generated_by').order_by('-created_at').first()
+
+
+def _build_report_card_data(project, report_card, latest_report):
+    """Build enriched data for a report card with real metrics."""
+    report_type = report_card['type']
+    data = {
+        'card': report_card,
+        'project': project,
+        'latest_report': latest_report,
+        'has_report': latest_report is not None,
+        'status': 'sin_datos',
+        'metrics': [],
+        'actions': [],
+    }
+
+    if latest_report:
+        data['status'] = 'generado'
+        data['generated_at'] = latest_report.created_at
+        data['generated_by'] = latest_report.generated_by
+
+        if report_type == 'plan':
+            content = latest_report.content
+            data['metrics'] = [
+                {'label': 'Requisitos', 'value': _content_value(latest_report, 'requirements')},
+                {'label': 'Casos', 'value': _content_value(latest_report, 'test_cases')},
+                {'label': 'Cobertura', 'value': f"{_content_value(latest_report, 'coverage')}%"},
+            ]
+        elif report_type == 'casos':
+            content = latest_report.content
+            data['metrics'] = [
+                {'label': 'Casos de prueba', 'value': _content_value(latest_report, 'test_cases')},
+                {'label': 'Casos vinculados', 'value': _content_value(latest_report, 'linked_test_cases')},
+                {'label': 'Casos pendientes', 'value': _content_value(latest_report, 'pending_test_cases')},
+            ]
+        elif report_type == 'ejecuciones':
+            content = latest_report.content
+            data['metrics'] = [
+                {'label': 'Avance', 'value': f"{_content_value(latest_report, 'execution_progress')}%"},
+                {'label': 'Aprobadas', 'value': _content_value(latest_report, 'passed_executions')},
+                {'label': 'Fallidas', 'value': _content_value(latest_report, 'failed_executions')},
+                {'label': 'Bloqueadas', 'value': _content_value(latest_report, 'blocked_executions')},
+            ]
+        elif report_type == 'defectos':
+            content = latest_report.content
+            data['metrics'] = [
+                {'label': 'Total', 'value': _content_value(latest_report, 'defects')},
+                {'label': 'Abiertos', 'value': _content_value(latest_report, 'open_defects')},
+                {'label': 'Críticos', 'value': _content_value(latest_report, 'high_defects')},
+                {'label': 'Cerrados', 'value': _content_value(latest_report, 'closed_defects')},
+            ]
+        elif report_type == 'final':
+            content = latest_report.content
+            data['metrics'] = [
+                {'label': 'Veredicto', 'value': _content_value(latest_report, 'final_verdict', 'Pendiente')},
+                {'label': 'Trazabilidad', 'value': f"{_content_value(latest_report, 'traceability_index')}%"},
+                {'label': 'Cobertura', 'value': f"{_content_value(latest_report, 'coverage')}%"},
+                {'label': 'Aprobación', 'value': f"{_content_value(latest_report, 'success_rate')}%"},
+            ]
+
+        data['actions'] = ['ver', 'descargar']
+    else:
+        data['status'] = 'pendiente'
+        data['metrics'] = [
+            {'label': 'Sin generar', 'value': '—'},
+        ]
+        data['actions'] = ['generar']
+
+    return data
+
+
 @login_required
 def report_list_view(request):
     visible_projects = visible_projects_for(request.user, request=request)
@@ -2368,12 +2454,33 @@ def report_list_view(request):
         )
         return redirect('reports:index')
 
+    reports_queryset = Report.objects.select_related('project', 'generated_by').filter(project__in=visible_projects)
+
+    project_cards = []
+    for project in visible_projects.order_by('name'):
+        project_reports = reports_queryset.filter(project=project)
+        cards = []
+        generated_count = 0
+        for report_card in REPORT_CARDS:
+            report_type = report_card['type']
+            latest_report = _get_latest_report_for_type(project, report_type)
+            card_data = _build_report_card_data(project, report_card, latest_report)
+            if card_data['has_report']:
+                generated_count += 1
+            cards.append(card_data)
+        project_cards.append({
+            'project': project,
+            'cards': cards,
+            'generated_count': generated_count,
+            'total_count': len(cards),
+        })
+
     return render(
         request,
         'reports/index.html',
         {
-            'report_cards': REPORT_CARDS,
-            'reports': Report.objects.select_related('project', 'generated_by').filter(project__in=visible_projects),
+            'project_cards': project_cards,
+            'reports': reports_queryset,
             'form': form,
             'show_modal': request.method == 'POST' and form.errors,
             'can_manage': can_manage_artifacts(request.user),

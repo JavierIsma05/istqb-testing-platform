@@ -1,0 +1,115 @@
+{% load static %}
+<article class="report-card {% if card_data.has_report %}report-card--generated{% else %}report-card--pending{% endif %} {% if card_data.card.tone %}report-card--{{ card_data.card.tone }}{% endif %}" data-report-type="{{ card_data.card.type }}" data-project-id="{{ card_data.project.id }}">
+    <header class="report-card__header">
+        <div class="report-card__icon-wrapper">
+            <i class="bi {{ card_data.card.icon }}" aria-hidden="true"></i>
+        </div>
+        <div class="report-card__title-area">
+            <h4 class="report-card__title">{{ card_data.card.title }}</h4>
+            <span class="report-card__status-badge report-card__status-badge--{{ card_data.status }}">
+                {% if card_data.status == 'generado' %}
+                    <i class="bi bi-check-circle" aria-hidden="true"></i> Generado
+                {% elif card_data.status == 'pendiente' %}
+                    <i class="bi bi-clock" aria-hidden="true"></i> Pendiente
+                {% else %}
+                    <i class="bi bi-dash-circle" aria-hidden="true"></i> Sin datos
+                {% endif %}
+            </span>
+        </div>
+        <button type="button" class="report-card__expand-btn" aria-expanded="false" aria-label="Expandir detalles" title="Ver más detalles">
+            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+        </button>
+    </header>
+
+    <div class="report-card__metrics">
+        <ul class="report-card__metrics-list">
+            {% for metric in card_data.metrics %}
+            <li class="report-card__metric">
+                <span class="report-card__metric-label">{{ metric.label }}</span>
+                <strong class="report-card__metric-value">{{ metric.value }}</strong>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <footer class="report-card__actions">
+        <div class="report-card__primary-actions">
+            {% if card_data.has_report %}
+                <a href="{% url 'reports:detail' card_data.latest_report.pk %}" class="btn btn-sm btn-outline-primary report-card__action-btn" title="Ver informe">
+                    <i class="bi bi-eye" aria-hidden="true"></i><span>Ver</span>
+                </a>
+                <a href="{% url 'reports:download' card_data.latest_report.pk %}" class="btn btn-sm btn-brand report-card__action-btn" title="Descargar PDF">
+                    <i class="bi bi-download" aria-hidden="true"></i><span>Descargar</span>
+                </a>
+                {% if 'regenerar' in card_data.actions %}
+                <a href="{% url 'reports:plan-report' %}?type={{ card_data.card.type }}&plan={{ card_data.project.testplan_set.first.id }}" class="btn btn-sm btn-outline-secondary report-card__action-btn" title="Regenerar informe">
+                    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i><span>Regenerar</span>
+                </a>
+                {% endif %}
+            {% else %}
+                <a href="{% url 'reports:plan-report' %}?type={{ card_data.card.type }}" class="btn btn-sm btn-brand report-card__action-btn" title="Generar informe">
+                    <i class="bi bi-file-earmark-plus" aria-hidden="true"></i><span>Generar</span>
+                </a>
+            {% endif %}
+        </div>
+        <div class="report-card__secondary-actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary report-card__more-btn" aria-expanded="false" aria-haspopup="true" aria-label="Más acciones">
+                <i class="bi bi-three-dots" aria-hidden="true"></i>
+            </button>
+        </div>
+    </footer>
+
+    <div class="report-card__expanded" hidden>
+        <div class="report-card__expanded-content">
+            {% if card_data.has_report %}
+                <div class="report-card__detail-section">
+                    <h5>Información del informe</h5>
+                    <dl class="report-card__detail-list">
+                        <dt>Generado por</dt>
+                        <dd>{{ card_data.generated_by.get_full_name|default:card_data.generated_by.email|default:'Sistema' }}</dd>
+                        <dt>Fecha de generación</dt>
+                        <dd>{{ card_data.generated_at|date:'d/m/Y H:i' }}</dd>
+                        <dt>Tipo</dt>
+                        <dd>{{ card_data.latest_report.get_report_type_display }}</dd>
+                    </dl>
+                </div>
+
+                <div class="report-card__detail-section">
+                    <h5>Métricas completas</h5>
+                    <dl class="report-card__detail-list">
+                        {% for key, value in card_data.latest_report.content.items %}
+                            <dt>{{ key|slugify|title }}</dt>
+                            <dd>{{ value }}</dd>
+                        {% endfor %}
+                    </dl>
+                </div>
+
+                <div class="report-card__detail-actions">
+                    <a href="{% url 'reports:detail' card_data.latest_report.pk %}" class="btn btn-outline-primary">
+                        <i class="bi bi-eye"></i> Ver informe completo
+                    </a>
+                    <a href="{% url 'reports:download' card_data.latest_report.pk %}" class="btn btn-brand">
+                        <i class="bi bi-download"></i> Descargar PDF
+                    </a>
+                    {% if can_manage %}
+                    <form method="POST" action="{% url 'reports:delete' card_data.latest_report.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger" data-confirm-message="¿Eliminar este informe?">
+                            <i class="bi bi-trash"></i> Eliminar
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="report-card__detail-section">
+                    <h5>Generar este informe</h5>
+                    <p class="text-muted">Este informe aún no se ha generado para el proyecto <strong>{{ card_data.project.name }}</strong>.</p>
+                    <p class="text-muted small">Al generar, se crearán métricas basadas en los datos actuales del proyecto: requisitos, casos de prueba, ejecuciones, defectos y riesgos.</p>
+                    <a href="{% url 'reports:plan-report' %}?type={{ card_data.card.type }}" class="btn btn-brand">
+                        <i class="bi bi-file-earmark-plus"></i> Generar ahora
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</article>

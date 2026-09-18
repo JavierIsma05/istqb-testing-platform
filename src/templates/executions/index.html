@@ -144,18 +144,21 @@
 
     <section class="execution-grid">
       <article class="execution-case-card">
-        <div class="execution-case-head">
-          <div>
-            <span class="case-code-pill">{{ selected_case.code }}</span>
-            <h3>{{ selected_case.title }}</h3>
+<div class="execution-case-head">
+            <div>
+              <span class="case-code-pill">{{ selected_case.code }}</span>
+              <h3>{{ selected_case.title }}</h3>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+              <span class="execution-case-type">
+                <span class="execution-mode-badge execution-mode-badge--manual">Manual</span>
+                <span class="execution-mode-badge execution-mode-badge--automated">Automatizada</span>
+              </span>
+              <span class="execution-case-status execution-case-status-{{ selected_case.status|lower }}">
+                {{ selected_case.get_status_display }}
+              </span>
+            </div>
           </div>
-          <div class="d-flex gap-2 align-items-center">
-            <span class="execution-case-type">{{ selected_case.get_execution_type_display }}</span>
-            <span class="execution-case-status execution-case-status-{{ selected_case.status|lower }}">
-              {{ selected_case.get_status_display }}
-            </span>
-          </div>
-        </div>
 
         <div class="execution-section">
           <h4>Precondiciones:</h4>
@@ -303,127 +306,127 @@
           </div>
         </div>
       </article>
-    </section>
 
-    <section class="execution-history-card execution-automation-panel" id="automation" data-execution-mode-panel="automated" hidden>
-      <div class="card-heading">
-        <div>
-          <span class="execution-mode-kicker">Ejecución automatizada</span>
-          <h3>Resultados automatizados</h3>
-          <p>Revisa los resultados de las validaciones automáticas configuradas por el estudiante.</p>
-        </div>
-      </div>
-      <div class="table-responsive mb-4">
-        <table class="table align-middle mb-0">
-          <thead>
-            <tr>
-              <th>Paso</th>
-              <th>Acción</th>
-              <th>Elemento</th>
-              <th>Dato</th>
-              <th>Resultado esperado</th>
-              <th>Crítico</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for rule in automated_rules %}
-              <tr>
-                <td>{{ rule.step_number }}</td>
-                <td>
-                  {{ rule.get_action_type_display }}
-                  <div class="small text-muted">{{ rule.name }}</div>
-                </td>
-                <td>{% if rule.selector_value %}<code>{{ rule.selector_value }}</code>{% else %}—{% endif %}</td>
-                <td>{% if rule.input_value %}<code>{{ rule.input_value }}</code>{% else %}—{% endif %}</td>
-                <td>{{ rule.expected_value|default:'Segun configuracion' }}</td>
-                <td>{% if rule.is_critical %}Sí{% else %}No{% endif %}</td>
-                <td>{% if rule.is_active %}Activa{% else %}Inactiva{% endif %}</td>
-              </tr>
-            {% empty %}
-              <tr><td colspan="7" class="text-center text-muted py-4">No hay pasos configurados para este caso.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% if last_automated_execution %}
-        <div class="alert alert-light border mt-3">
-          <strong>Ultima ejecucion: {{ last_automated_execution.get_result_display }}</strong>
-          <pre class="small mt-2 mb-3">{{ last_automated_execution.technical_log }}</pre>
-          <div class="row g-3">
-            {% for result in last_automated_execution.automated_results.all %}
-              <div class="col-md-6">
-                <div class="border rounded p-2 h-100">
-                  <strong>{{ result.validation_rule.name }}: {{ result.get_status_display }}</strong>
-                  <div class="small">{{ result.actual_behavior }}</div>
-                  {% if result.screenshot %}
-                    <a href="{{ result.screenshot.url }}" target="_blank" rel="noopener">
-                      <img class="mt-2 img-fluid rounded" src="{{ result.screenshot.url }}" alt="Captura automatica de {{ result.validation_rule.name }}">
-                    </a>
-                  {% endif %}
-                </div>
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-      {% endif %}
-
-      <div class="mt-4">
+      <article class="execution-automation-panel" data-execution-mode-panel="automated" hidden>
         <div class="card-heading">
           <div>
-            <h4>Historial automatizado ({{ automated_count }})</h4>
-            <p>Ejecuciones automatizadas con Chromium.</p>
+            <span class="execution-mode-kicker">Ejecución automatizada</span>
+            <h3>Resultados automatizados</h3>
+            <p>Revisa los resultados de las validaciones automáticas configuradas por el estudiante.</p>
           </div>
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive mb-4">
           <table class="table align-middle mb-0">
             <thead>
               <tr>
-                <th>Fecha</th>
-                <th>Resultado</th>
-                <th>Pasos</th>
-                <th>Resultado obtenido</th>
-                <th>Log técnico</th>
+                <th>Paso</th>
+                <th>Acción</th>
+                <th>Elemento</th>
+                <th>Dato</th>
+                <th>Resultado esperado</th>
+                <th>Crítico</th>
+                <th>Estado</th>
               </tr>
             </thead>
             <tbody>
-              {% for item in automated_history %}
+              {% for rule in automated_rules %}
                 <tr>
-                  <td>{{ item.execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}</td>
+                  <td>{{ rule.step_number }}</td>
                   <td>
-                    <span class="badge execution-case-status-{{ item.execution.result|lower }}">
-                      Automatizada · {{ item.execution.get_result_display }}
-                    </span>
+                    {{ rule.get_action_type_display }}
+                    <div class="small text-muted">{{ rule.name }}</div>
                   </td>
-                  <td>
-                    <div class="trace-pill-list">
-                      {% for result in item.execution.automated_results.all %}
-                        <span class="trace-pill execution-pill">
-                          {{ result.validation_rule.name }}: {{ result.get_status_display }}
-                        </span>
-                      {% empty %}
-                        <span class="text-muted">Sin pasos registrados</span>
-                      {% endfor %}
-                    </div>
-                  </td>
-                  <td>{{ item.execution.actual_result|default:'Sin registrar' }}</td>
-                  <td>
-                    {% if item.execution.technical_log %}
-                      <pre class="small mb-0">{{ item.execution.technical_log }}</pre>
-                    {% else %}
-                      <span class="text-muted">Sin log</span>
-                    {% endif %}
-                  </td>
+                  <td>{% if rule.selector_value %}<code>{{ rule.selector_value }}</code>{% else %}—{% endif %}</td>
+                  <td>{% if rule.input_value %}<code>{{ rule.input_value }}</code>{% else %}—{% endif %}</td>
+                  <td>{{ rule.expected_value|default:'Segun configuracion' }}</td>
+                  <td>{% if rule.is_critical %}Sí{% else %}No{% endif %}</td>
+                  <td>{% if rule.is_active %}Activa{% else %}Inactiva{% endif %}</td>
                 </tr>
               {% empty %}
-                <tr>
-                  <td colspan="5" class="text-center text-muted py-3">Aun no hay ejecuciones automatizadas.</td>
-                </tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">No hay pasos configurados para este caso.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-      </div>
+        {% if last_automated_execution %}
+          <div class="alert alert-light border mt-3">
+            <strong>Ultima ejecucion: {{ last_automated_execution.get_result_display }}</strong>
+            <pre class="small mt-2 mb-3">{{ last_automated_execution.technical_log }}</pre>
+            <div class="row g-3">
+              {% for result in last_automated_execution.automated_results.all %}
+                <div class="col-md-6">
+                  <div class="border rounded p-2 h-100">
+                    <strong>{{ result.validation_rule.name }}: {{ result.get_status_display }}</strong>
+                    <div class="small">{{ result.actual_behavior }}</div>
+                    {% if result.screenshot %}
+                      <a href="{{ result.screenshot.url }}" target="_blank" rel="noopener">
+                        <img class="mt-2 img-fluid rounded" src="{{ result.screenshot.url }}" alt="Captura automatica de {{ result.validation_rule.name }}">
+                      </a>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        <div class="mt-4">
+          <div class="card-heading">
+            <div>
+              <h4>Historial automatizado ({{ automated_count }})</h4>
+              <p>Ejecuciones automatizadas con Chromium.</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Resultado</th>
+                  <th>Pasos</th>
+                  <th>Resultado obtenido</th>
+                  <th>Log técnico</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in automated_history %}
+                  <tr>
+                    <td>{{ item.execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}</td>
+                    <td>
+                      <span class="badge execution-case-status-{{ item.execution.result|lower }}">
+                        Automatizada · {{ item.execution.get_result_display }}
+                      </span>
+                    </td>
+                    <td>
+                      <div class="trace-pill-list">
+                        {% for result in item.execution.automated_results.all %}
+                          <span class="trace-pill execution-pill">
+                            {{ result.validation_rule.name }}: {{ result.get_status_display }}
+                          </span>
+                        {% empty %}
+                          <span class="text-muted">Sin pasos registrados</span>
+                        {% endfor %}
+                      </div>
+                    </td>
+                    <td>{{ item.execution.actual_result|default:'Sin registrar' }}</td>
+                    <td>
+                      {% if item.execution.technical_log %}
+                        <pre class="small mb-0">{{ item.execution.technical_log }}</pre>
+                      {% else %}
+                        <span class="text-muted">Sin log</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="5" class="text-center text-muted py-3">Aun no hay ejecuciones automatizadas.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
     </section>
   </div>
 
@@ -524,7 +527,10 @@
                     <h3>{{ selected_case.title }}</h3>
                 </div>
                 <div class="d-flex gap-2 align-items-center">
-                    <span class="execution-case-type">{{ selected_case.get_execution_type_display }}</span>
+                    <span class="execution-case-type">
+                        <span class="execution-mode-badge execution-mode-badge--manual">Manual</span>
+                        <span class="execution-mode-badge execution-mode-badge--automated">Automatizada</span>
+                    </span>
                     <span class="execution-case-status execution-case-status-{{ selected_case.status|lower }}">
                         {{ selected_case.get_status_display }}
                     </span>
@@ -771,8 +777,7 @@
                 </div>
             </div>
         </article>
-
-        <section class="execution-history-card execution-automation-panel" id="automation" data-execution-mode-panel="automated" hidden>
+        <article class="execution-automation-panel" data-execution-mode-panel="automated" hidden>
             <div class="card-heading">
                 <div>
                     <span class="execution-mode-kicker">Ejecución automatizada</span>
@@ -788,13 +793,13 @@
                 </div>
             {% endif %}
             <div class="row g-4">
-                <div class="col-lg-5">
+                <div class="col-lg-7">
                     <div class="card h-100 border-0 bg-light-subtle">
                         <div class="card-body">
                             <h4>Pasos automatizados</h4>
                             <p class="text-muted small">Agrega acciones controladas para validar el caso sin ejecutar comandos arbitrarios.</p>
                             {% if can_manage %}
-                                <form method="POST" action="{% url 'executions:automated-step-create' selected_case.pk %}" class="mb-3">
+                                <form method="POST" action="{% url 'executions:rule-create' selected_case.pk %}" class="mb-3">
                                     {% csrf_token %}
                                     {{ step_form.non_field_errors }}
                                     <div class="mb-2">
@@ -870,12 +875,12 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-7">
+                <div class="col-lg-5">
                     <div class="card h-100 border-0 bg-light-subtle">
                         <div class="card-body">
                             <h4>Ejecutar automatización</h4>
                             <p class="text-muted small">Solo se ejecutan las reglas activas del caso seleccionado.</p>
-                            <form method="POST" action="{% url 'executions:automated-run' selected_case.pk %}">
+                            <form method="POST" action="{% url 'executions:run-automated' selected_case.pk %}">
                                 {% csrf_token %}
                                 <button class="btn btn-brand w-100" type="submit" {% if case_blocked or not automated_rules %}disabled{% endif %}>
                                     <i class="bi bi-play-circle"></i> Ejecutar caso automatizado
@@ -951,9 +956,9 @@
                     </table>
                 </div>
             </div>
-        </section>
+        </article>
     </section>
-    </div>
+  </div>
 
     <section class="execution-history-card">
         <div class="card-heading">
@@ -973,6 +978,7 @@
             <article><span>Éxito</span><strong>{{ success_percent }}%</strong></article>
         </div>
     </section>
+{% endif %}
 {% endif %}
 
 {% endblock %}
