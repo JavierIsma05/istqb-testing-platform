@@ -1,5 +1,5 @@
 {% load static %}
-<aside class="app-sidebar">
+<aside class="app-sidebar" data-sidebar-user="{{ request.user.pk|default:'anonymous' }}">
     <div class="sidebar-brand">
         <span class="brand-mark"><img src="{% static 'images/brand/testflow-mark.svg' %}" alt="TestFlow"></span>
         <span>
