@@ -225,6 +225,7 @@ def build_student_phase_timeline(projects):
         'items': items,
         'completed': sum(item['status'] == TestingPhase.Status.DONE for item in items),
         'total': len(items),
+        'percentage': round(sum(item['progress'] for item in items) / len(items)) if items else 0,
     }
 
 
@@ -281,6 +282,15 @@ def dashboard_view(request):
         ('Defectos', counts['defects'], 'bi-bug', 'defects:index'),
         ('Incidentes', counts['incidents'], 'bi-exclamation-triangle', 'incidents:index'),
     ]
+    student_phase_timeline = build_student_phase_timeline(project_list) if request.user.role == User.Roles.STUDENT else None
+    if student_phase_timeline:
+        percentage = student_phase_timeline['percentage']
+        student_phase_timeline['tone'] = (
+            'complete' if percentage == 100 else
+            'warning' if percentage >= 61 else
+            'orange' if percentage >= 31 else
+            'danger'
+        )
 
     return render(
         request,
@@ -289,10 +299,7 @@ def dashboard_view(request):
             'cards': cards,
             'project_summaries': build_project_summaries(project_list),
             'recent_activities': build_recent_activity(visible_projects),
-            'student_phase_timeline': (
-                build_student_phase_timeline(project_list)
-                if request.user.role == User.Roles.STUDENT
-                else None
-            ),
+            'student_phase_timeline': student_phase_timeline,
+            'navbar_phase_progress': student_phase_timeline,
         },
     )

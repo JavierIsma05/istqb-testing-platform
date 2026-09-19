@@ -967,12 +967,47 @@ a {
 .user-copy {
     display: grid;
     line-height: 1.2;
+    min-width: 170px;
     text-align: left;
 }
 
 .user-copy small {
     color: var(--muted);
 }
+
+.navbar-phase-progress {
+    display: grid;
+    gap: 3px;
+    margin-top: 5px;
+    width: min(190px, 100%);
+}
+
+.navbar-phase-progress-label {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.navbar-phase-progress-track {
+    background: #e2e8f0;
+    border-radius: 999px;
+    display: block;
+    height: 5px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.navbar-phase-progress-bar {
+    border-radius: inherit;
+    display: block;
+    height: 100%;
+    transition: width 220ms ease, background-color 220ms ease;
+}
+
+.navbar-phase-progress-danger { background: #ef4444; }
+.navbar-phase-progress-orange { background: #f97316; }
+.navbar-phase-progress-warning { background: #eab308; }
+.navbar-phase-progress-complete { background: #22c55e; }
 
 .app-content {
     padding: 28px 28px 36px;
