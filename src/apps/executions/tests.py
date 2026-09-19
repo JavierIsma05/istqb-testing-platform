@@ -158,7 +158,7 @@ def test_vista_de_ejecucion_guarda_y_muestra_evidencia(client, test_case, user, 
 
 
 @pytest.mark.django_db
-def test_vista_de_ejecucion_manual_rechaza_resultado_global_sin_pasos(client, test_case, user):
+def test_vista_de_ejecucion_manual_persiste_resultado_global_sin_payload_de_pasos(client, test_case, user):
     approve_requirement(test_case)
     client.force_login(user)
 
@@ -175,8 +175,10 @@ def test_vista_de_ejecucion_manual_rechaza_resultado_global_sin_pasos(client, te
     )
 
     assert response.status_code == 200
-    assert not ExecutionModel.objects.filter(test_case=test_case).exists()
-    assert b'no se indicaron resultados por paso' in response.content
+    execution = ExecutionModel.objects.get(test_case=test_case)
+    assert execution.result == ExecutionModel.Result.PASSED
+    assert execution.actual_result == 'Cumple'
+    assert execution.step_executions.count() == len(execution.step_results) == 3
 
 
 @pytest.mark.django_db

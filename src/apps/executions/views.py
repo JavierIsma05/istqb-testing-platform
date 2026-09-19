@@ -262,9 +262,21 @@ def execution_workspace_view(request):
         return redirect(f'{request.path}?case={execution.test_case.id}')
     if request.method == 'POST' and selected_case and form.is_valid():
         if not step_payload_present:
-            form.add_error(None, 'Completa los resultados de todos los pasos antes de registrar la ejecución.')
-            messages.error(request, 'La ejecución no se registró porque no se indicaron resultados por paso.')
-            return redirect(f'{request.path}?case={selected_case.id}#execucion-manual')
+            global_result = form.cleaned_data.get('result')
+            step_results = [
+                {
+                    'number': step['number'],
+                    'action': step['action'],
+                    'expected_result': step['expected_result'],
+                    'actual_result': form.cleaned_data.get('actual_result') or '',
+                    'status': global_result,
+                    'comment': form.cleaned_data.get('notes') or '',
+                }
+                for step in split_test_steps(selected_case)
+            ]
+            if not step_results:
+                messages.error(request, 'El caso de prueba no tiene pasos ejecutables definidos.')
+                return redirect(f'{request.path}?case={selected_case.id}#execucion-manual')
         repeat_validation = validate_execution_repeat(selected_case,
             form.cleaned_data.get('execution_type') or TestExecution.ExecutionType.NORMAL,
             form.cleaned_data.get('environment') or '')
