@@ -982,6 +982,10 @@ a {
     width: min(190px, 100%);
 }
 
+.navbar-phase-progress[hidden] {
+    display: none;
+}
+
 .navbar-phase-progress-label {
     color: var(--muted);
     font-size: 10px;

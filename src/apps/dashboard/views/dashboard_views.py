@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -230,6 +231,23 @@ def build_student_phase_timeline(projects):
 
 
 @login_required
+def phase_progress_view(request):
+    if request.user.role != User.Roles.STUDENT:
+        return JsonResponse({'available': False})
+    timeline = build_student_phase_timeline(visible_projects_for(request.user))
+    if not timeline:
+        return JsonResponse({'available': False})
+    percentage = timeline['percentage']
+    tone = (
+        'complete' if percentage == 100 else
+        'warning' if percentage >= 61 else
+        'orange' if percentage >= 31 else
+        'danger'
+    )
+    return JsonResponse({'available': True, 'percentage': percentage, 'tone': tone})
+
+
+@login_required
 def dashboard_view(request):
     if request.user.role == User.Roles.TEACHER:
         return render(
@@ -283,14 +301,6 @@ def dashboard_view(request):
         ('Incidentes', counts['incidents'], 'bi-exclamation-triangle', 'incidents:index'),
     ]
     student_phase_timeline = build_student_phase_timeline(project_list) if request.user.role == User.Roles.STUDENT else None
-    if student_phase_timeline:
-        percentage = student_phase_timeline['percentage']
-        student_phase_timeline['tone'] = (
-            'complete' if percentage == 100 else
-            'warning' if percentage >= 61 else
-            'orange' if percentage >= 31 else
-            'danger'
-        )
 
     return render(
         request,
@@ -300,6 +310,5 @@ def dashboard_view(request):
             'project_summaries': build_project_summaries(project_list),
             'recent_activities': build_recent_activity(visible_projects),
             'student_phase_timeline': student_phase_timeline,
-            'navbar_phase_progress': student_phase_timeline,
         },
     )

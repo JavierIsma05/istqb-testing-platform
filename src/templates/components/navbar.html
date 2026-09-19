@@ -20,14 +20,12 @@
                 <span class="user-copy">
                     <strong>{{ request.user.get_full_name|default:request.user.email }}</strong>
                     <small>{{ request.user.get_role_display }}</small>
-                    {% if navbar_phase_progress %}
-                    <span class="navbar-phase-progress" title="Avance general del ciclo de pruebas">
-                        <span class="navbar-phase-progress-label">Fases {{ navbar_phase_progress.percentage }}%</span>
+                    <span class="navbar-phase-progress" data-navbar-phase-progress hidden title="Avance general del ciclo de pruebas">
+                        <span class="navbar-phase-progress-label" data-navbar-phase-progress-label>Fases 0%</span>
                         <span class="navbar-phase-progress-track" aria-hidden="true">
-                            <span class="navbar-phase-progress-bar navbar-phase-progress-{{ navbar_phase_progress.tone }}" style="width: {{ navbar_phase_progress.percentage }}%"></span>
+                            <span class="navbar-phase-progress-bar" data-navbar-phase-progress-bar></span>
                         </span>
                     </span>
-                    {% endif %}
                 </span>
             </button>
             <ul class="dropdown-menu dropdown-menu-end">

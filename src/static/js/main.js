@@ -230,6 +230,30 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    var navbarPhaseProgress = document.querySelector('[data-navbar-phase-progress]');
+    if (navbarPhaseProgress) {
+        fetch('/dashboard/phase-progress/', {credentials: 'same-origin', headers: {'Accept': 'application/json'}})
+            .then(function (response) {
+                return response.ok ? response.json() : {available: false};
+            })
+            .then(function (data) {
+                if (!data.available) {
+                    return;
+                }
+                var label = navbarPhaseProgress.querySelector('[data-navbar-phase-progress-label]');
+                var bar = navbarPhaseProgress.querySelector('[data-navbar-phase-progress-bar]');
+                if (label) {
+                    label.textContent = 'Fases ' + data.percentage + '%';
+                }
+                if (bar) {
+                    bar.className = 'navbar-phase-progress-bar navbar-phase-progress-' + data.tone;
+                    bar.style.width = data.percentage + '%';
+                }
+                navbarPhaseProgress.hidden = false;
+            })
+            .catch(function () {});
+    }
+
     var sidebarToggles = Array.prototype.slice.call(document.querySelectorAll('[data-sidebar-toggle]'));
     var sidebarToggleIcon = document.querySelector('[data-sidebar-toggle-icon]');
     var sidebarElement = document.querySelector('[data-sidebar-user]');

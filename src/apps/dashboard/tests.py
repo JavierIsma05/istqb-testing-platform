@@ -28,3 +28,15 @@ def test_dashboard_muestra_proyectos_y_actividad_reales(client, project, test_ca
     assert test_case.code.encode() in response.content
     assert b'Sistema de Gestion Academica' not in response.content
     assert b'TC-045' not in response.content
+
+
+@pytest.mark.django_db
+def test_endpoint_de_progreso_de_fases_devuelve_porcentaje_para_estudiante(client, project, user):
+    client.force_login(user)
+    response = client.get('/dashboard/phase-progress/')
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['available'] is True
+    assert 0 <= data['percentage'] < 31
+    assert data['tone'] == 'danger'
