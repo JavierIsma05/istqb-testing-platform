@@ -32,7 +32,7 @@ def test_matriz_pagina_cada_cinco_registros(client, user, requirement):
     assert first_page.context['matrix_page'].paginator.count == 12
     assert first_page.context['total_requirements'] == 12
     assert third_page.context['matrix_page'].has_previous
-    assert not third_page.context['matrix_page'].has_next
+    assert not third_page.context['matrix_page'].has_next()
 
 
 @pytest.mark.django_db

@@ -8,6 +8,8 @@ from apps.incidents.models import Incident
 from apps.testcases.models import TestCase
 from apps.projects.forms import ProjectForm
 from apps.projects.models import Project
+from apps.requirements.models import Requirement
+from apps.testplans.models import TestPlan
 
 
 @pytest.mark.django_db

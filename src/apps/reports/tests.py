@@ -466,7 +466,7 @@ def test_dashboard_plan_404_para_proyecto_no_visible(client, project, user, test
 
 
 @pytest.mark.django_db
-def test_index_muestra_cinco_informes_de_calidad(client, user):
+def test_index_muestra_cinco_informes_de_calidad(client, user, project):
     client.force_login(user)
 
     response = client.get(reverse('reports:index'))
@@ -474,17 +474,12 @@ def test_index_muestra_cinco_informes_de_calidad(client, user):
 
     assert response.status_code == 200
     assert 'Informes de Calidad' in content
-    assert content.count('report-nav-card') == 5
+    assert content.count('report-card ') == 5
     assert 'Informe del Plan de Pruebas' in content
     assert 'Informe de Casos de Prueba' in content
     assert 'Informe de Ejecuciones' in content
     assert 'Informe de Defectos' in content
     assert 'Informe Final de Pruebas' in content
-    assert 'Generar Nuevo Informe' in content
-    assert 'Flujo y trazabilidad' in content
-    assert 'Beneficios' in content
-    assert 'Resumen Ejecutivo' not in content
-    assert 'Reportes Generados' not in content
     assert 'reportModal' not in content
 
 

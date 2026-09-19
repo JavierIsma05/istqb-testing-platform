@@ -531,6 +531,7 @@ def test_agregacion_automatizada_prioriza_fallo_y_error():
     ]) == ExecutionModel.Result.FAILED
 
 
+@pytest.mark.playwright
 @pytest.mark.django_db(transaction=True)
 def test_playwright_valida_texto_visible_en_servidor_django(live_server, settings, test_case, user):
     settings.AUTOMATION_ALLOWED_HOSTS = ('localhost', '127.0.0.1')
