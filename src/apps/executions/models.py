@@ -40,6 +40,7 @@ class TestExecution(TimeStampedModel):
     executed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     executed_at = models.DateTimeField(null=True, blank=True)
     result = models.CharField(max_length=20, choices=Result.choices, default=Result.NOT_RUN)
+    is_voided = models.BooleanField(default=False)
     approval_percentage = models.PositiveSmallIntegerField(null=True, blank=True)
     script_generado = models.TextField(blank=True)
     salida_consola = models.TextField(blank=True)
