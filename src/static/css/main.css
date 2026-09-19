@@ -6867,9 +6867,9 @@ textarea.form-control {
 }
 
 
-/* Sidebar compacto: 200px expandido / 60px condensado */
+/* Sidebar compacto: 260px expandido / 60px condensado */
 .app-shell {
-    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-columns: 260px minmax(0, 1fr);
     transition: grid-template-columns 220ms ease;
 }
 
@@ -6880,8 +6880,29 @@ textarea.form-control {
 .app-sidebar {
     box-sizing: border-box;
     overflow: visible;
-    width: 200px;
+    width: 260px;
     transition: width 220ms ease, padding 220ms ease;
+}
+
+.sidebar-group-toggle {
+    gap: 10px;
+    min-height: 42px;
+    padding: 10px 12px;
+}
+
+.sidebar-group-toggle span {
+    flex: 1 1 auto;
+    font-size: 12px;
+    letter-spacing: 0.075em;
+    line-height: 1.25;
+    min-width: 0;
+}
+
+.sidebar-group-chevron {
+    flex: 0 0 18px;
+    margin-left: auto;
+    text-align: center;
+    width: 18px !important;
 }
 
 .sidebar-collapsed .app-sidebar {
