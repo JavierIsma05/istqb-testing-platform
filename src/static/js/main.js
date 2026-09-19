@@ -325,9 +325,19 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     var sidebarGroups = Array.prototype.slice.call(document.querySelectorAll('[data-sidebar-group-toggle]'));
+    var sidebarGroupStorageKey = 'istqb-sidebar-groups-' + (sidebarElement ? sidebarElement.getAttribute('data-sidebar-user') : 'anonymous');
 
     function isSidebarCondensed() {
         return root.classList.contains('sidebar-collapsed') || isMobileSidebar();
+    }
+
+    function readSidebarGroups() {
+        try {
+            var stored = localStorage.getItem(sidebarGroupStorageKey);
+            return stored ? JSON.parse(stored) : {};
+        } catch (error) {
+            return {};
+        }
     }
 
     function closeSidebarPopovers() {
@@ -369,16 +379,15 @@ document.addEventListener('DOMContentLoaded', function () {
         sidebarGroups.forEach(function (toggle) {
             var group = toggle.closest('[data-sidebar-group]');
             var menu = group ? group.querySelector('.sidebar-group-menu') : null;
+            var groupName = group ? group.getAttribute('data-sidebar-group') : '';
 
             if (menu) {
-                menu.classList.remove('open');
+                setSidebarGroup(toggle, Boolean(state[groupName]));
             }
         });
     }
 
     sidebarGroups.forEach(function (toggle) {
-        toggle.setAttribute('aria-expanded', 'false');
-
         toggle.addEventListener('click', function () {
             if (root.classList.contains('sidebar-collapsed') && !isMobileSidebar()) {
                 return;
@@ -391,8 +400,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            var isOpen = menu.classList.toggle('open');
-            toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            var isOpen = !menu.classList.contains('open');
+            var state = readSidebarGroups();
+
+            setSidebarGroup(toggle, isOpen);
+            state[group.getAttribute('data-sidebar-group')] = isOpen;
 
             sidebarGroups.forEach(function (otherToggle) {
                 if (otherToggle === toggle) {
@@ -403,10 +415,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (otherMenu) {
                     otherMenu.classList.remove('open');
                     otherToggle.setAttribute('aria-expanded', 'false');
+                    state[otherGroup.getAttribute('data-sidebar-group')] = false;
                 }
             });
+
+            saveSidebarGroups(state);
         });
     });
+
+    syncSidebarGroups();
 
     document.addEventListener('click', function (event) {
         var item = event.target.closest('.sidebar-group-menu a');
