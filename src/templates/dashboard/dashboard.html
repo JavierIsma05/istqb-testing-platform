@@ -184,19 +184,6 @@
     </div>
 </section>
 
-<section class="metric-grid">
-    {% for label, total, icon, route_name in cards %}
-        <a class="metric-card" href="{% url route_name %}">
-            <div>
-                <span>{{ label }}</span>
-                <strong>{{ total }}</strong>
-                <small>Gestión disponible</small>
-            </div>
-            <i class="bi {{ icon }}"></i>
-        </a>
-    {% endfor %}
-</section>
-
 {% if student_phase_timeline %}
 <section class="content-card dashboard-phase-card">
     <div class="card-heading">
@@ -221,6 +208,19 @@
     </div>
 </section>
 {% endif %}
+
+<section class="metric-grid">
+    {% for label, total, icon, route_name in cards %}
+        <a class="metric-card" href="{% url route_name %}">
+            <div>
+                <span>{{ label }}</span>
+                <strong>{{ total }}</strong>
+                <small>Gestión disponible</small>
+            </div>
+            <i class="bi {{ icon }}"></i>
+        </a>
+    {% endfor %}
+</section>
 
 <section class="dashboard-grid">
     <article class="content-card">

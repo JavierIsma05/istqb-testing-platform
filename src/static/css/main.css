@@ -1240,18 +1240,47 @@ a {
     padding-bottom: 30px;
 }
 
+.dashboard-phase-card .card-heading {
+    padding: 26px 26px 0;
+}
+
 .dashboard-phase-timeline {
     display: grid;
     gap: 16px;
     grid-template-columns: repeat(6, minmax(0, 1fr));
+    padding: 12px 26px 0;
+    position: relative;
+}
+
+.dashboard-phase-timeline::before {
+    background: var(--line);
+    content: "";
+    height: 3px;
+    left: 9%;
+    position: absolute;
+    right: 9%;
+    top: 31px;
+}
+
+.dashboard-phase-marker {
+    align-items: center;
+    background: var(--panel);
+    border: 3px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    display: flex;
+    height: 40px;
+    justify-content: center;
+    margin: 0 auto 12px;
+    position: relative;
+    width: 40px;
+    z-index: 1;
 }
 
 .dashboard-phase-item {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    min-height: 96px;
-    padding: 14px 12px;
+    min-height: 116px;
+    padding: 0 8px 10px;
+    text-align: center;
 }
 
 .dashboard-phase-item strong {
@@ -1267,18 +1296,33 @@ a {
 }
 
 .dashboard-phase-item.dashboard-phase-done {
+    color: #15803d;
+}
+
+.dashboard-phase-item.dashboard-phase-done .dashboard-phase-marker {
     background: #f0fdf4;
-    border-color: rgba(34, 197, 94, 0.26);
+    border-color: var(--success);
+    color: #15803d;
 }
 
 .dashboard-phase-item.dashboard-phase-in_progress {
+    color: var(--brand-dark);
+}
+
+.dashboard-phase-item.dashboard-phase-in_progress .dashboard-phase-marker {
     background: #f0f7ff;
-    border-color: rgba(79, 120, 156, 0.24);
+    border-color: var(--brand);
+    color: var(--brand-dark);
 }
 
 .dashboard-phase-item.dashboard-phase-pending {
+    color: var(--muted);
+}
+
+.dashboard-phase-item.dashboard-phase-pending .dashboard-phase-marker {
     background: #fffaf0;
-    border-color: rgba(245, 197, 24, 0.24);
+    border-color: #e5c04a;
+    color: #a16207;
 }
 
 .tutor-heading {
@@ -5508,6 +5552,10 @@ textarea.form-control {
 
     .dashboard-phase-timeline {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dashboard-phase-timeline::before {
+        display: none;
     }
 }
 
