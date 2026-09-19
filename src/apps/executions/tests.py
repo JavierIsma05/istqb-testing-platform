@@ -810,6 +810,19 @@ def test_vista_crea_paso_automatizado(client, test_case, user):
     assert rule.selector_value == '#usuario'
     assert b'Paso automatizado registrado correctamente.' in response.content
 
+    client.post(
+        reverse('executions:rule-create', args=[test_case.pk]),
+        {
+            'name': '',
+            'step_number': 99,
+            'action_type': AutomatedValidationRule.ActionType.CLICK,
+            'selector_value': '.btn-login',
+            'is_critical': True,
+        },
+    )
+    second_rule = AutomatedValidationRule.objects.exclude(pk=rule.pk).get(test_case=test_case)
+    assert second_rule.step_number == 2
+
 
 @pytest.mark.django_db
 def test_vista_de_ejecucion_muestra_pasos_automatizados(client, test_case, user):

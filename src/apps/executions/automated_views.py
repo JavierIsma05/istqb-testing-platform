@@ -29,6 +29,8 @@ def automated_rule_create_view(request, case_id):
         rule = form.save(commit=False)
         rule.test_case = test_case
         rule.requirement = test_case.requirement
+        last_step = test_case.automated_rules.order_by('-step_number').values_list('step_number', flat=True).first()
+        rule.step_number = (last_step or 0) + 1
         rule.save()
         log_action(request.user, 'CREATE', 'AutomatedValidationRule', rule.pk, {
             'test_case_id': test_case.pk,

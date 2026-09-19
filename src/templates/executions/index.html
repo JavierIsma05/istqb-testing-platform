@@ -815,8 +815,9 @@
                                         {{ step_form.action_type }}
                                     </div>
                                     <div class="mb-2">
-                                        <label class="form-label" for="{{ step_form.selector_type.id_for_label }}">{{ step_form.selector_type.label }}</label>
-                                        {{ step_form.selector_type }}
+                                        <div class="automation-action-help" data-automation-action-help>
+                                            Selecciona una acción para ver qué dato necesita cada campo. La automatización solo ejecuta acciones controladas, nunca comandos arbitrarios.
+                                        </div>
                                     </div>
                                     <div class="mb-2">
                                         <label class="form-label" for="{{ step_form.selector_value.id_for_label }}">{{ step_form.selector_value.label }}</label>
@@ -980,5 +981,25 @@
     </section>
 {% endif %}
 {% endif %}
+
+<script>
+(function () {
+    var action = document.querySelector('[name="action_type"]');
+    var help = document.querySelector('[data-automation-action-help]');
+    if (!action || !help) return;
+    var guidance = {
+        OPEN_URL: 'Abrir URL: escribe la dirección completa en URL a abrir. No necesita selector, dato ni resultado esperado.',
+        FILL_TEXT: 'Escribir: indica el Selector CSS del campo y el Dato que se escribirá; puedes usar variables como {{usuario}}.',
+        CLICK: 'Click: indica el Selector CSS del botón, enlace o elemento que se pulsará. No necesita dato.',
+        VERIFY: 'Verificar: indica el Selector CSS del elemento y el Resultado esperado que debe contener o coincidir.',
+        WAIT: 'Esperar: indica la duración en segundos. Sirve para esperar una carga o actualización antes del siguiente paso.'
+    };
+    function updateHelp() {
+        help.textContent = guidance[action.value] || 'Selecciona una acción para ver qué dato necesita cada campo. La automatización solo ejecuta acciones controladas, nunca comandos arbitrarios.';
+    }
+    action.addEventListener('change', updateHelp);
+    updateHelp();
+})();
+</script>
 
 {% endblock %}

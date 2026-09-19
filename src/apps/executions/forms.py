@@ -191,7 +191,7 @@ class AutomatedStepForm(forms.ModelForm):
         fields = ('name', 'step_number', 'action_type', 'target_url', 'selector_value', 'input_value', 'expected_value', 'comparison_type', 'timeout_seconds', 'is_critical')
         labels = {'step_number': 'Paso', 'action_type': 'Acción', 'target_url': 'URL a abrir', 'selector_value': 'Selector CSS del elemento', 'input_value': 'Dato', 'expected_value': 'Resultado esperado', 'comparison_type': 'Tipo de comparación', 'timeout_seconds': 'Duración en segundos', 'is_critical': 'Paso crítico'}
         widgets = {
-            'step_number': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'value': 1}),
+            'step_number': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'readonly': True}),
             'action_type': forms.Select(attrs={'class': 'form-select'}),
             'target_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'http://localhost:8000/'}),
             'selector_value': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '#usuario, input[name="password"], .btn-login'}),
@@ -221,6 +221,13 @@ class AutomatedStepForm(forms.ModelForm):
             self.fields[name].help_text = help_text
             self.fields[name].widget.attrs['data-help'] = help_text
         self.fields['timeout_seconds'].required = False
+        next_step = 1
+        if self.test_case is not None:
+            last_step = self.test_case.automated_rules.order_by('-step_number').values_list('step_number', flat=True).first()
+            next_step = (last_step or 0) + 1
+        self.fields['step_number'].initial = next_step
+        self.fields['step_number'].disabled = True
+        self.fields['step_number'].help_text = 'Se asigna automáticamente y no se puede editar.'
         self.fields['target_url'].required = False
         self.fields['target_url'].initial = ''
         self.fields['comparison_type'].required = False

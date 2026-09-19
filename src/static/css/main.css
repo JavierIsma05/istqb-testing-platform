@@ -3373,6 +3373,16 @@ textarea.form-control {
     line-height: 1.4;
 }
 
+.automation-action-help {
+    background: var(--brand-light);
+    border: 1px solid #b9def5;
+    border-radius: 8px;
+    color: var(--brand-dark);
+    font-size: 13px;
+    line-height: 1.45;
+    padding: 10px 12px;
+}
+
 .automation-guide {
     background: linear-gradient(135deg, rgba(231, 244, 255, 0.9), rgba(248, 251, 255, 0.95));
     border: 1px solid rgba(74, 144, 226, 0.22);
