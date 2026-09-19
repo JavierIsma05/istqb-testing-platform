@@ -73,6 +73,14 @@ def test_step_execution(test_execution):
     )
 
 
+def pytest_collection_modifyitems(config, items):
+    """Clasifica las pruebas con base de datos para ejecutarlas contra PostgreSQL."""
+    postgres_marker = pytest.mark.postgres
+    for item in items:
+        if item.get_closest_marker('django_db'):
+            item.add_marker(postgres_marker)
+
+
 @pytest.fixture(autouse=True)
 def align_current_integrity_test_fixtures(request):
     """Alinea solo los fixtures que quedaron desfasados frente a las reglas actuales."""
