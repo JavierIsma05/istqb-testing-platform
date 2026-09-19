@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -12,6 +13,20 @@ from apps.testcases.models import TestCase
 
 from .forms import AutomatedStepForm
 from .services.automated_runner import run_automated_execution
+from .services.automatizacion import ejecutar_caso_automatizado
+
+
+@login_required
+@require_POST
+def ejecutar_automatizado(request, caso_id):
+    if is_teacher(request.user):
+        return JsonResponse({'ok': False, 'errores': 'Los docentes no ejecutan casos automatizados desde este flujo.'}, status=403)
+    try:
+        resultado = ejecutar_caso_automatizado(caso_id, request.user)
+        resultado['ok'] = True
+        return JsonResponse(resultado)
+    except Exception as exc:
+        return JsonResponse({'ok': False, 'errores': str(exc)}, status=500)
 
 
 @login_required

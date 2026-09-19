@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.executions.automated_views import (
+    ejecutar_automatizado,
     automated_execution_run_view,
     automated_rule_create_view,
     automated_rule_delete_view,
@@ -37,6 +38,7 @@ urlpatterns = [
     path('cases/<int:case_id>/rules/new/', automated_rule_create_view, name='rule-create'),
     path('test-data/<int:pk>/delete/', test_data_delete_view, name='test-data-delete'),
     path('cases/<int:case_id>/run-automated/', automated_execution_run_view, name='run-automated'),
+    path('cases/<int:caso_id>/ejecutar-automatizado/', ejecutar_automatizado, name='ejecutar-automatizado'),
     path('rules/<int:pk>/delete/', automated_rule_delete_view, name='rule-delete'),
     path('<int:pk>/delete/', execution_delete_view, name='delete'),
     path('api/projects/', teacher_api_projects, name='api-projects'),

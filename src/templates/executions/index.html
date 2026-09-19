@@ -881,12 +881,13 @@
                         <div class="card-body">
                             <h4>Ejecutar automatización</h4>
                             <p class="text-muted small">Solo se ejecutan las reglas activas del caso seleccionado.</p>
-                            <form method="POST" action="{% url 'executions:run-automated' selected_case.pk %}">
+                            <form method="POST" action="{% url 'executions:ejecutar-automatizado' selected_case.pk %}" data-automated-execution-form>
                                 {% csrf_token %}
-                                <button class="btn btn-brand w-100" type="submit" {% if case_blocked or not automated_rules %}disabled{% endif %}>
-                                    <i class="bi bi-play-circle"></i> Ejecutar caso automatizado
+                                <button class="btn btn-brand w-100" type="submit" data-automated-execution-button {% if case_blocked or not automated_rules %}disabled{% endif %}>
+                                    <i class="bi bi-play-circle" data-automated-execution-icon></i> <span data-automated-execution-label>Ejecutar caso automatizado</span>
                                 </button>
                             </form>
+                            <div class="mt-3" data-automated-execution-result hidden></div>
                             {% if last_automated_execution %}
                                 <div class="mt-4">
                                     <h5>Última ejecución automatizada</h5>
@@ -984,6 +985,52 @@
 
 <script>
 (function () {
+    var executionForm = document.querySelector('[data-automated-execution-form]');
+    var executionResult = document.querySelector('[data-automated-execution-result]');
+    function escapeHtml(value) {
+        return String(value || '').replace(/[&<>'"]/g, function (character) {
+            return {'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[character];
+        });
+    }
+    if (executionForm && executionResult) {
+        executionForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            var button = executionForm.querySelector('[data-automated-execution-button]');
+            var label = executionForm.querySelector('[data-automated-execution-label]');
+            var icon = executionForm.querySelector('[data-automated-execution-icon]');
+            button.disabled = true;
+            label.textContent = 'Ejecutando...';
+            icon.className = 'spinner-border spinner-border-sm';
+            executionResult.hidden = false;
+            executionResult.innerHTML = '<div class="alert alert-info">Ejecutando pasos automatizados con Playwright...</div>';
+            fetch(executionForm.action, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {'X-CSRFToken': executionForm.querySelector('[name=csrfmiddlewaretoken]').value, 'Accept': 'application/json'}
+            }).then(function (response) {
+                return response.json().then(function (data) { return {ok: response.ok, data: data}; });
+            }).then(function (result) {
+                var data = result.data;
+                if (!result.ok || !data.ok) {
+                    throw new Error(data.errores || 'La ejecución automatizada falló.');
+                }
+                var passed = data.estado === 'PASSED';
+                var rows = (data.pasos || []).map(function (step) {
+                    var stepPassed = step.estado === 'PASSED';
+                    return '<li class="list-group-item d-flex justify-content-between"><span>' + (stepPassed ? '✅' : '❌') + ' Paso ' + escapeHtml(step.numero) + ': ' + escapeHtml(step.nombre) + '</span><small>' + escapeHtml(step.error || step.obtenido || '') + '</small></li>';
+                }).join('');
+                executionResult.innerHTML = '<div class="alert alert-' + (passed ? 'success' : 'danger') + '"><strong class="fs-4">' + (passed ? 'PASS' : 'FAIL') + '</strong><div class="small mt-2">Ejecución #' + escapeHtml(data.id_ejecucion) + '</div></div><ul class="list-group small">' + rows + '</ul>';
+                button.disabled = false;
+                label.textContent = 'Ejecutar nuevamente';
+                icon.className = 'bi bi-play-circle';
+            }).catch(function (error) {
+                executionResult.innerHTML = '<div class="alert alert-danger">' + escapeHtml(error.message) + '</div>';
+                button.disabled = false;
+                label.textContent = 'Intentar nuevamente';
+                icon.className = 'bi bi-play-circle';
+            });
+        });
+    }
     var action = document.querySelector('[name="action_type"]');
     var help = document.querySelector('[data-automation-action-help]');
     if (!action || !help) return;

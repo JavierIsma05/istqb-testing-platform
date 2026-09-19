@@ -825,6 +825,26 @@ def test_vista_crea_paso_automatizado(client, test_case, user):
 
 
 @pytest.mark.django_db
+def test_endpoint_json_ejecuta_caso_automatizado(client, test_case, user):
+    AutomatedValidationRule.objects.create(
+        test_case=test_case,
+        requirement=test_case.requirement,
+        step_number=1,
+        name='Abrir URL',
+        action_type=AutomatedValidationRule.ActionType.OPEN_URL,
+        target_url='http://localhost:8000/',
+    )
+    client.force_login(user)
+    response = client.post(f'/casos/{test_case.pk}/ejecutar-automatizado/')
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['ok'] is True
+    assert data['id_ejecucion']
+    assert data['pasos'][0]['numero'] == 1
+
+
+@pytest.mark.django_db
 def test_vista_de_ejecucion_muestra_pasos_automatizados(client, test_case, user):
     test_case.execution_type = test_case.ExecutionType.AUTOMATED
     test_case.save(update_fields=['execution_type'])
