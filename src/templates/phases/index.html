@@ -110,14 +110,24 @@
                     </div>
 
                     {% if request.user.is_student_role and phase.status != 'DONE' %}
-                        {% if item.can_start %}
+                        {% if phase.status == 'PENDING' and item.can_start %}
                             <form method="POST" action="{% url 'phases:advance' phase.pk %}">
                                 {% csrf_token %}
                                 <input type="hidden" name="next" value="{% url 'phases:index' %}">
                                 <button class="btn btn-brand btn-sm" type="submit">
-                                    {% if phase.status == 'PENDING' %}Iniciar fase{% else %}Cerrar fase{% endif %}
+                                    Iniciar fase
                                 </button>
                             </form>
+                        {% elif phase.status == 'IN_PROGRESS' and item.criteria.can_complete %}
+                            <form method="POST" action="{% url 'phases:advance' phase.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{% url 'phases:index' %}">
+                                <button class="btn btn-brand btn-sm" type="submit">Cerrar fase</button>
+                            </form>
+                        {% elif phase.status == 'IN_PROGRESS' %}
+                            <div class="phase-waiting-note">
+                                Fase en proceso: completa los criterios pendientes para habilitar el cierre.
+                            </div>
                         {% else %}
                             <div class="phase-waiting-note">
                                 Completa la fase anterior para habilitar esta fase.

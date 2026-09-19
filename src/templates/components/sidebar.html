@@ -47,6 +47,7 @@
                 </button>
                 <div class="sidebar-group-menu" id="sidebar-group-ejecucion">
                     <a class="{% if request.resolver_match.namespace == 'executions' %}active{% endif %}" href="{% url 'executions:index' %}" title="Ejecución"><i class="bi bi-play"></i><span>Ejecución</span></a>
+                    <a class="{% if request.resolver_match.namespace == 'phases' %}active{% endif %}" href="{% url 'phases:index' %}" title="Fases ISTQB"><i class="bi bi-layers"></i><span>Fases ISTQB</span></a>
                     <a class="{% if request.resolver_match.namespace == 'defects' %}active{% endif %}" href="{% url 'defects:index' %}" title="Defectos"><i class="bi bi-bug"></i><span>Defectos</span></a>
                     <a class="{% if request.resolver_match.namespace == 'traceability' %}active{% endif %}" href="{% url 'traceability:index' %}" title="Trazabilidad"><i class="bi bi-diagram-2"></i><span>Trazabilidad</span></a>
                 </div>
@@ -76,6 +77,7 @@
             <a class="{% if request.resolver_match.namespace == 'testplans' %}active{% endif %}" href="{% url 'testplans:index' %}" title="Plan de Pruebas" data-nav-item="plan-pruebas"><i class="bi bi-clipboard-check" aria-hidden="true"></i></a>
             <a class="{% if request.resolver_match.namespace == 'testcases' %}active{% endif %}" href="{% url 'testcases:index' %}" title="Casos de Prueba" data-nav-item="casos"><i class="bi bi-file-check" aria-hidden="true"></i></a>
             <a class="{% if request.resolver_match.namespace == 'executions' %}active{% endif %}" href="{% url 'executions:index' %}" title="Ejecución" data-nav-item="ejecucion"><i class="bi bi-play" aria-hidden="true"></i></a>
+            <a class="{% if request.resolver_match.namespace == 'phases' %}active{% endif %}" href="{% url 'phases:index' %}" title="Fases ISTQB" data-nav-item="fases"><i class="bi bi-layers" aria-hidden="true"></i></a>
             <a class="{% if request.resolver_match.namespace == 'defects' %}active{% endif %}" href="{% url 'defects:index' %}" title="Defectos" data-nav-item="defectos"><i class="bi bi-bug" aria-hidden="true"></i></a>
             <a class="{% if request.resolver_match.namespace == 'traceability' %}active{% endif %}" href="{% url 'traceability:index' %}" title="Trazabilidad" data-nav-item="trazabilidad"><i class="bi bi-diagram-2" aria-hidden="true"></i></a>
             <a class="{% if request.resolver_match.namespace == 'reports' and request.resolver_match.url_name == 'index' %}active{% endif %}" href="{% url 'reports:index' %}" title="Informes" data-nav-item="informes"><i class="bi bi-bar-chart" aria-hidden="true"></i></a>

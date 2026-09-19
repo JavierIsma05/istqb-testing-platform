@@ -108,7 +108,7 @@ def project_criteria_snapshot(project):
 
     return {
         'requirements_registered': bool(requirements),
-        'requirements_reviewed': any(status != Requirement.Status.PENDING for status in requirements),
+        'requirements_reviewed': any(status in {Requirement.Status.REVIEW, Requirement.Status.APPROVED} for status in requirements),
         'plans_registered': bool(plans),
         'plans_criteria': any(bool(entry) and bool(exit) for entry, exit, _env, _resp in plans),
         'plans_environment': any(bool(env) for _entry, _exit, env, _resp in plans),
@@ -163,6 +163,8 @@ def sync_phase_progress(phase, criteria):
 
 
 def can_start_phase(phase):
+    if phase.status != TestingPhase.Status.PENDING:
+        return False
     previous_phase = TestingPhase.objects.filter(project=phase.project, order=phase.order - 1).first()
     return previous_phase is None or previous_phase.status == TestingPhase.Status.DONE
 
@@ -187,7 +189,11 @@ def phase_list_view(request):
         for phase in phases:
             criteria = phase_criteria_status(phase, snapshot=criteria_snapshot)
             sync_phase_progress(phase, criteria)
-            phase_items.append({'phase': phase, 'criteria': criteria, 'can_start': can_start_phase(phase)})
+            phase_items.append({
+                'phase': phase,
+                'criteria': criteria,
+                'can_start': can_start_phase(phase),
+            })
         phase_count = len(phases)
         completed_count = sum(1 for phase in phases if phase.status == TestingPhase.Status.DONE)
         general_progress = round(sum(phase.progress for phase in phases) / phase_count) if phase_count else 0
@@ -202,8 +208,11 @@ def phase_advance_view(request, pk):
     if readonly_redirect:
         return readonly_redirect
     phase = get_object_or_404(TestingPhase, pk=pk, project__in=visible_projects_for(request.user, request=request))
+    if phase.status == TestingPhase.Status.DONE:
+        messages.info(request, f'La fase "{phase.name}" ya está completada y no requiere otra acción.')
+        return redirect(phase_redirect_url(request, phase.project_id))
     criteria = phase_criteria_status(phase, snapshot=project_criteria_snapshot(phase.project))
-    if not can_start_phase(phase):
+    if phase.status == TestingPhase.Status.PENDING and not can_start_phase(phase):
         messages.error(request, 'Completa la fase anterior antes de iniciar esta fase.')
         return redirect(phase_redirect_url(request, phase.project_id))
     if phase.status == TestingPhase.Status.PENDING:
