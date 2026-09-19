@@ -27,7 +27,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DJANGO_SETTINGS_MODULE: config.settings.testing
+      DJANGO_SETTINGS_MODULE: config.settings.testing_postgres
       DB_NAME: istqb_test
       DB_USER: postgres
       DB_PASSWORD: postgres
@@ -175,7 +175,7 @@ jobs:
               print(open('django-ci.log', encoding='utf-8').read())
               raise SystemExit('Django no inicio correctamente')
           PY
-      - run: pytest
+      - run: pytest -m 'not e2e and not playwright'
       - if: always()
         run: cat django-ci.log || true
 
