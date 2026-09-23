@@ -31,6 +31,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
     addFieldHelpIcons();
 
+    function bindPasswordVisibility() {
+        Array.prototype.slice.call(document.querySelectorAll('[data-password-toggle]')).forEach(function (toggle) {
+            var passwordId = toggle.getAttribute('data-password-toggle');
+            var password = document.getElementById(passwordId);
+            var icon = toggle.querySelector('i');
+            if (!password) {
+                return;
+            }
+
+            toggle.addEventListener('click', function () {
+                var showing = password.type === 'text';
+                password.type = showing ? 'password' : 'text';
+                toggle.setAttribute('aria-pressed', String(!showing));
+                toggle.setAttribute('aria-label', showing ? 'Mostrar contraseña' : 'Ocultar contraseña');
+                if (icon) {
+                    icon.classList.toggle('bi-eye', showing);
+                    icon.classList.toggle('bi-eye-slash', !showing);
+                }
+            });
+        });
+    }
+
+    bindPasswordVisibility();
+
     function bindAutoCodeFields() {
         Array.prototype.slice.call(document.querySelectorAll('[data-next-codes][data-code-target]')).forEach(function (source) {
             var target = document.getElementById(source.getAttribute('data-code-target'));
