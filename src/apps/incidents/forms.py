@@ -1,6 +1,7 @@
 import json
 
 from django import forms
+from django.db.models import Q
 
 from apps.core.codes import next_code
 from apps.core.permissions import visible_projects_for
@@ -8,6 +9,7 @@ from apps.core.lifecycle import incident_transition_allowed
 from apps.projects.models import Project
 from apps.requirements.models import Requirement
 from apps.testplans.models import TestPlan
+from apps.users.models import User
 from .models import Incident
 
 
@@ -22,8 +24,11 @@ class IncidentForm(forms.ModelForm):
             'title',
             'description',
             'mitigation_strategy',
+            'contingency_plan',
             'probability',
             'impact',
+            'owner',
+            'review_date',
         )
         labels = {
             'project': 'Proyecto',
@@ -33,8 +38,11 @@ class IncidentForm(forms.ModelForm):
             'title': 'Titulo del riesgo',
             'description': 'Descripcion',
             'mitigation_strategy': 'Mitigacion / respuesta',
+            'contingency_plan': 'Plan de contingencia',
             'probability': 'Probabilidad',
             'impact': 'Impacto',
+            'owner': 'Responsable del riesgo',
+            'review_date': 'Fecha de revisión',
             'status': 'Estado',
         }
         widgets = {
@@ -57,8 +65,17 @@ class IncidentForm(forms.ModelForm):
                     'rows': 4,
                 }
             ),
+            'contingency_plan': forms.Textarea(
+                attrs={
+                    'class': 'form-control',
+                    'placeholder': 'Indica qué se hará si el riesgo ocurre',
+                    'rows': 4,
+                }
+            ),
             'probability': forms.Select(attrs={'class': 'form-select'}),
             'impact': forms.Select(attrs={'class': 'form-select'}),
+            'owner': forms.Select(attrs={'class': 'form-select'}),
+            'review_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -78,6 +95,14 @@ class IncidentForm(forms.ModelForm):
             self.fields[field_name].required = field_name == 'test_plan'
             self.fields[field_name].queryset = linked_queryset
             self.fields[field_name].empty_label = 'Selecciona un plan' if field_name == 'test_plan' else 'Sin vincular'
+
+        member_queryset = User.objects.filter(
+            Q(projects__in=visible_projects) | Q(project_created__in=visible_projects)
+        ).distinct().order_by('last_name', 'first_name', 'email') if visible_projects.exists() else User.objects.none()
+        self.fields['owner'].queryset = member_queryset
+        self.fields['owner'].required = False
+        self.fields['owner'].empty_label = 'Sin responsable asignado'
+        self.fields['review_date'].required = False
 
         self.fields['code'].required = False
         self.fields['code'].disabled = True
@@ -102,8 +127,11 @@ class IncidentForm(forms.ModelForm):
             'title': 'Resumen breve del riesgo o bloqueo potencial.',
             'description': 'Describe causa probable, efecto esperado y contexto para darle seguimiento.',
             'mitigation_strategy': 'Describe la respuesta planificada para reducir probabilidad o impacto.',
+            'contingency_plan': 'Indica la acción concreta si el riesgo se materializa.',
             'probability': 'Que tan probable es que ocurra el riesgo.',
             'impact': 'Nivel de afectacion si el riesgo ocurre.',
+            'owner': 'Persona responsable de vigilar y tratar el riesgo.',
+            'review_date': 'Fecha en la que debe revisarse nuevamente el riesgo.',
         }
         for name, help_text in help_texts.items():
             self.fields[name].help_text = help_text

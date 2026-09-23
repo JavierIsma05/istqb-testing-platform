@@ -73,6 +73,8 @@
                     <p>
                         {% if item.incident.requirement %}<span>Req: {{ item.incident.requirement.code }}</span>{% endif %}
                         {% if item.incident.test_plan %}<span>Plan: {{ item.incident.test_plan.name }}</span>{% endif %}
+                        {% if item.incident.owner %}<span>Responsable: {{ item.incident.owner.get_full_name|default:item.incident.owner.email }}</span>{% endif %}
+                        {% if item.incident.review_date %}<span>Revisión: {{ item.incident.review_date|date:'d/m/Y' }}</span>{% endif %}
                         {% if item.incident.covering_test_cases.exists %}<span>Casos que lo cubren: {{ item.incident.covering_test_cases.count }}</span>{% endif %}
                         {% if not item.incident.requirement and not item.incident.test_plan and not item.incident.covering_test_cases.exists %}
                             <span>Sin vinculos de trazabilidad</span>

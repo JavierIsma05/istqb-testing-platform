@@ -34,7 +34,7 @@ def incident_list_view(request):
     project_id = request.GET.get('project', '').strip()
     visible_projects = visible_projects_for(request.user, request=request)
     active_project = get_active_project_for_request(request)
-    incidents = Incident.objects.select_related('project', 'reported_by', 'requirement', 'test_plan').prefetch_related('covering_test_cases').filter(project__in=visible_projects)
+    incidents = Incident.objects.select_related('project', 'reported_by', 'owner', 'requirement', 'test_plan').prefetch_related('covering_test_cases').filter(project__in=visible_projects)
     if query:
         incidents = incidents.filter(Q(code__icontains=query) | Q(title__icontains=query) | Q(description__icontains=query))
     if active_project:
@@ -55,7 +55,7 @@ def incident_create_view(request):
         incident.code = next_code(Incident.objects.filter(project=incident.project), 'INC')
         incident.reported_by = request.user
         incident.save()
-        log_action(request.user, 'CREATE', 'Incident', incident.pk, {'project_id': incident.project_id, 'code': incident.code, 'title': incident.title, 'risk_level': incident.risk_level})
+        log_action(request.user, 'CREATE', 'Incident', incident.pk, {'project_id': incident.project_id, 'code': incident.code, 'title': incident.title, 'risk_level': incident.risk_level, 'owner_id': incident.owner_id, 'review_date': incident.review_date.isoformat() if incident.review_date else None})
         messages.success(request, 'Riesgo registrado correctamente.')
         return redirect('incidents:index')
     return render(request, 'incidents/form.html', {'form': form, 'title': 'Nuevo Riesgo', 'subtitle': 'Registra amenazas futuras asociadas al plan y, opcionalmente, al requisito afectado.'})
@@ -70,7 +70,7 @@ def incident_update_view(request, pk):
     form = IncidentForm(request.POST or None, instance=incident, user=request.user)
     if request.method == 'POST' and form.is_valid():
         incident = form.save()
-        log_action(request.user, 'UPDATE', 'Incident', incident.pk, {'project_id': incident.project_id, 'code': incident.code, 'title': incident.title, 'risk_level': incident.risk_level})
+        log_action(request.user, 'UPDATE', 'Incident', incident.pk, {'project_id': incident.project_id, 'code': incident.code, 'title': incident.title, 'risk_level': incident.risk_level, 'owner_id': incident.owner_id, 'review_date': incident.review_date.isoformat() if incident.review_date else None})
         messages.success(request, 'Riesgo actualizado correctamente.')
         return redirect('incidents:index')
     return render(request, 'incidents/form.html', {'form': form, 'title': 'Editar Riesgo', 'subtitle': 'Actualiza probabilidad, impacto, mitigacion y relacion con el plan.'})

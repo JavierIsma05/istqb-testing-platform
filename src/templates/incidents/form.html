@@ -70,6 +70,11 @@
                 {{ form.mitigation_strategy }}
                 {% if form.mitigation_strategy.errors %}<div class="form-error">{{ form.mitigation_strategy.errors|striptags }}</div>{% endif %}
             </div>
+            <div class="col-12">
+                <label class="form-label" for="{{ form.contingency_plan.id_for_label }}">{{ form.contingency_plan.label }}</label>
+                {{ form.contingency_plan }}
+                {% if form.contingency_plan.errors %}<div class="form-error">{{ form.contingency_plan.errors|striptags }}</div>{% endif %}
+            </div>
             <div class="col-md-6">
                 <label class="form-label" for="{{ form.probability.id_for_label }}">{{ form.probability.label }}</label>
                 {{ form.probability }}
@@ -79,6 +84,16 @@
                 <label class="form-label" for="{{ form.impact.id_for_label }}">{{ form.impact.label }}</label>
                 {{ form.impact }}
                 {% if form.impact.errors %}<div class="form-error">{{ form.impact.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.owner.id_for_label }}">{{ form.owner.label }}</label>
+                {{ form.owner }}
+                {% if form.owner.errors %}<div class="form-error">{{ form.owner.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="{{ form.review_date.id_for_label }}">{{ form.review_date.label }}</label>
+                {{ form.review_date }}
+                {% if form.review_date.errors %}<div class="form-error">{{ form.review_date.errors|striptags }}</div>{% endif %}
             </div>
         </div>
 

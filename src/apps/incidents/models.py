@@ -32,10 +32,19 @@ class Incident(TimeStampedModel):
     title = models.CharField(max_length=180)
     description = models.TextField()
     mitigation_strategy = models.TextField(blank=True)
+    contingency_plan = models.TextField(blank=True)
     probability = models.CharField(max_length=20, choices=Probability.choices, default=Probability.MEDIUM)
     impact = models.CharField(max_length=20, choices=Impact.choices, default=Impact.MEDIUM)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
     reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='owned_risks',
+    )
+    review_date = models.DateField(null=True, blank=True)
 
     class Meta:
         ordering = ['-created_at']
