@@ -26,6 +26,22 @@ def test_formulario_de_riesgo_solo_muestra_proyectos_visibles(project, requireme
 
 
 @pytest.mark.django_db
+def test_formulario_de_riesgo_solo_muestra_responsables_del_proyecto(project, user):
+    member = get_user_model().objects.create_user(
+        email='risk-owner@example.edu', password='StrongPass123',
+    )
+    project.members.add(member)
+    foreign_user = get_user_model().objects.create_user(
+        email='foreign-risk-owner@example.edu', password='StrongPass123',
+    )
+    form = IncidentForm(user=user)
+
+    assert member in form.fields['owner'].queryset
+    assert user in form.fields['owner'].queryset
+    assert foreign_user not in form.fields['owner'].queryset
+
+
+@pytest.mark.django_db
 def test_incidencia_se_crea_abierta_con_probabilidad_e_impacto_medios(project, user):
     incident = Incident.objects.create(
         project=project,
@@ -39,6 +55,25 @@ def test_incidencia_se_crea_abierta_con_probabilidad_e_impacto_medios(project, u
     assert incident.probability == Incident.Probability.MEDIUM
     assert incident.impact == Incident.Impact.MEDIUM
     assert str(incident) == 'API externa inestable'
+
+
+@pytest.mark.django_db
+def test_riesgo_conserva_responsable_contingencia_y_fecha_de_revision(project, user):
+    incident = Incident.objects.create(
+        project=project,
+        code='INC-FOLLOW-UP',
+        title='Dependencia externa',
+        description='El proveedor puede no estar disponible.',
+        contingency_plan='Usar el stub local y registrar el bloqueo.',
+        owner=user,
+        review_date='2026-10-15',
+        reported_by=user,
+    )
+
+    incident.refresh_from_db()
+    assert incident.owner == user
+    assert incident.contingency_plan.startswith('Usar el stub')
+    assert str(incident.review_date) == '2026-10-15'
 
 
 @pytest.mark.django_db
