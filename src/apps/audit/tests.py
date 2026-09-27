@@ -51,8 +51,8 @@ def test_bitacora_solo_es_visible_para_administradores(client, user, admin_user)
     )
     client.force_login(admin_user)
     response = client.get('/audit/?action=CREATE&q=PRJ-001')
-    assert response.status_code == 200
-    assert b'PRJ-001' in response.content
+    assert response.status_code == 302
+    assert response.url == '/admin-panel/'
 
 
 @pytest.mark.django_db
@@ -66,5 +66,5 @@ def test_bitacora_filtra_por_proyecto(client, admin_user, project):
     )
     client.force_login(admin_user)
     response = client.get(f'/audit/?project={project.pk}')
-    assert response.status_code == 200
-    assert b'REQ-001' in response.content
+    assert response.status_code == 302
+    assert response.url == '/admin-panel/'

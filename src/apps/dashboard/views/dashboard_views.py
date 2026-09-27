@@ -1,7 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.utils import timezone
 
 from apps.core.permissions import visible_projects_for
@@ -249,6 +249,8 @@ def phase_progress_view(request):
 
 @login_required
 def dashboard_view(request):
+    if request.user.role == User.Roles.ADMIN:
+        return redirect('users:admin-dashboard')
     if request.user.role == User.Roles.TEACHER:
         return render(
             request,

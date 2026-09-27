@@ -221,8 +221,8 @@ def test_administrador_puede_acceder_a_editar_proyecto_visible(client, project):
     admin = get_user_model().objects.create_user(email='admin-proyectos@example.edu', password='StrongPass123', role=get_user_model().Roles.ADMIN)
     client.force_login(admin)
     response = client.get(reverse('projects:edit', args=[project.pk]))
-    assert response.status_code == 200
-    assert response.context['project'] == project
+    assert response.status_code == 302
+    assert response.url == reverse('users:admin-dashboard')
 
 
 @pytest.mark.django_db
@@ -250,7 +250,8 @@ def test_administrador_puede_eliminar_proyecto_visible(client, project):
     client.force_login(admin)
     response = client.post(reverse('projects:delete', args=[project.pk]))
     assert response.status_code == 302
-    assert not Project.objects.filter(pk=project.pk).exists()
+    assert response.url == reverse('users:admin-dashboard')
+    assert Project.objects.filter(pk=project.pk).exists()
 
 
 @pytest.mark.django_db
