@@ -32,7 +32,7 @@
         <article class="content-card h-100">
             <div class="card-heading"><div><h3>Proyectos recientes</h3><p>Proyectos administrativos</p></div><a class="btn btn-brand btn-sm" href="{% url 'users:admin-project-create' %}"><i class="bi bi-plus-lg"></i> Nuevo</a></div>
             <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Proyecto</th><th>Tutor</th><th>Estado</th></tr></thead><tbody>
-                {% for project in recent_projects %}<tr><td><strong>{{ project.code }}</strong><br><small>{{ project.name }}</small></td><td>{{ project.tutor.get_full_name|default:project.tutor.email|default:'Sin asignar' }}</td><td>{{ project.get_status_display }}</td></tr>{% empty %}<tr><td colspan="3">No hay proyectos registrados.</td></tr>{% endfor %}
+                {% for project in recent_projects %}<tr><td><strong>{{ project.code }}</strong><br><small>{{ project.name }}</small></td><td>{% if project.tutor %}{{ project.tutor.get_full_name|default:project.tutor.email }}{% else %}Sin asignar{% endif %}</td><td>{{ project.get_status_display }}</td></tr>{% empty %}<tr><td colspan="3">No hay proyectos registrados.</td></tr>{% endfor %}
             </tbody></table></div>
             <a class="btn btn-outline-brand btn-sm" href="{% url 'users:admin-projects' %}">Gestionar proyectos</a>
         </article>
