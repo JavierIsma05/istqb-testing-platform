@@ -3,7 +3,7 @@ from django.contrib import messages
 from datetime import timedelta
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -219,6 +219,27 @@ def execution_workspace_view(request):
     case_id = request.GET.get('case')
     if is_teacher_user:
         projects = visible_projects_for(request.user, request=request).order_by('name')
+        teacher_cases = TestCase.objects.select_related(
+            'created_by', 'test_plan', 'test_plan__project'
+        ).prefetch_related(
+            'test_plan__project__members',
+            Prefetch(
+                'executions',
+                queryset=TestExecution.objects.select_related('executed_by').order_by('-executed_at', '-created_at'),
+                to_attr='teacher_execution_history',
+            ),
+        ).filter(test_plan__project__in=projects).order_by('test_plan__project__name', 'code')
+        teacher_execution_rows = []
+        for test_case in teacher_cases:
+            project = test_case.test_plan.project
+            student = test_case.created_by if test_case.created_by and test_case.created_by.role == User.Roles.STUDENT else project.members.filter(role=User.Roles.STUDENT).first()
+            latest_execution = test_case.teacher_execution_history[0] if test_case.teacher_execution_history else None
+            teacher_execution_rows.append({
+                'case': test_case,
+                'project': project,
+                'student': student,
+                'latest_execution': latest_execution,
+            })
         test_cases = TestCase.objects.none()
         selected_case = None
         if case_id:
@@ -348,7 +369,8 @@ def execution_workspace_view(request):
         'passed_count': passed_count, 'failed_count': failed_count, 'success_percent': success_percent,
         'test_steps': test_steps, 'automated_rules': automated_rules, 'last_automated_execution': last_automated_execution,
         'step_form': step_form, 'test_data_form': test_data_form, 'test_data_list': test_data_list,
-        'can_manage': can_manage_artifacts(request.user), 'is_teacher': is_teacher_user, 'teacher_projects': projects if is_teacher_user else None})
+        'can_manage': can_manage_artifacts(request.user), 'is_teacher': is_teacher_user, 'teacher_projects': projects if is_teacher_user else None,
+        'teacher_execution_rows': teacher_execution_rows if is_teacher_user else []})
 
 
 @login_required

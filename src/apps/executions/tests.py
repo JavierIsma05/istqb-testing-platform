@@ -378,6 +378,24 @@ def test_docente_revisa_ultima_ejecucion(client, execution, test_case):
 
 
 @pytest.mark.django_db
+def test_docente_ve_tabla_de_casos_del_proyecto_activo(client, test_case):
+    teacher = User.objects.create_user(
+        email='teacher-table@example.com',
+        password='StrongPass123',
+        role=User.Roles.TEACHER,
+    )
+    test_case.test_plan.project.members.add(teacher)
+    client.force_login(teacher)
+
+    response = client.get(f'{reverse("executions:index")}?project={test_case.test_plan.project.pk}')
+
+    assert response.status_code == 200
+    assert test_case.code.encode() in response.content
+    assert b'Casos de prueba del proyecto' in response.content
+    assert b'-- Seleccionar proyecto --' not in response.content
+
+
+@pytest.mark.django_db
 def test_vista_de_ejecucion_elimina_ejecucion_del_historial(client, execution, test_case, user):
     client.force_login(user)
 
