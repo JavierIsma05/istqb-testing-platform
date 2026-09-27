@@ -314,6 +314,19 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (sidebarToggles.length) {
+        document.querySelectorAll('[data-sidebar-expand]').forEach(function (expandControl) {
+            expandControl.addEventListener('click', function (event) {
+                if (isMobileSidebar() || !root.classList.contains('sidebar-collapsed')) {
+                    return;
+                }
+                event.preventDefault();
+                root.classList.remove('sidebar-collapsed');
+                localStorage.setItem('istqb-sidebar', 'expanded');
+                renderSidebarState();
+                setTimeout(syncSidebarGroups, 220);
+            });
+        });
+
         sidebarToggles.forEach(function (toggle) {
             toggle.addEventListener('click', function () {
                 if (isMobileSidebar()) {

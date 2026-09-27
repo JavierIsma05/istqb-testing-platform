@@ -87,11 +87,11 @@
         <!-- CONDENSED VIEW: Flat grid of all items -->
         <div class="sidebar-condensed" aria-hidden="true">
             {% if request.user.role == 'ADMIN' %}
-            <a class="{% if request.resolver_match.url_name == 'admin-dashboard' %}active{% endif %}" href="{% url 'users:admin-dashboard' %}" title="Panel administrativo" data-nav-item="admin-dashboard"><i class="bi bi-grid" aria-hidden="true"></i></a>
+            <a class="{% if request.resolver_match.url_name == 'admin-dashboard' %}active{% endif %}" href="{% url 'users:admin-dashboard' %}" title="Mostrar menú completo" aria-label="Mostrar menú completo" data-nav-item="admin-dashboard" data-sidebar-expand><i class="bi bi-grid" aria-hidden="true"></i></a>
             <a class="{% if request.resolver_match.url_name == 'admin-users' or request.resolver_match.url_name == 'admin-user-create' or request.resolver_match.url_name == 'admin-user-edit' %}active{% endif %}" href="{% url 'users:admin-users' %}" title="Usuarios" data-nav-item="admin-users"><i class="bi bi-people" aria-hidden="true"></i></a>
             <a class="{% if request.resolver_match.url_name == 'admin-projects' or request.resolver_match.url_name == 'admin-project-create' or request.resolver_match.url_name == 'admin-project-edit' %}active{% endif %}" href="{% url 'users:admin-projects' %}" title="Proyectos" data-nav-item="admin-projects"><i class="bi bi-kanban" aria-hidden="true"></i></a>
             {% else %}
-            <a class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}" title="Dashboard" data-nav-item="dashboard"><i class="bi bi-grid" aria-hidden="true"></i></a>
+            <a class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}" title="Mostrar menú completo" aria-label="Mostrar menú completo" data-nav-item="dashboard" data-sidebar-expand><i class="bi bi-grid" aria-hidden="true"></i></a>
             <a class="{% if request.resolver_match.namespace == 'projects' %}active{% endif %}" href="{% url 'projects:index' %}" title="Proyectos" data-nav-item="proyectos"><i class="bi bi-kanban" aria-hidden="true"></i></a>
             <a class="{% if request.resolver_match.namespace == 'requirements' %}active{% endif %}" href="{% url 'requirements:index' %}{{ project_query }}" title="Requisitos" data-nav-item="requisitos"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></a>
             <a class="{% if request.resolver_match.namespace == 'testplans' %}active{% endif %}" href="{% url 'testplans:index' %}{{ project_query }}" title="Plan de Pruebas" data-nav-item="plan-pruebas"><i class="bi bi-clipboard-check" aria-hidden="true"></i></a>
