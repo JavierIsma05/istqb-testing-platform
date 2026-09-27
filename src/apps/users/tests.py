@@ -1,5 +1,8 @@
 import pytest
 from django.contrib.auth import get_user_model
+from django.urls import reverse
+
+from apps.users.models import Profile
 
 
 @pytest.mark.django_db
@@ -36,3 +39,47 @@ def test_superusuario_se_crea_con_permisos_de_administrador():
     assert user.is_staff
     assert user.is_superuser
     assert user.is_active
+
+
+@pytest.mark.django_db
+def test_usuario_puede_editar_sus_datos_personales(client):
+    user = get_user_model().objects.create_user(
+        email='profile-edit@example.com',
+        password='StrongPass123',
+        first_name='Nombre',
+        last_name='Anterior',
+    )
+    client.force_login(user)
+
+    response = client.post(reverse('users:profile'), {
+        'form_action': 'profile',
+        'first_name': 'Nombre Nuevo',
+        'last_name': 'Apellido Nuevo',
+        'bio': 'Docente y revisor de calidad.',
+    })
+
+    assert response.status_code == 302
+    user.refresh_from_db()
+    assert user.first_name == 'Nombre Nuevo'
+    assert user.last_name == 'Apellido Nuevo'
+    assert Profile.objects.get(user=user).bio == 'Docente y revisor de calidad.'
+
+
+@pytest.mark.django_db
+def test_usuario_puede_cambiar_su_contrasena_desde_el_perfil(client):
+    user = get_user_model().objects.create_user(
+        email='profile-password@example.com',
+        password='OldStrongPass123',
+    )
+    client.force_login(user)
+
+    response = client.post(reverse('users:profile'), {
+        'form_action': 'password',
+        'old_password': 'OldStrongPass123',
+        'new_password1': 'NewStrongPass456',
+        'new_password2': 'NewStrongPass456',
+    })
+
+    assert response.status_code == 302
+    user.refresh_from_db()
+    assert user.check_password('NewStrongPass456')

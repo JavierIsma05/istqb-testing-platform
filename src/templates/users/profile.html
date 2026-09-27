@@ -14,6 +14,12 @@
     </a>
 </div>
 
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">{{ message }}</div>
+    {% endfor %}
+{% endif %}
+
 <section class="profile-hero">
     <div class="profile-identity">
         {% if profile and profile.avatar %}
@@ -60,6 +66,7 @@
                 <h3>Datos personales</h3>
                 <p>Información principal de la cuenta</p>
             </div>
+            <span class="badge text-bg-light">Correo protegido</span>
         </div>
         <div class="profile-detail-list">
             <div><span>Correo institucional</span><strong>{{ request.user.email }}</strong></div>
@@ -82,6 +89,53 @@
             <div><span>Proyectos activos</span><strong>{{ project_count }}</strong></div>
             <div><span>Notificaciones pendientes</span><strong>{{ unread_notifications_count }}</strong></div>
         </div>
+    </article>
+
+    <article class="content-card">
+        <div class="card-heading">
+            <div>
+                <h3>Editar perfil</h3>
+                <p>Actualiza tu información visible en la plataforma.</p>
+            </div>
+        </div>
+        <form method="post" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="profile">
+            {% if profile_form.non_field_errors %}<div class="alert alert-danger">{{ profile_form.non_field_errors }}</div>{% endif %}
+            <div class="row g-3">
+                {% for field in profile_form %}
+                    <div class="col-12{% if field.name != 'bio' %} col-md-6{% endif %}">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+            <button class="btn btn-brand mt-3" type="submit"><i class="bi bi-save"></i> Guardar cambios</button>
+        </form>
+    </article>
+
+    <article class="content-card">
+        <div class="card-heading">
+            <div>
+                <h3>Cambiar contraseña</h3>
+                <p>Usa una contraseña única y segura para tu cuenta.</p>
+            </div>
+        </div>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="form_action" value="password">
+            {% if password_form.non_field_errors %}<div class="alert alert-danger">{{ password_form.non_field_errors }}</div>{% endif %}
+            {% for field in password_form %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+            <button class="btn btn-outline-brand" type="submit"><i class="bi bi-shield-lock"></i> Cambiar contraseña</button>
+        </form>
     </article>
 </section>
 
