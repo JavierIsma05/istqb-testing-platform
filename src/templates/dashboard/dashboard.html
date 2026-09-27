@@ -55,6 +55,7 @@
             <h3>Estudiantes y Proyectos</h3>
             <p>Estado de los proyectos asignados</p>
         </div>
+        <a class="btn btn-outline-brand btn-sm" href="{% url 'projects:index' %}"><i class="bi bi-list-ul"></i> Ver todos</a>
     </div>
 
     <div class="tutor-project-list">
@@ -110,7 +111,7 @@
                             Mensaje
                         </button>
                         <a class="btn btn-brand btn-sm" href="{% url 'projects:detail' item.project.pk %}?project={{ item.project.pk }}">
-                            Ver Proyecto
+                            Revisar este proyecto
                         </a>
                     </div>
                 </div>

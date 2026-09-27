@@ -140,7 +140,7 @@ def build_teacher_dashboard(request):
     )
 
     project_rows = []
-    for project in teacher_projects[:6]:
+    for project in teacher_projects:
         student = get_project_student(project)
         project_rows.append({
             'project': project,

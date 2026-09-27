@@ -144,7 +144,7 @@ def teacher_api_students(request, project_id):
     if not is_teacher(request.user):
         return JsonResponse({'error': 'No autorizado'}, status=403)
     project = get_object_or_404(
-        visible_projects_for(request.user).prefetch_related('members'),
+        visible_projects_for(request.user, request=request).prefetch_related('members'),
         pk=project_id,
     )
     students = project.members.filter(role=User.Roles.STUDENT).order_by('email')
@@ -164,7 +164,7 @@ def teacher_api_students(request, project_id):
 def teacher_api_cases(request, project_id, student_id):
     if not is_teacher(request.user):
         return JsonResponse({'error': 'No autorizado'}, status=403)
-    project = get_object_or_404(visible_projects_for(request.user), pk=project_id)
+    project = get_object_or_404(visible_projects_for(request.user, request=request), pk=project_id)
     student = get_object_or_404(User.objects.all(), pk=student_id, role=User.Roles.STUDENT)
     if not project.members.filter(pk=student.pk).exists():
         return JsonResponse({'error': 'El estudiante no pertenece al proyecto'}, status=400)

@@ -40,3 +40,28 @@ def test_endpoint_de_progreso_de_fases_devuelve_porcentaje_para_estudiante(clien
     assert data['available'] is True
     assert 0 <= data['percentage'] < 31
     assert data['tone'] == 'danger'
+
+
+@pytest.mark.django_db
+def test_docente_puede_seleccionar_proyecto_y_los_requisitos_quedan_limitados(client, db):
+    from django.contrib.auth import get_user_model
+    from apps.projects.models import Project
+    from apps.requirements.models import Requirement
+
+    User = get_user_model()
+    teacher = User.objects.create_user(email='teacher-scope@example.com', password='StrongPass123', role=User.Roles.TEACHER)
+    first = Project.objects.create(code='PRJ-SCOPE-1', name='Proyecto Uno', created_by=teacher)
+    second = Project.objects.create(code='PRJ-SCOPE-2', name='Proyecto Dos', created_by=teacher)
+    Requirement.objects.create(project=first, code='REQ-ONE', title='Requisito Uno', description='Primero', created_by=teacher)
+    Requirement.objects.create(project=second, code='REQ-TWO', title='Requisito Dos', description='Segundo', created_by=teacher)
+    client.force_login(teacher)
+
+    projects_response = client.get(reverse('projects:index'))
+    scoped_response = client.get(f'{reverse("requirements:index")}?project={first.pk}')
+
+    assert projects_response.status_code == 200
+    assert b'Proyecto Uno' in projects_response.content
+    assert b'Proyecto Dos' in projects_response.content
+    assert scoped_response.status_code == 200
+    assert b'REQ-ONE' in scoped_response.content
+    assert b'REQ-TWO' not in scoped_response.content

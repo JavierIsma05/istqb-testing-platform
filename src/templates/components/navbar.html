@@ -5,6 +5,24 @@
     </div>
 
     <div class="navbar-actions">
+        {% if request.user.is_teacher_role %}
+        <div class="dropdown teacher-project-switcher">
+            <button class="btn btn-outline-brand btn-sm dropdown-toggle" data-bs-toggle="dropdown" type="button" aria-expanded="false">
+                <i class="bi bi-kanban"></i>
+                {% if active_project %}{{ active_project.code }} · {{ active_project.name|truncatechars:24 }}{% else %}Seleccionar proyecto{% endif %}
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><h6 class="dropdown-header">Revisar proyecto</h6></li>
+                {% for teacher_project in teacher_projects %}
+                <li><a class="dropdown-item {% if active_project and active_project.pk == teacher_project.pk %}active{% endif %}" href="{% url 'projects:detail' teacher_project.pk %}?project={{ teacher_project.pk }}"><i class="bi bi-folder2-open me-2"></i>{{ teacher_project.code }} · {{ teacher_project.name|truncatechars:30 }}</a></li>
+                {% empty %}
+                <li><span class="dropdown-item-text text-muted">No tienes proyectos asignados.</span></li>
+                {% endfor %}
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="{% url 'projects:index' %}"><i class="bi bi-list-ul me-2"></i>Ver todos los proyectos</a></li>
+            </ul>
+        </div>
+        {% endif %}
         <button class="icon-button" type="button" title="Cambiar tema" aria-label="Cambiar tema" data-theme-toggle>
             <i class="bi bi-moon" data-theme-icon></i>
         </button>

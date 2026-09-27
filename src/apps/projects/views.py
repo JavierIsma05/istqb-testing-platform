@@ -50,7 +50,8 @@ def project_list_view(request):
     status = request.GET.get('status', '').strip()
     member_id = request.GET.get('member', request.GET.get('tutor', '')).strip()
     view_mode = request.GET.get('view', 'cards')
-    projects = visible_projects_for(request.user, request=request).select_related('created_by').prefetch_related('members').annotate(
+    project_scope = visible_projects_for(request.user) if request.user.role == User.Roles.TEACHER else visible_projects_for(request.user, request=request)
+    projects = project_scope.select_related('created_by').prefetch_related('members').annotate(
         total_cases=Count('test_plans__test_cases', distinct=True),
         passed_cases=Count('test_plans__test_cases', filter=Q(test_plans__test_cases__executions__result='PASSED'), distinct=True),
         defect_count=Count('defects', distinct=True),
