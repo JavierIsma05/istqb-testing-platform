@@ -12,8 +12,9 @@
 <div class="teacher-exec-shell" data-teacher-shell>
   <div class="page-heading executions-heading">
     <div>
+      <span class="dashboard-hero-kicker">Revisión por proyecto</span>
       <h2>Ejecución de Pruebas</h2>
-      <p>Revisa y valida las ejecuciones registradas por tus estudiantes</p>
+      <p>Revisa las ejecuciones registradas por tus estudiantes en el proyecto seleccionado.</p>
     </div>
     <div class="page-heading-actions">
       <a class="btn btn-outline-brand" href="{% url 'executions:calendar' %}">
@@ -31,96 +32,55 @@
     </div>
   {% endif %}
 
-  {% if teacher_projects %}
-  {# ----- Hierarchical filters ----- #}
-  <div class="card mb-4">
-    <div class="card-body">
-      <div class="row g-3 align-items-end">
-        <div class="col-md-4">
-          <label class="form-label fw-semibold" for="teacher-project-select">Proyecto</label>
-          <select id="teacher-project-select" class="form-select">
-            <option value="">-- Seleccionar proyecto --</option>
-            {% for p in teacher_projects %}
-              <option value="{{ p.id }}">{{ p.code }} - {{ p.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label fw-semibold" for="teacher-student-select">Estudiante</label>
-          <select id="teacher-student-select" class="form-select" disabled>
-            <option value="">-- Primero selecciona un proyecto --</option>
-          </select>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label fw-semibold" for="teacher-case-select">Caso de Prueba</label>
-          <select id="teacher-case-select" class="form-select" disabled>
-            <option value="">-- Primero selecciona un estudiante --</option>
-          </select>
-        </div>
-      </div>
+  {% if active_project %}
+    <div class="alert alert-info d-flex align-items-center gap-2 mb-4" role="status">
+      <i class="bi bi-folder2-open"></i>
+      <span>Proyecto activo: <strong>{{ active_project.code }} · {{ active_project.name }}</strong>. Usa el selector superior para cambiar de proyecto.</span>
     </div>
-  </div>
-
-  {# ----- Student info panel ----- #}
-  <div id="teacher-student-panel" class="row g-3 mb-4" hidden>
-    <div class="col-md-6">
-      <div class="card h-100">
-        <div class="card-body">
-          <h6 class="card-title text-muted mb-3">
-            <i class="bi bi-person-circle me-1"></i> Información del Estudiante
-          </h6>
-          <div class="student-info-grid">
-            <div class="mb-2">
-              <small class="text-muted d-block">Nombre</small>
-              <strong id="panel-student-name">—</strong>
-            </div>
-            <div class="mb-2">
-              <small class="text-muted d-block">Proyecto</small>
-              <strong id="panel-project-name">—</strong>
-            </div>
-            <div>
-              <small class="text-muted d-block">Total casos</small>
-              <strong id="panel-total-cases">—</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="card h-100">
-        <div class="card-body">
-          <h6 class="card-title text-muted mb-3">
-            <i class="bi bi-bar-chart me-1"></i> Métricas de Ejecución
-          </h6>
-          <div class="teacher-metrics-grid">
-            <div class="metric-item metric-passed">
-              <span class="metric-value" id="panel-passed">0</span>
-              <span class="metric-label">Aprobados</span>
-            </div>
-            <div class="metric-item metric-failed">
-              <span class="metric-value" id="panel-failed">0</span>
-              <span class="metric-label">Fallidos</span>
-            </div>
-            <div class="metric-item metric-pending">
-              <span class="metric-value" id="panel-pending">0</span>
-              <span class="metric-label">Pendientes</span>
-            </div>
-            <div class="metric-item metric-success-rate">
-              <span class="metric-value" id="panel-success-pct">0%</span>
-              <span class="metric-label">Éxito</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
   {% else %}
-    <div class="empty-projects">
-      <i class="bi bi-journal"></i>
-      <h3>No tienes proyectos asignados</h3>
-      <p>Para revisar ejecuciones, un administrador debe asignarte como miembro del proyecto.</p>
+    <div class="alert alert-warning d-flex align-items-center gap-2 mb-4" role="status">
+      <i class="bi bi-info-circle"></i>
+      <span>Selecciona un proyecto desde el selector superior para revisar sus ejecuciones.</span>
     </div>
   {% endif %}
+
+  <section class="content-card teacher-execution-table-card">
+    <div class="card-heading">
+      <div>
+        <h3>Casos de prueba del proyecto</h3>
+        <p>Selecciona un caso para consultar su ejecución y registrar tu revisión.</p>
+      </div>
+      <span class="soft-pill">{{ teacher_execution_rows|length }} casos</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Caso de prueba</th>
+            <th>Estudiante</th>
+            <th>Último resultado</th>
+            <th>Revisión docente</th>
+            <th>Fecha</th>
+            <th class="text-end">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in teacher_execution_rows %}
+            <tr>
+              <td><strong>{{ row.case.code }}</strong><br><small>{{ row.case.title }}</small></td>
+              <td>{% if row.student %}{{ row.student.get_full_name|default:row.student.email }}{% else %}Sin estudiante asignado{% endif %}</td>
+              <td>{% if row.latest_execution %}<span class="badge execution-case-status-{{ row.latest_execution.result|lower }}">{{ row.latest_execution.get_result_display }}</span>{% else %}<span class="text-muted">Sin ejecutar</span>{% endif %}</td>
+              <td>{% if row.latest_execution %}{{ row.latest_execution.get_review_status_display }}{% else %}<span class="text-muted">Pendiente</span>{% endif %}</td>
+              <td>{% if row.latest_execution %}{{ row.latest_execution.executed_at|date:'d M Y H:i'|default:'Sin fecha' }}{% else %}—{% endif %}</td>
+              <td class="text-end"><a class="btn btn-outline-brand btn-sm" href="{% url 'executions:index' %}?case={{ row.case.pk }}{% if active_project %}&project={{ active_project.pk }}{% endif %}"><i class="bi bi-eye"></i> Revisar</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-5">No hay casos de prueba registrados para el proyecto seleccionado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
 
   {# ----- Case detail (when selected via query string or JS) ----- #}
   {% if selected_case %}
