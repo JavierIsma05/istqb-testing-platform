@@ -4,7 +4,7 @@ from apps.core.permissions import get_active_project_for_request, visible_projec
 def project_context(request):
     user = getattr(request, 'user', None)
     if not getattr(user, 'is_authenticated', False):
-        return {'active_project': None, 'teacher_projects': [], 'project_query': ''}
+        return {'active_project': None, 'teacher_project_options': [], 'project_query': ''}
 
     active_project = get_active_project_for_request(request)
     teacher_projects = []
@@ -13,6 +13,6 @@ def project_context(request):
 
     return {
         'active_project': active_project,
-        'teacher_projects': teacher_projects,
+        'teacher_project_options': teacher_projects,
         'project_query': f'?project={active_project.pk}' if active_project and getattr(user, 'is_teacher_role', False) else '',
     }

@@ -13,7 +13,7 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
                 <li><h6 class="dropdown-header">Revisar proyecto</h6></li>
-                {% for teacher_project in teacher_projects %}
+                {% for teacher_project in teacher_project_options %}
                 <li><a class="dropdown-item {% if active_project and active_project.pk == teacher_project.pk %}active{% endif %}" href="{% url 'projects:detail' teacher_project.pk %}?project={{ teacher_project.pk }}"><i class="bi bi-folder2-open me-2"></i>{{ teacher_project.code }} · {{ teacher_project.name|truncatechars:30 }}</a></li>
                 {% empty %}
                 <li><span class="dropdown-item-text text-muted">No tienes proyectos asignados.</span></li>
