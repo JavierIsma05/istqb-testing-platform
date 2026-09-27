@@ -34,8 +34,30 @@
             <span>Indicadores activos</span>
             <strong>{{ teacher_metrics|length }}</strong>
         </div>
+        <div>
+            <span>Avance del proyecto seleccionado</span>
+            <strong>{% if selected_project_progress is not None %}{{ selected_project_progress }}%{% else %}—{% endif %}</strong>
+            {% if active_project %}<small>{{ active_project.code }}</small>{% else %}<small>Selecciona un proyecto arriba</small>{% endif %}
+        </div>
     </div>
 </section>
+
+{% if active_project %}
+<section class="content-card selected-project-progress-card">
+    <div class="card-heading">
+        <div>
+            <span class="dashboard-hero-kicker">Proyecto activo</span>
+            <h3>{{ active_project.code }} · {{ active_project.name }}</h3>
+            <p>Avance general basado en los casos de prueba aprobados.</p>
+        </div>
+        <strong class="display-6">{{ selected_project_progress }}%</strong>
+    </div>
+    <div class="progress" role="progressbar" aria-label="Avance general del proyecto" aria-valuenow="{{ selected_project_progress }}" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" style="width: {{ selected_project_progress }}%"></div>
+    </div>
+    <small class="text-muted mt-2 d-block">{{ selected_project_passed_cases }} de {{ selected_project_total_cases }} casos aprobados</small>
+</section>
+{% endif %}
 
 <section class="metric-grid tutor-metric-grid">
     {% for metric in teacher_metrics %}
