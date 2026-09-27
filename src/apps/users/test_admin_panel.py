@@ -69,3 +69,14 @@ def test_admin_can_create_project_and_assign_teacher(client, admin_user):
     assert project.tutor == teacher
     assert project.members.filter(pk=student.pk).exists()
     assert project.members.filter(pk=teacher.pk).exists()
+
+
+@pytest.mark.django_db
+def test_admin_dashboard_renders_project_without_tutor(client, admin_user):
+    Project.objects.create(code='PRJ-NO-TUTOR', name='Proyecto sin tutor', created_by=admin_user)
+    client.force_login(admin_user)
+
+    response = client.get(reverse('users:admin-dashboard'))
+
+    assert response.status_code == 200
+    assert b'Sin asignar' in response.content
