@@ -14,6 +14,20 @@
     <nav class="sidebar-nav" aria-label="Navegación principal">
         <!-- EXPANDED VIEW: Accordion sections -->
         <div class="sidebar-expanded">
+            {% if request.user.role == 'ADMIN' %}
+            <section class="sidebar-group" data-sidebar-group="administracion">
+                <button class="sidebar-group-toggle" type="button" data-sidebar-group-toggle aria-expanded="true" aria-controls="sidebar-group-administracion">
+                    <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                    <span>Administración</span>
+                    <i class="bi bi-chevron-down sidebar-group-chevron" aria-hidden="true"></i>
+                </button>
+                <div class="sidebar-group-menu" id="sidebar-group-administracion">
+                    <a class="{% if request.resolver_match.url_name == 'admin-dashboard' %}active{% endif %}" href="{% url 'users:admin-dashboard' %}" title="Panel administrativo"><i class="bi bi-grid"></i><span>Panel principal</span></a>
+                    <a class="{% if request.resolver_match.url_name == 'admin-users' or request.resolver_match.url_name == 'admin-user-create' or request.resolver_match.url_name == 'admin-user-edit' %}active{% endif %}" href="{% url 'users:admin-users' %}" title="Usuarios"><i class="bi bi-people"></i><span>Usuarios</span></a>
+                    <a class="{% if request.resolver_match.url_name == 'admin-projects' or request.resolver_match.url_name == 'admin-project-create' or request.resolver_match.url_name == 'admin-project-edit' %}active{% endif %}" href="{% url 'users:admin-projects' %}" title="Proyectos administrativos"><i class="bi bi-kanban"></i><span>Proyectos</span></a>
+                </div>
+            </section>
+            {% else %}
             <section class="sidebar-group" data-sidebar-group="inicio">
                 <button class="sidebar-group-toggle" type="button" data-sidebar-group-toggle aria-expanded="true" aria-controls="sidebar-group-inicio">
                     <i class="bi bi-house-door" aria-hidden="true"></i>
@@ -67,10 +81,16 @@
                     {% endif %}
                 </div>
             </section>
+            {% endif %}
         </div>
 
         <!-- CONDENSED VIEW: Flat grid of all items -->
         <div class="sidebar-condensed" aria-hidden="true">
+            {% if request.user.role == 'ADMIN' %}
+            <a class="{% if request.resolver_match.url_name == 'admin-dashboard' %}active{% endif %}" href="{% url 'users:admin-dashboard' %}" title="Panel administrativo" data-nav-item="admin-dashboard"><i class="bi bi-grid" aria-hidden="true"></i></a>
+            <a class="{% if request.resolver_match.url_name == 'admin-users' or request.resolver_match.url_name == 'admin-user-create' or request.resolver_match.url_name == 'admin-user-edit' %}active{% endif %}" href="{% url 'users:admin-users' %}" title="Usuarios" data-nav-item="admin-users"><i class="bi bi-people" aria-hidden="true"></i></a>
+            <a class="{% if request.resolver_match.url_name == 'admin-projects' or request.resolver_match.url_name == 'admin-project-create' or request.resolver_match.url_name == 'admin-project-edit' %}active{% endif %}" href="{% url 'users:admin-projects' %}" title="Proyectos" data-nav-item="admin-projects"><i class="bi bi-kanban" aria-hidden="true"></i></a>
+            {% else %}
             <a class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}" title="Dashboard" data-nav-item="dashboard"><i class="bi bi-grid" aria-hidden="true"></i></a>
             <a class="{% if request.resolver_match.namespace == 'projects' %}active{% endif %}" href="{% url 'projects:index' %}" title="Proyectos" data-nav-item="proyectos"><i class="bi bi-kanban" aria-hidden="true"></i></a>
             <a class="{% if request.resolver_match.namespace == 'requirements' %}active{% endif %}" href="{% url 'requirements:index' %}" title="Requisitos" data-nav-item="requisitos"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></a>
@@ -84,6 +104,7 @@
             <a class="{% if request.resolver_match.url_name == 'quality-metrics' %}active{% endif %}" href="{% url 'reports:quality-metrics' %}" title="Métricas de calidad" data-nav-item="metricas"><i class="bi bi-speedometer2" aria-hidden="true"></i></a>
             {% if request.user.role == 'ADMIN' %}
             <a class="{% if request.resolver_match.namespace == 'audit' %}active{% endif %}" href="{% url 'audit:index' %}" title="Auditoría" data-nav-item="auditoria"><i class="bi bi-shield-check" aria-hidden="true"></i></a>
+            {% endif %}
             {% endif %}
         </div>
     </nav>

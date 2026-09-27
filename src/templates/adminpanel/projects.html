@@ -1,0 +1,11 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Proyectos | Panel administrativo{% endblock %}
+{% block dashboard_content %}
+<div class="page-heading"><div><h2>Proyectos</h2><p>Administra proyectos y asigna docentes y estudiantes.</p></div><a class="btn btn-brand" href="{% url 'users:admin-project-create' %}"><i class="bi bi-plus-lg"></i> Nuevo proyecto</a></div>
+{% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}{% endif %}
+<section class="content-card"><form class="row g-2 mb-4" method="get"><div class="col-md-10"><input class="form-control" name="q" value="{{ query }}" placeholder="Buscar por código o nombre"></div><div class="col-md-2"><button class="btn btn-outline-brand w-100">Filtrar</button></div></form>
+<div class="table-responsive"><table class="table align-middle"><thead><tr><th>Proyecto</th><th>Responsables</th><th>Estado</th><th class="text-end">Acciones</th></tr></thead><tbody>
+{% for project in projects %}<tr><td><strong>{{ project.code }}</strong><br><small>{{ project.name }}</small></td><td>Tutor: {{ project.tutor.get_full_name|default:project.tutor.email|default:'Sin asignar' }}<br><small>{{ project.members.count }} miembros</small></td><td>{{ project.get_status_display }}</td><td class="text-end"><a class="btn btn-outline-brand btn-sm" href="{% url 'users:admin-project-edit' project.pk %}">Editar</a><form class="d-inline" method="post" action="{% url 'users:admin-project-delete' project.pk %}">{% csrf_token %}<button class="btn btn-outline-danger btn-sm" type="submit" data-confirm-message="Eliminar este proyecto y sus datos asociados?">Eliminar</button></form></td></tr>{% empty %}<tr><td colspan="4">No hay proyectos registrados.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

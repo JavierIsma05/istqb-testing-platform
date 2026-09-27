@@ -1,0 +1,41 @@
+{% extends 'layouts/dashboard_base.html' %}
+
+{% block title %}Panel administrativo{% endblock %}
+
+{% block dashboard_content %}
+<div class="page-heading">
+    <div>
+        <span class="dashboard-hero-kicker">Administración del sistema</span>
+        <h2>Panel de control</h2>
+        <p>Gestiona usuarios y proyectos sin entrar al flujo de pruebas ISTQB.</p>
+    </div>
+</div>
+
+<div class="metric-grid">
+    <a class="metric-card" href="{% url 'users:admin-users' %}"><div><span>Usuarios</span><strong>{{ user_count }}</strong><small>CRUD completo</small></div><i class="bi bi-people"></i></a>
+    <a class="metric-card" href="{% url 'users:admin-users' %}?role=TEACHER"><div><span>Docentes</span><strong>{{ teacher_count }}</strong><small>Personal académico</small></div><i class="bi bi-person-workspace"></i></a>
+    <a class="metric-card" href="{% url 'users:admin-users' %}?role=STUDENT"><div><span>Estudiantes</span><strong>{{ student_count }}</strong><small>Usuarios registrados</small></div><i class="bi bi-mortarboard"></i></a>
+    <a class="metric-card" href="{% url 'users:admin-projects' %}"><div><span>Proyectos</span><strong>{{ project_count }}</strong><small>Asignaciones y seguimiento</small></div><i class="bi bi-kanban"></i></a>
+</div>
+
+<div class="row g-4 mt-1">
+    <section class="col-xl-6">
+        <article class="content-card h-100">
+            <div class="card-heading"><div><h3>Usuarios recientes</h3><p>Últimas cuentas registradas</p></div><a class="btn btn-brand btn-sm" href="{% url 'users:admin-user-create' %}"><i class="bi bi-plus-lg"></i> Nuevo</a></div>
+            <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th></tr></thead><tbody>
+                {% for user in recent_users %}<tr><td><strong>{{ user.get_full_name|default:user.email }}</strong><br><small>{{ user.email }}</small></td><td>{{ user.get_role_display }}</td><td>{% if user.is_active %}<span class="badge text-bg-success">Activo</span>{% else %}<span class="badge text-bg-secondary">Inactivo</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="3">No hay usuarios registrados.</td></tr>{% endfor %}
+            </tbody></table></div>
+            <a class="btn btn-outline-brand btn-sm" href="{% url 'users:admin-users' %}">Gestionar usuarios</a>
+        </article>
+    </section>
+    <section class="col-xl-6">
+        <article class="content-card h-100">
+            <div class="card-heading"><div><h3>Proyectos recientes</h3><p>Proyectos administrativos</p></div><a class="btn btn-brand btn-sm" href="{% url 'users:admin-project-create' %}"><i class="bi bi-plus-lg"></i> Nuevo</a></div>
+            <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Proyecto</th><th>Tutor</th><th>Estado</th></tr></thead><tbody>
+                {% for project in recent_projects %}<tr><td><strong>{{ project.code }}</strong><br><small>{{ project.name }}</small></td><td>{{ project.tutor.get_full_name|default:project.tutor.email|default:'Sin asignar' }}</td><td>{{ project.get_status_display }}</td></tr>{% empty %}<tr><td colspan="3">No hay proyectos registrados.</td></tr>{% endfor %}
+            </tbody></table></div>
+            <a class="btn btn-outline-brand btn-sm" href="{% url 'users:admin-projects' %}">Gestionar proyectos</a>
+        </article>
+    </section>
+</div>
+{% endblock %}
