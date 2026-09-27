@@ -81,3 +81,24 @@ def test_dashboard_docente_renderiza_selector_de_proyecto(client):
 
     assert response.status_code == 200
     assert b'PRJ-NAV-1' in response.content
+
+
+@pytest.mark.django_db
+def test_dashboard_docente_muestra_avance_del_proyecto_activo(client, project, test_case, user):
+    from django.contrib.auth import get_user_model
+    from apps.executions.models import TestExecution
+
+    User = get_user_model()
+    teacher = User.objects.create_user(email='teacher-progress@example.com', password='StrongPass123', role=User.Roles.TEACHER)
+    project.members.add(teacher)
+    TestExecution.objects.create(test_case=test_case, executed_by=user, result=TestExecution.Result.PASSED)
+    client.force_login(teacher)
+    session = client.session
+    session['active_project_id'] = project.pk
+    session.save()
+
+    response = client.get(reverse('dashboard'))
+
+    assert response.status_code == 200
+    assert b'Avance del proyecto seleccionado' in response.content
+    assert b'100%' in response.content

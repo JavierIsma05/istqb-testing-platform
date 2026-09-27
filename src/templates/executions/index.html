@@ -212,7 +212,14 @@
             </div>
           {% endif %}
           <div class="execution-review-box">
-            <h4>Validar ejecución</h4>
+            <h4>Validar ejecución y enviar retroalimentación</h4>
+            {% if last_execution.review_notes %}
+              <div class="alert alert-light border mb-3">
+                <strong>Retroalimentación anterior:</strong>
+                <p class="mb-1 mt-1">{{ last_execution.review_notes|linebreaksbr }}</p>
+                {% if last_execution.reviewed_by %}<small class="text-muted">Por {{ last_execution.reviewed_by.get_full_name|default:last_execution.reviewed_by.email }}{% if last_execution.reviewed_at %} · {{ last_execution.reviewed_at|date:'d M Y H:i' }}{% endif %}</small>{% endif %}
+              </div>
+            {% endif %}
             <form method="POST" novalidate>
               {% csrf_token %}
               <input type="hidden" name="execution_id" value="{{ last_execution.id }}">
@@ -221,7 +228,7 @@
                 {{ review_form.review_status }}
               </div>
               <div class="mb-3">
-                <label class="form-label" for="{{ review_form.review_notes.id_for_label }}">{{ review_form.review_notes.label }}</label>
+                <label class="form-label" for="{{ review_form.review_notes.id_for_label }}">Retroalimentación para el estudiante</label>
                 {{ review_form.review_notes }}
               </div>
               <button class="btn btn-brand w-100" type="submit">Guardar revisión</button>

@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
-from apps.core.permissions import visible_projects_for
+from apps.core.permissions import get_active_project_for_request, visible_projects_for
 from apps.defects.models import Defect
 from apps.executions.models import TestExecution
 from apps.incidents.models import Incident
@@ -156,6 +156,12 @@ def build_teacher_dashboard(request):
         if row['student']
     }
 
+    active_project = get_active_project_for_request(request)
+    selected_project_row = next(
+        (row for row in project_rows if active_project and row['project'].pk == active_project.pk),
+        None,
+    )
+
     return {
         'is_teacher_dashboard': True,
         'teacher_metrics': [
@@ -185,6 +191,10 @@ def build_teacher_dashboard(request):
             },
         ],
         'teacher_projects': project_rows,
+        'active_project': active_project,
+        'selected_project_progress': selected_project_row['progress'] if selected_project_row else None,
+        'selected_project_total_cases': selected_project_row['project'].total_cases if selected_project_row else 0,
+        'selected_project_passed_cases': selected_project_row['project'].passed_cases if selected_project_row else 0,
     }
 
 
