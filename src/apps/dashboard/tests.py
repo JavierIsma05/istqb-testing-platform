@@ -65,3 +65,19 @@ def test_docente_puede_seleccionar_proyecto_y_los_requisitos_quedan_limitados(cl
     assert scoped_response.status_code == 200
     assert b'REQ-ONE' in scoped_response.content
     assert b'REQ-TWO' not in scoped_response.content
+
+
+@pytest.mark.django_db
+def test_dashboard_docente_renderiza_selector_de_proyecto(client):
+    from django.contrib.auth import get_user_model
+    from apps.projects.models import Project
+
+    User = get_user_model()
+    teacher = User.objects.create_user(email='teacher-navbar@example.com', password='StrongPass123', role=User.Roles.TEACHER)
+    Project.objects.create(code='PRJ-NAV-1', name='Proyecto del selector', created_by=teacher)
+    client.force_login(teacher)
+
+    response = client.get(reverse('dashboard'))
+
+    assert response.status_code == 200
+    assert b'PRJ-NAV-1' in response.content
