@@ -1458,7 +1458,7 @@ def _plan_report_context(plan):
 
 @login_required
 def plan_report_selector_view(request):
-    visible_projects = visible_projects_for(request.user).order_by('name')
+    visible_projects = visible_projects_for(request.user, request=request).order_by('name')
     plans = TestPlan.objects.filter(project__in=visible_projects).order_by('project', 'name')
     plans_by_project = {}
     for plan in plans:
@@ -1497,7 +1497,7 @@ def plan_report_view(request, pk):
     plan = get_object_or_404(
         TestPlan.objects.select_related('project', 'created_by').prefetch_related('risks'),
         pk=pk,
-        project__in=visible_projects_for(request.user),
+        project__in=visible_projects_for(request.user, request=request),
     )
     context = _plan_report_context(plan)
 

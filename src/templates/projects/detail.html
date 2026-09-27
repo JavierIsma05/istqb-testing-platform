@@ -14,6 +14,13 @@
     </a>
 </div>
 
+{% if request.user.is_teacher_role %}
+<div class="alert alert-info d-flex align-items-center gap-2" role="status">
+    <i class="bi bi-eye"></i>
+    <span>Modo revisión docente: las secciones del menú mostrarán únicamente la información de <strong>{{ project.code }}</strong>. Puedes cambiar de proyecto desde el selector superior.</span>
+</div>
+{% endif %}
+
 <section class="project-detail-hero">
     <div>
         <span class="project-status project-status-{% if project.status == 'ACTIVE' %}success{% elif project.status == 'CLOSED' %}muted{% else %}warning{% endif %}">

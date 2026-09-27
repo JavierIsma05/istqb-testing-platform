@@ -24,7 +24,7 @@
     </div>
 {% endif %}
 
-<section class="project-filter-card">
+{% if not request.user.is_teacher_role %}<section class="project-filter-card">
     <form method="GET" class="project-filters">
         <input type="hidden" name="view" value="{{ view_mode }}">
 
@@ -55,6 +55,7 @@
         </button>
     </form>
 </section>
+{% endif %}
 
 <div class="project-view-tabs">
     <a class="{% if view_mode != 'list' %}active{% endif %}" href="?view=cards{% if query %}&q={{ query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_member %}&member={{ selected_member }}{% endif %}">
