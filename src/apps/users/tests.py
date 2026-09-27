@@ -1,5 +1,7 @@
 import pytest
+import base64
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from apps.users.models import Profile
@@ -83,3 +85,31 @@ def test_usuario_puede_cambiar_su_contrasena_desde_el_perfil(client):
     assert response.status_code == 302
     user.refresh_from_db()
     assert user.check_password('NewStrongPass456')
+
+
+@pytest.mark.django_db
+def test_navbar_muestra_la_foto_guardada_del_perfil(client):
+    user = get_user_model().objects.create_user(
+        email='profile-avatar@example.com',
+        password='StrongPass123',
+        first_name='Avatar',
+        last_name='Test',
+    )
+    client.force_login(user)
+    image = SimpleUploadedFile(
+        'avatar.png',
+        base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='),
+        content_type='image/png',
+    )
+
+    response = client.post(reverse('users:profile'), {
+        'form_action': 'profile',
+        'first_name': 'Avatar',
+        'last_name': 'Test',
+        'bio': '',
+        'avatar': image,
+    }, follow=True)
+
+    assert response.status_code == 200
+    assert b'class="avatar"' in response.content
+    assert b'avatars/avatar' in response.content

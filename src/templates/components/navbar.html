@@ -34,7 +34,11 @@
         {% endwith %}
         <div class="dropdown">
             <button class="user-menu" data-bs-toggle="dropdown" type="button">
-                <span class="avatar">{{ request.user.first_name|first|default:'U' }}{{ request.user.last_name|first }}</span>
+                {% if current_profile and current_profile.avatar %}
+                    <img class="avatar" src="{{ current_profile.avatar.url }}" alt="Foto de {{ request.user.get_full_name|default:request.user.email }}">
+                {% else %}
+                    <span class="avatar">{{ request.user.first_name|first|default:'U' }}{{ request.user.last_name|first }}</span>
+                {% endif %}
                 <span class="user-copy">
                     <strong>{{ request.user.get_full_name|default:request.user.email }}</strong>
                     <small>{{ request.user.get_role_display }}</small>
