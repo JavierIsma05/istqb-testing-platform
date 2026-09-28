@@ -3451,10 +3451,10 @@ textarea.form-control {
 .automation-builder > .row > [data-step-field="target_url"],
 .automation-builder > .row > [data-step-field="selector_value"],
 .automation-builder > .row > [data-step-field="input_value"],
-.automation-builder > .row > [data-step-field="expected_value"] { grid-column: span 4; }
-.automation-builder > .row > [data-step-field="comparison_type"] { grid-column: span 3; }
-.automation-builder > .row > [data-step-field="timeout_seconds"],
-.automation-builder > .row > [data-step-field="is_critical"] { grid-column: span 4; }
+.automation-builder > .row > [data-step-field="expected_value"] { grid-column: span 5; }
+.automation-builder > .row > [data-step-field="comparison_type"],
+.automation-builder > .row > [data-step-field="timeout_seconds"] { grid-column: span 2; }
+.automation-builder > .row > [data-step-field="is_critical"] { grid-column: span 5; }
 .automation-builder > .row > .col-12 { grid-column: 1 / -1; }
 .automation-builder > .row > [hidden] { display: none !important; }
 
@@ -3510,20 +3510,6 @@ textarea.form-control {
 .automation-builder-submit {
     display: flex;
     justify-content: flex-end;
-}
-
-@media (max-width: 900px) {
-    .automation-builder > .row > [data-step-field="name"] { grid-column: span 5; }
-    .automation-builder > .row > [data-step-field="step_number"] { grid-column: span 1; }
-    .automation-builder > .row > [data-step-field="action_type"] { grid-column: span 3; }
-    .automation-builder > .row > [data-step-field="template"] { grid-column: span 3; }
-    .automation-builder > .row > [data-step-field="target_url"],
-    .automation-builder > .row > [data-step-field="selector_value"],
-    .automation-builder > .row > [data-step-field="input_value"],
-    .automation-builder > .row > [data-step-field="expected_value"] { grid-column: span 6; }
-    .automation-builder > .row > [data-step-field="comparison_type"],
-    .automation-builder > .row > [data-step-field="timeout_seconds"],
-    .automation-builder > .row > [data-step-field="is_critical"] { grid-column: span 4; }
 }
 
 @media (max-width: 560px) {
