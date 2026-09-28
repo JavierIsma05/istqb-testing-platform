@@ -785,7 +785,7 @@
                             <label class="form-label" for="{{ step_form.action_type.id_for_label }}">{{ step_form.action_type.label }}</label>
                             {{ step_form.action_type }}
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-2" data-step-field="template">
                             <label class="form-label" for="{{ step_form.template.id_for_label }}">{{ step_form.template.label }}</label>
                             {{ step_form.template }}
                         </div>
@@ -1097,7 +1097,7 @@
             VERIFY: ['name', 'step_number', 'action_type', 'selector_value', 'expected_value', 'comparison_type', 'timeout_seconds', 'is_critical'],
             WAIT: ['name', 'step_number', 'action_type', 'timeout_seconds', 'is_critical']
         };
-        var allowed = visibleFields[action.value] || [];
+        var allowed = visibleFields[action.value] || ['name', 'step_number', 'action_type', 'template', 'selector_value', 'timeout_seconds', 'is_critical'];
         builder.querySelectorAll('[data-step-field]').forEach(function (field) {
             field.hidden = !allowed.includes(field.getAttribute('data-step-field'));
         });
