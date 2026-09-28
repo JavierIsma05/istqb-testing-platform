@@ -103,6 +103,10 @@ class ExecutionResultForm(CurrentAcademicYearValidationMixin, forms.ModelForm):
             self.add_error('related_defect', 'El defecto seleccionado debe pertenecer al caso de prueba actual.')
         if execution_type == TestExecution.ExecutionType.CONFIRMATION and not related_defect:
             self.add_error('related_defect', 'Selecciona el defecto que se confirma con esta ejecucion.')
+        if execution_type == TestExecution.ExecutionType.CONFIRMATION and related_defect and related_defect.status not in {
+            'RESOLVED', 'PENDING_CONFIRMATION'
+        }:
+            self.add_error('related_defect', 'La confirmación solo puede ejecutarse sobre un defecto resuelto o pendiente de confirmación.')
         if actual_result in {'Cumple', 'No cumple'}:
             cleaned_data['result'] = TestExecution.Result.PASSED if actual_result == 'Cumple' else TestExecution.Result.FAILED
         if result in {TestExecution.Result.PASSED, TestExecution.Result.FAILED, TestExecution.Result.BLOCKED} and not actual_result:

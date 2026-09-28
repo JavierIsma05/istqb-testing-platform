@@ -59,9 +59,44 @@
                     Iniciar Sesión
                 </button>
             </form>
+            {% if demo_accounts %}
+            <div class="demo-accounts" data-demo-accounts>
+                <p class="demo-accounts-title"><i class="bi bi-person-badge"></i> Cuentas de demostración</p>
+                <div class="demo-accounts-grid">
+                    {% for account in demo_accounts %}
+                    <button class="demo-account-btn" type="button"
+                            data-demo-email="{{ account.email }}"
+                            data-demo-password="{{ account.password }}">
+                        <strong>{{ account.role }}</strong>
+                        <small>{{ account.email }}</small>
+                    </button>
+                    {% endfor %}
+                </div>
+                <p class="demo-accounts-hint">Haz clic en una cuenta para completar el formulario y entrar.</p>
+            </div>
+            {% endif %}
             <p class="auth-footnote">¿No tienes cuenta? <a href="{% url 'register' %}">Regístrate aquí</a></p>
         </div>
     </section>
+    {% if demo_accounts %}
+    <script>
+        (function () {
+            function fillFromButton(button) {
+                var form = document.querySelector('.auth-card form');
+                if (!form) { return; }
+                var email = form.querySelector('input[type="email"], input[name="email"]');
+                var password = form.querySelector('input[type="password"], input[name="password"]');
+                if (email) { email.value = button.getAttribute('data-demo-email') || ''; }
+                if (password) { password.value = button.getAttribute('data-demo-password') || ''; }
+                if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+            }
+            document.addEventListener('click', function (event) {
+                var button = event.target.closest('[data-demo-email]');
+                if (button) { fillFromButton(button); }
+            });
+        })();
+    </script>
+    {% endif %}
 
     <section class="auth-info-panel">
         <div class="auth-info-content">

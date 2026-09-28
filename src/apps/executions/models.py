@@ -80,9 +80,9 @@ class TestExecution(TimeStampedModel):
             }:
                 errors['related_defect'] = 'Un defecto relacionado solo puede asociarse mediante una prueba de confirmación o regresión.'
             elif self.execution_type == self.ExecutionType.CONFIRMATION and self.related_defect.status not in {
-                'IN_PROGRESS', 'RESOLVED', 'REOPENED', 'PENDING_CONFIRMATION'
+                'RESOLVED', 'PENDING_CONFIRMATION'
             }:
-                errors['related_defect'] = 'La confirmación solo puede ejecutarse sobre un defecto en corrección o pendiente de confirmación.'
+                errors['related_defect'] = 'La confirmación solo puede ejecutarse sobre un defecto resuelto o pendiente de confirmación.'
         if self.execution_type == self.ExecutionType.CONFIRMATION and not self.related_defect_id:
             errors['related_defect'] = 'Una ejecución de confirmación debe estar vinculada a un defecto.'
         if self.approval_percentage is not None and self.approval_percentage > 100:

@@ -5,7 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.defects.models import Defect
-from apps.executions.models import TestExecution
+from apps.executions.models import AutomatedValidationRule, TestData, TestExecution
 from apps.incidents.models import Incident
 from apps.phases.views import ensure_default_phases
 from apps.projects.models import Project
@@ -22,6 +22,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--email', required=True, help='Correo del usuario propietario de los datos demo.')
         parser.add_argument('--project-code', default='DEMO-ISTQB-001', help='Código único del proyecto demo.')
+        parser.add_argument('--teacher-email', default='', help='Opcional: correo del docente/tutor que revisará las ejecuciones.')
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -34,6 +35,13 @@ class Command(BaseCommand):
             )
         if not project_code:
             raise CommandError('El código del proyecto no puede estar vacío.')
+        teacher = None
+        if options.get('teacher_email'):
+            teacher = User.objects.filter(email__iexact=options['teacher_email'].strip()).first()
+            if not teacher:
+                raise CommandError(
+                    f'No existe el docente {options["teacher_email"]}. Créalo primero o verifica el correo.'
+                )
 
         project, _ = Project.objects.update_or_create(
             code=project_code,
@@ -43,10 +51,16 @@ class Command(BaseCommand):
                 'status': Project.Status.ACTIVE,
                 'start_date': date.today(),
                 'created_by': user,
-                'tutor': user if user.is_teacher_role else None,
+                'tutor': teacher or (user if user.is_teacher_role else None),
             },
         )
         project.members.add(user)
+        if teacher:
+            project.members.add(teacher)
+        if project.tutor_id:
+            # La visibilidad docente depende de ser miembro del proyecto; el
+            # flujo de creacion normal ya lo hace, la semilla debe replicarlo.
+            project.members.add(project.tutor_id)
 
         req_login, _ = Requirement.objects.update_or_create(
             project=project,
@@ -206,6 +220,69 @@ class Command(BaseCommand):
             test_case=case_profile,
             defaults={'rationale': 'El caso cubre la edición y visualización del perfil.'},
         )
+
+        # ----- Datos de prueba (variables) para la automatización ----- #
+        TestData.objects.update_or_create(
+            test_case=case_login, key='usuario_demo',
+            defaults={'value': user.email, 'created_by': user},
+        )
+        TestData.objects.update_or_create(
+            test_case=case_login, key='clave_demo',
+            defaults={'value': 'DemoSegura2026!', 'created_by': user},
+        )
+
+        # ----- Reglas automatizadas simples (login visible) ----- #
+        AutomatedValidationRule.objects.update_or_create(
+            test_case=case_login, step_number=1,
+            defaults={
+                'requirement': req_login,
+                'name': 'Paso 1: Abrir pantalla de inicio de sesión',
+                'action_type': AutomatedValidationRule.ActionType.OPEN_URL,
+                'target_url': 'http://localhost:8000/login/',
+                'comparison_type': AutomatedValidationRule.ComparisonType.EXACT,
+                'timeout_seconds': 10,
+                'is_critical': True,
+                'is_active': True,
+            },
+        )
+        AutomatedValidationRule.objects.update_or_create(
+            test_case=case_login, step_number=2,
+            defaults={
+                'requirement': req_login,
+                'name': 'Paso 2: Verificar título de inicio de sesión',
+                'action_type': AutomatedValidationRule.ActionType.VERIFY,
+                'selector_value': 'h2',
+                'expected_value': 'Iniciar Sesión',
+                'comparison_type': AutomatedValidationRule.ComparisonType.CONTAINS,
+                'timeout_seconds': 10,
+                'is_critical': True,
+                'is_active': True,
+            },
+        )
+
+        # ----- Caso pendiente simple para practicar una ejecución nueva ----- #
+        case_access_control, _ = TestCase.objects.update_or_create(
+            test_plan=plan,
+            code='TC-DEMO-003',
+            defaults={
+                'requirement': req_login,
+                'title': 'Inicio de sesión con credenciales inválidas',
+                'description': 'Validar que el sistema rechace credenciales incorrectas.',
+                'steps': '1. Abrir la pantalla de inicio de sesión.\n2. Escribir un correo válido con contraseña incorrecta.\n3. Presionar Iniciar sesión.',
+                'preconditions': 'La pantalla de inicio de sesión está disponible.',
+                'test_data': 'Correo: usuario existente · Contraseña: incorrecta',
+                'expected_result': 'El sistema muestra un mensaje de error y no concede acceso.',
+                'priority': TestCase.Priority.HIGH,
+                'status': TestCase.Status.PENDING,
+                'created_by': user,
+            },
+        )
+        TraceabilityLink.objects.update_or_create(
+            requirement=req_login,
+            test_case=case_access_control,
+            defaults={'rationale': 'El caso valida el comportamiento negativo del acceso.'},
+        )
+
         ensure_default_phases(project)
 
         self.stdout.write(self.style.SUCCESS('Datos demo creados o actualizados correctamente.'))
@@ -213,8 +290,10 @@ class Command(BaseCommand):
         self.stdout.write(f'Proyecto: {project.code} - {project.name}')
         self.stdout.write(f'Requisitos: {req_login.code}, {req_profile.code}')
         self.stdout.write(f'Plan: {plan.name}')
-        self.stdout.write(f'Casos: {case_login.code}, {case_profile.code}')
+        self.stdout.write(f'Casos: {case_login.code}, {case_profile.code}, {case_access_control.code}')
         self.stdout.write(f'Ejecuciones: {execution_login.pk}, {execution_profile.pk}')
+        self.stdout.write(f'Reglas automatizadas: {case_login.automated_rules.count()} pasos en {case_login.code}')
+        self.stdout.write(f'Variables de datos: {case_login.test_data_vars.count()} en {case_login.code}')
         self.stdout.write(f'Defecto: {defect.code}')
         self.stdout.write(f'Incidente/riesgo: {incident.code}')
         self.stdout.write('No se borraron datos existentes; puedes volver a ejecutar el comando sin duplicar estos registros.')

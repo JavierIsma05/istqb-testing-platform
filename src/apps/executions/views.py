@@ -214,6 +214,7 @@ def build_execution_calendar(projects):
 
 
 @login_required
+@transaction.atomic
 def execution_workspace_view(request):
     is_teacher_user = is_teacher(request.user)
     case_id = request.GET.get('case')
