@@ -771,56 +771,61 @@
                         <h4>Pasos automatizados</h4>
                         <p class="text-muted small mb-0">Agrega acciones controladas para validar el caso sin ejecutar comandos arbitrarios.</p>
                     </div>
-                    <div class="row g-2">
+                    <div class="automation-form-layout">
                         <div class="col-12 automation-section-label">GENERAL</div>
-                        <div class="col-md-5" data-step-field="name">
+                        <div class="automation-form-row1">
+                        <div class="field" data-step-field="name">
                             <label class="form-label" for="{{ step_form.name.id_for_label }}">{{ step_form.name.label }}</label>
                             {{ step_form.name }}
                         </div>
-                        <div class="col-md-2" data-step-field="step_number">
+                        <div class="field" data-step-field="step_number">
                             <label class="form-label" for="{{ step_form.step_number.id_for_label }}">{{ step_form.step_number.label }}</label>
                             {{ step_form.step_number }}
                         </div>
-                        <div class="col-md-3" data-step-field="action_type">
+                        <div class="field" data-step-field="action_type">
                             <label class="form-label" for="{{ step_form.action_type.id_for_label }}">{{ step_form.action_type.label }}</label>
                             {{ step_form.action_type }}
                         </div>
-                        <div class="col-md-2" data-step-field="template">
+                        <div class="field" data-step-field="template">
                             <label class="form-label" for="{{ step_form.template.id_for_label }}">{{ step_form.template.label }}</label>
                             {{ step_form.template }}
+                        </div>
                         </div>
                         <div class="col-12 automation-parameters-divider">
                             <span data-step-parameters-label>PARÁMETROS — SELECCIONA UNA ACCIÓN</span>
                         </div>
-                        <div class="col-md-4" data-step-field="target_url">
+                        <div class="automation-form-row2">
+                        <div class="field" data-step-field="target_url">
                             <label class="form-label" for="{{ step_form.target_url.id_for_label }}">{{ step_form.target_url.label }}</label>
                             {{ step_form.target_url }}
                         </div>
-                        <div class="col-md-4" data-step-field="selector_value">
+                        <div class="field" data-step-field="selector_value">
                             <label class="form-label" for="{{ step_form.selector_value.id_for_label }}">{{ step_form.selector_value.label }}</label>
                             {{ step_form.selector_value }}
                         </div>
-                        <div class="col-md-4" data-step-field="input_value">
+                        <div class="field" data-step-field="input_value">
                             <label class="form-label" for="{{ step_form.input_value.id_for_label }}">{{ step_form.input_value.label }}</label>
                             {{ step_form.input_value }}
                         </div>
-                        <div class="col-md-4" data-step-field="expected_value">
+                        <div class="field" data-step-field="expected_value">
                             <label class="form-label" for="{{ step_form.expected_value.id_for_label }}">{{ step_form.expected_value.label }}</label>
                             {{ step_form.expected_value }}
                         </div>
-                        <div class="col-md-3" data-step-field="comparison_type">
+                        <div class="field" data-step-field="comparison_type">
                             <label class="form-label" for="{{ step_form.comparison_type.id_for_label }}">{{ step_form.comparison_type.label }}</label>
                             {{ step_form.comparison_type }}
                         </div>
-                        <div class="col-md-2" data-step-field="timeout_seconds">
+                        <div class="field" data-step-field="timeout_seconds">
                             <label class="form-label" for="{{ step_form.timeout_seconds.id_for_label }}">{{ step_form.timeout_seconds.label }}</label>
                             {{ step_form.timeout_seconds }}
                         </div>
-                        <div class="col-md-3" data-step-field="is_critical">
+                        <div class="field" data-step-field="is_critical">
+                            <label class="form-label" for="{{ step_form.is_critical.id_for_label }}">Paso crítico</label>
                             <div class="form-check automation-critical-check">
                                 {{ step_form.is_critical }}
-                                <label class="form-check-label" for="{{ step_form.is_critical.id_for_label }}">{{ step_form.is_critical.label }}</label>
+                                <span class="form-check-label">{{ step_form.is_critical.label }}</span>
                             </div>
+                        </div>
                         </div>
                         <div class="col-12">
                             <div class="automation-rule-help" data-step-action-help>
