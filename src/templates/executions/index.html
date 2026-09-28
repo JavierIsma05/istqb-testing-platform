@@ -1067,8 +1067,10 @@
         });
     }
     var action = document.querySelector('[name="action_type"]');
-    var help = document.querySelector('[data-automation-action-help]');
+    var help = document.querySelector('[data-step-action-help]');
     if (!action || !help) return;
+    var helpText = help.querySelector('span') || help;
+    var builder = action.closest('.automation-builder');
     var guidance = {
         OPEN_URL: 'Abrir URL: escribe la dirección completa en URL a abrir. No necesita selector, dato ni resultado esperado.',
         FILL_TEXT: 'Escribir: indica el Selector CSS del campo y el Dato que se escribirá; puedes usar variables como {{usuario}}.',
@@ -1077,7 +1079,19 @@
         WAIT: 'Esperar: indica la duración en segundos. Sirve para esperar una carga o actualización antes del siguiente paso.'
     };
     function updateHelp() {
-        help.textContent = guidance[action.value] || 'Selecciona una acción para ver qué dato necesita cada campo. La automatización solo ejecuta acciones controladas, nunca comandos arbitrarios.';
+        helpText.textContent = guidance[action.value] || 'Selecciona una acción para ver qué dato necesita cada campo. La automatización solo ejecuta acciones controladas, nunca comandos arbitrarios.';
+        if (!builder) return;
+        var visibleFields = {
+            OPEN_URL: ['name', 'step_number', 'action_type', 'target_url', 'is_critical'],
+            FILL_TEXT: ['name', 'step_number', 'action_type', 'selector_value', 'input_value', 'is_critical'],
+            CLICK: ['name', 'step_number', 'action_type', 'selector_value', 'is_critical'],
+            VERIFY: ['name', 'step_number', 'action_type', 'selector_value', 'expected_value', 'comparison_type', 'is_critical'],
+            WAIT: ['name', 'step_number', 'action_type', 'timeout_seconds', 'is_critical']
+        };
+        var allowed = visibleFields[action.value] || [];
+        builder.querySelectorAll('[data-step-field]').forEach(function (field) {
+            field.hidden = !allowed.includes(field.getAttribute('data-step-field'));
+        });
     }
     action.addEventListener('change', updateHelp);
     updateHelp();
