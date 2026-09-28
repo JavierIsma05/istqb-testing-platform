@@ -9,7 +9,7 @@ from django.utils import timezone
 from apps.audit.models import AuditLog
 from apps.defects.models import Defect
 from apps.executions.forms import AutomatedStepForm, ExecutionResultForm
-from apps.executions.models import AutomatedExecutionResult, AutomatedValidationRule, TestExecution as ExecutionModel
+from apps.executions.models import AutomatedExecutionResult, AutomatedValidationRule, TestData, TestExecution as ExecutionModel
 from apps.executions.services.automated_runner import (
     aggregate_automated_status,
     evaluate,
@@ -1333,3 +1333,107 @@ def test_regresion_fallida_crea_defecto_trazable(client, test_case, user):
     assert response.status_code == 302
     assert regression.result == ExecutionModel.Result.FAILED
     assert defect.test_case == test_case
+
+
+@pytest.mark.django_db
+def test_confirmacion_sobre_defecto_en_correccion_muestra_error_sin_500(client, test_case, user):
+    """Confirmar un defecto que aún está en corrección debe rechazarse en el
+    formulario (mensaje amigable), no reventar con HTTP 500 ni dejar datos a medias."""
+    approve_requirement(test_case)
+    defect = Defect.objects.create(
+        project=test_case.test_plan.project,
+        test_case=test_case,
+        code='DEF-CONF-003',
+        title='Defecto todavía en corrección',
+        description='No debería poder confirmarse.',
+        status=Defect.Status.IN_PROGRESS,
+        reported_by=user,
+    )
+    client.force_login(user)
+
+    response = client.post(
+        f'{reverse("executions:index")}?case={test_case.id}',
+        data={
+            **manual_payload(
+                execution_type=ExecutionModel.ExecutionType.CONFIRMATION,
+                related_defect=defect.pk,
+                result=ExecutionModel.Result.PASSED,
+                actual_result='Cumple',
+            ),
+            **step_payload(ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED),
+        },
+    )
+
+    assert response.status_code == 200
+    assert 'resuelto o pendiente de confirmación' in response.content.decode()
+    assert not ExecutionModel.objects.filter(
+        test_case=test_case,
+        execution_type=ExecutionModel.ExecutionType.CONFIRMATION,
+    ).exists()
+    defect.refresh_from_db()
+    assert defect.status == Defect.Status.IN_PROGRESS
+
+
+@pytest.mark.django_db
+def test_creacion_de_variable_de_datos_responde_ok(client, test_case, user):
+    """Crear una variable de datos de prueba no debe devolver 500 (regresión de
+    auditoría que usaba un atributo inexistente del modelo)."""
+    client.force_login(user)
+
+    response = client.post(
+        reverse('executions:test-data-create', kwargs={'case_id': test_case.id}),
+        data={'key': 'usuario_demo', 'value': 'estudiante@example.com'},
+    )
+
+    assert response.status_code == 302
+    assert TestData.objects.filter(test_case=test_case, key='usuario_demo').exists()
+
+
+@pytest.mark.django_db
+def test_variable_de_datos_duplicada_no_devuelve_500(client, test_case, user):
+    """Crear dos veces la misma variable debe mostrar un mensaje, no un 500."""
+    from apps.executions.models import TestData as DataModel
+    DataModel.objects.create(test_case=test_case, key='usuario_demo', value='a@example.com', created_by=user)
+    client.force_login(user)
+
+    response = client.post(
+        reverse('executions:test-data-create', kwargs={'case_id': test_case.id}),
+        data={'key': 'usuario_demo', 'value': 'otro@example.com'},
+    )
+
+    assert response.status_code == 302
+    assert DataModel.objects.filter(test_case=test_case, key='usuario_demo').count() == 1
+
+
+@pytest.mark.django_db
+def test_confirmacion_sobre_defecto_resuelto_cierra_defecto(client, test_case, user):
+    """El caso feliz de confirmación sigue funcionando tras alinear los estados."""
+    approve_requirement(test_case)
+    defect = Defect.objects.create(
+        project=test_case.test_plan.project,
+        test_case=test_case,
+        code='DEF-CONF-004',
+        title='Defecto resuelto listo para confirmar',
+        description='Pendiente de confirmación.',
+        status=Defect.Status.RESOLVED,
+        resolution='Corrección aplicada.',
+        reported_by=user,
+    )
+    client.force_login(user)
+
+    response = client.post(
+        f'{reverse("executions:index")}?case={test_case.id}',
+        data={
+            **manual_payload(
+                execution_type=ExecutionModel.ExecutionType.CONFIRMATION,
+                related_defect=defect.pk,
+                result=ExecutionModel.Result.PASSED,
+                actual_result='Cumple',
+            ),
+            **step_payload(ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED, ExecutionModel.Result.PASSED),
+        },
+    )
+
+    assert response.status_code == 302
+    defect.refresh_from_db()
+    assert defect.status == Defect.Status.CLOSED

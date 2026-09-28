@@ -96,10 +96,13 @@ def test_data_create_view(request, case_id):
     if form.is_valid():
         data = form.save(commit=False)
         data.test_case = test_case
+        if TestData.objects.filter(test_case=test_case, key=data.key).exists():
+            messages.error(request, f'Ya existe una variable llamada "{data.key}" en este caso de prueba.')
+            return redirect(f'{reverse("executions:index")}?case={test_case.id}#automation')
         data.save()
         log_action(request.user, 'CREATE', 'TestData', data.pk, {
             'test_case_id': test_case.pk,
-            'name': data.name,
+            'key': data.key,
         })
         messages.success(request, 'Variable de prueba registrada correctamente.')
     else:
