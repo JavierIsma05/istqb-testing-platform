@@ -3440,10 +3440,14 @@ textarea.form-control {
     margin-right: 0;
 }
 
+.automation-builder > .row > * {
+    min-width: 0;
+}
+
 .automation-builder > .row > [data-step-field="name"] { grid-column: span 5; }
-.automation-builder > .row > [data-step-field="step_number"] { grid-column: span 2; }
+.automation-builder > .row > [data-step-field="step_number"] { grid-column: span 1; }
 .automation-builder > .row > [data-step-field="action_type"] { grid-column: span 3; }
-.automation-builder > .row > :not([data-step-field]) { grid-column: span 2; }
+.automation-builder > .row > [data-step-field="template"] { grid-column: span 3; }
 .automation-builder > .row > [data-step-field="target_url"],
 .automation-builder > .row > [data-step-field="selector_value"],
 .automation-builder > .row > [data-step-field="input_value"],
@@ -3452,6 +3456,7 @@ textarea.form-control {
 .automation-builder > .row > [data-step-field="timeout_seconds"],
 .automation-builder > .row > [data-step-field="is_critical"] { grid-column: span 4; }
 .automation-builder > .row > .col-12 { grid-column: 1 / -1; }
+.automation-builder > .row > [hidden] { display: none !important; }
 
 .automation-builder .form-label {
     color: var(--ink);
@@ -3463,7 +3468,16 @@ textarea.form-control {
 
 .automation-builder .form-control,
 .automation-builder .form-select {
+    display: block;
     min-height: 42px;
+    width: 100%;
+}
+
+.automation-builder input[type="text"],
+.automation-builder input[type="number"],
+.automation-builder select {
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
 .automation-builder .automation-critical-check {
@@ -3473,8 +3487,20 @@ textarea.form-control {
     border-radius: 9px;
     display: flex;
     gap: 8px;
-    height: 100%;
+    height: 42px;
     padding: 10px 12px;
+}
+
+.automation-critical-check .form-check-input {
+    flex: 0 0 auto;
+    height: 18px;
+    margin: 0;
+    width: 18px;
+}
+
+.automation-critical-check .form-check-label {
+    line-height: 1.2;
+    white-space: nowrap;
 }
 
 .automation-critical-check {
@@ -3487,10 +3513,10 @@ textarea.form-control {
 }
 
 @media (max-width: 900px) {
-    .automation-builder > .row > [data-step-field="name"] { grid-column: span 6; }
-    .automation-builder > .row > [data-step-field="step_number"] { grid-column: span 2; }
-    .automation-builder > .row > [data-step-field="action_type"],
-    .automation-builder > .row > :not([data-step-field]) { grid-column: span 4; }
+    .automation-builder > .row > [data-step-field="name"] { grid-column: span 5; }
+    .automation-builder > .row > [data-step-field="step_number"] { grid-column: span 1; }
+    .automation-builder > .row > [data-step-field="action_type"] { grid-column: span 3; }
+    .automation-builder > .row > [data-step-field="template"] { grid-column: span 3; }
     .automation-builder > .row > [data-step-field="target_url"],
     .automation-builder > .row > [data-step-field="selector_value"],
     .automation-builder > .row > [data-step-field="input_value"],
