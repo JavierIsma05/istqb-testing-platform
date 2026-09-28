@@ -3401,6 +3401,37 @@ textarea.form-control {
     margin: 0 0 2px;
 }
 
+.automation-section-label,
+.automation-parameters-divider {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.automation-section-label {
+    margin-bottom: -4px;
+}
+
+.automation-parameters-divider {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    margin: 2px 0 -2px;
+}
+
+.automation-parameters-divider::after {
+    background: var(--line);
+    content: '';
+    flex: 1;
+    height: 1px;
+}
+
+.automation-parameters-divider span {
+    white-space: nowrap;
+}
+
 .automation-builder > .row {
     display: grid;
     gap: 14px;
@@ -3418,8 +3449,8 @@ textarea.form-control {
 .automation-builder > .row > [data-step-field="input_value"],
 .automation-builder > .row > [data-step-field="expected_value"] { grid-column: span 4; }
 .automation-builder > .row > [data-step-field="comparison_type"] { grid-column: span 3; }
-.automation-builder > .row > [data-step-field="timeout_seconds"] { grid-column: span 2; }
-.automation-builder > .row > [data-step-field="is_critical"] { grid-column: span 3; }
+.automation-builder > .row > [data-step-field="timeout_seconds"],
+.automation-builder > .row > [data-step-field="is_critical"] { grid-column: span 4; }
 .automation-builder > .row > .col-12 { grid-column: 1 / -1; }
 
 .automation-builder .form-label {
@@ -3427,6 +3458,7 @@ textarea.form-control {
     font-size: 12px;
     font-weight: 800;
     margin-bottom: 6px;
+    white-space: nowrap;
 }
 
 .automation-builder .form-control,
@@ -3446,7 +3478,7 @@ textarea.form-control {
 }
 
 .automation-critical-check {
-    padding-top: 30px;
+    padding-top: 0;
 }
 
 .automation-builder-submit {
