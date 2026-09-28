@@ -449,6 +449,9 @@
         </a>
         <form method="GET" class="execution-case-picker">
             <select name="case" class="form-select" onchange="this.form.submit()">
+                {% if not test_cases %}
+                    <option value="" selected>Sin casos en el proyecto activo</option>
+                {% endif %}
                 {% for test_case in test_cases %}
                     <option value="{{ test_case.id }}" {% if selected_case and selected_case.id == test_case.id %}selected{% endif %}>
                         {{ test_case.code }} - {{ test_case.title }}
@@ -946,6 +949,52 @@
             <article><span>Fallidas</span><strong>{{ failed_count }}</strong></article>
             <article><span>Éxito</span><strong>{{ success_percent }}%</strong></article>
         </div>
+    </section>
+{% else %}
+    {# ---- Estado vacío: sin caso seleccionado o sin casos en el proyecto ---- #}
+    <section class="content-card execution-empty-state" data-execution-empty>
+        <div class="execution-empty-icon" aria-hidden="true">
+            <i class="bi bi-play-circle"></i>
+        </div>
+        {% if test_cases %}
+            <h3>Selecciona un caso de prueba para ejecutar</h3>
+            <p>
+                Usa el selector de la parte superior para elegir el caso que quieres ejecutar.
+                Podrás registrar la <strong>ejecución manual</strong> paso a paso o lanzar la
+                <strong>ejecución automatizada</strong> con los pasos configurados.
+            </p>
+        {% elif active_project %}
+            <h3>El proyecto activo <strong>{{ active_project.code }}</strong> aún no tiene casos de prueba</h3>
+            <p>
+                Por eso el selector aparece vacío y no se muestran las pantallas de ejecución.
+                Registra primero casos de prueba en este proyecto (o cambia de proyecto desde
+                <strong>Proyectos</strong> si trabajas en otro) y aquí aparecerán listos para
+                ejecutarse de forma manual o automatizada.
+            </p>
+            <div class="execution-empty-actions">
+                <a class="btn btn-brand" href="{% url 'testcases:index' %}?project={{ active_project.pk }}">
+                    <i class="bi bi-flask"></i> Crear casos en {{ active_project.code }}
+                </a>
+                <a class="btn btn-outline-brand" href="{% url 'projects:index' %}">
+                    <i class="bi bi-kanban"></i> Cambiar de proyecto
+                </a>
+            </div>
+        {% else %}
+            <h3>Todavía no hay casos de prueba para ejecutar</h3>
+            <p>
+                Para ejecutar pruebas primero necesitas un plan de pruebas con casos asociados.
+                Crea un plan y luego registra tus casos de prueba; aparecerán aquí listos para
+                ejecutarse de forma manual o automatizada.
+            </p>
+            <div class="execution-empty-actions">
+                <a class="btn btn-brand" href="{% url 'testplans:index' %}">
+                    <i class="bi bi-clipboard"></i> Ir a planes de prueba
+                </a>
+                <a class="btn btn-outline-brand" href="{% url 'testcases:index' %}">
+                    <i class="bi bi-flask"></i> Ir a casos de prueba
+                </a>
+            </div>
+        {% endif %}
     </section>
 {% endif %}
 {% endif %}

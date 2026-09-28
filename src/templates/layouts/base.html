@@ -35,10 +35,10 @@
     <link rel="shortcut icon" type="image/svg+xml" href="{% static 'images/brand/testflow-mark.svg' %}">
     <link rel="apple-touch-icon" href="{% static 'images/brand/testflow-mark.svg' %}">
 
-    <!-- Bootstrap -->
+    <!-- Bootstrap (vendoreado localmente para no depender del CDN) -->
 
     <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        href="{% static 'vendor/bootstrap/bootstrap.min.css' %}"
         rel="stylesheet"
     >
 
@@ -46,14 +46,14 @@
 
     <link
         rel="stylesheet"
-        href="{% static 'css/main.css' %}?v=20260911-fase78-reportes"
+        href="{% static 'css/main.css' %}?v=20260928-ejecuciones-fix"
     >
 
-    <!-- Bootstrap Icons -->
+    <!-- Bootstrap Icons (vendoreado localmente) -->
 
     <link
         rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+        href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}"
     >
 
     {% block extra_css %}{% endblock %}
@@ -65,16 +65,16 @@
     {% block content %}
     {% endblock %}
 
-    <!-- Bootstrap JS -->
+    <!-- Bootstrap JS (vendoreado localmente) -->
 
     <script
-        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
+        src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}">
     </script>
 
     <!-- Main JS -->
 
     <script
-        src="{% static 'js/main.js' %}?v=20260927-sidebar-expand">
+        src="{% static 'js/main.js' %}?v=20260928-ejecuciones-fix">
     </script>
 
     {% block extra_js %}{% endblock %}

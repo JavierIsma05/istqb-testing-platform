@@ -7254,3 +7254,103 @@ textarea.form-control {
         padding: 7px 9px;
     }
 }
+
+/* ---- Estado vacío de ejecuciones ---- */
+.execution-empty-state {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 56px 28px;
+    text-align: center;
+}
+
+.execution-empty-icon {
+    align-items: center;
+    background: var(--brand-light);
+    border-radius: 999px;
+    color: var(--brand-dark);
+    display: flex;
+    font-size: 42px;
+    height: 84px;
+    justify-content: center;
+    width: 84px;
+}
+
+.execution-empty-state h3 {
+    font-size: 19px;
+    font-weight: 800;
+    margin: 0;
+}
+
+.execution-empty-state p {
+    color: var(--muted);
+    margin: 0;
+    max-width: 560px;
+}
+
+.execution-empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+/* ---- Cuentas demo en el login ---- */
+.demo-accounts {
+    border-top: 1px dashed var(--line);
+    margin-top: 18px;
+    padding-top: 16px;
+}
+
+.demo-accounts-title {
+    align-items: center;
+    color: var(--muted);
+    display: flex;
+    font-size: 13px;
+    font-weight: 700;
+    gap: 6px;
+    letter-spacing: 0.04em;
+    margin: 0 0 10px;
+    text-transform: uppercase;
+}
+
+.demo-accounts-grid {
+    display: grid;
+    gap: 8px;
+}
+
+.demo-account-btn {
+    background: var(--brand-light);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    color: var(--brand-dark);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    text-align: left;
+    transition: border-color .15s ease, transform .15s ease;
+}
+
+.demo-account-btn:hover {
+    border-color: var(--brand);
+    transform: translateY(-1px);
+}
+
+.demo-account-btn strong {
+    font-size: 14px;
+}
+
+.demo-account-btn small {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.demo-accounts-hint {
+    color: var(--muted);
+    font-size: 12px;
+    margin: 10px 0 0;
+}

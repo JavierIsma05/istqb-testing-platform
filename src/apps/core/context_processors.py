@@ -1,11 +1,14 @@
+from django.conf import settings
+
 from apps.core.permissions import get_active_project_for_request, visible_projects_for
 from apps.users.models import Profile
 
 
 def project_context(request):
+    demo_accounts = getattr(settings, 'DEMO_ACCOUNTS', []) or []
     user = getattr(request, 'user', None)
     if not getattr(user, 'is_authenticated', False):
-        return {'active_project': None, 'teacher_project_options': [], 'project_query': '', 'current_profile': None}
+        return {'active_project': None, 'teacher_project_options': [], 'project_query': '', 'current_profile': None, 'demo_accounts': demo_accounts}
 
     active_project = get_active_project_for_request(request)
     current_profile = Profile.objects.filter(user=user).first()
