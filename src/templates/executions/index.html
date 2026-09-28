@@ -766,45 +766,83 @@
                             <h4>Pasos automatizados</h4>
                             <p class="text-muted small">Agrega acciones controladas para validar el caso sin ejecutar comandos arbitrarios.</p>
                             {% if can_manage %}
-                                <form method="POST" action="{% url 'executions:rule-create' selected_case.pk %}" class="mb-3">
+                                <form method="POST" action="{% url 'executions:rule-create' selected_case.pk %}" class="automation-step-form mb-3" data-automation-step-form>
                                     {% csrf_token %}
                                     {{ step_form.non_field_errors }}
-                                    <div class="mb-2">
-                                        <label class="form-label" for="{{ step_form.name.id_for_label }}">{{ step_form.name.label }}</label>
-                                        {{ step_form.name }}
+                                    <div class="automation-form-section">
+                                        <div class="automation-form-section-heading">
+                                            <span class="automation-form-step">01</span>
+                                            <div>
+                                                <strong>Define el paso</strong>
+                                                <small>Identifica y ordena la acción que ejecutará el navegador.</small>
+                                            </div>
+                                        </div>
+                                        <div class="automation-form-grid automation-form-grid--identity">
+                                            <div class="automation-field automation-field--wide">
+                                                <label class="form-label" for="{{ step_form.name.id_for_label }}">{{ step_form.name.label }}</label>
+                                                {{ step_form.name }}
+                                            </div>
+                                            <div class="automation-field automation-field--step-number">
+                                                <label class="form-label" for="{{ step_form.step_number.id_for_label }}">{{ step_form.step_number.label }}</label>
+                                                {{ step_form.step_number }}
+                                            </div>
+                                            <div class="automation-field automation-field--action">
+                                                <label class="form-label" for="{{ step_form.action_type.id_for_label }}">{{ step_form.action_type.label }}</label>
+                                                {{ step_form.action_type }}
+                                            </div>
+                                            <div class="automation-field automation-field--template">
+                                                <label class="form-label" for="{{ step_form.template.id_for_label }}">{{ step_form.template.label }}</label>
+                                                {{ step_form.template }}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="mb-2">
-                                        <label class="form-label" for="{{ step_form.step_number.id_for_label }}">{{ step_form.step_number.label }}</label>
-                                        {{ step_form.step_number }}
-                                    </div>
-                                    <div class="mb-2">
-                                        <label class="form-label" for="{{ step_form.action_type.id_for_label }}">{{ step_form.action_type.label }}</label>
-                                        {{ step_form.action_type }}
-                                    </div>
-                                    <div class="mb-2">
+                                    <div class="automation-form-section">
+                                        <div class="automation-form-section-heading">
+                                            <span class="automation-form-step">02</span>
+                                            <div>
+                                                <strong>Configura los parámetros</strong>
+                                                <small>Completa únicamente los campos necesarios para la acción seleccionada.</small>
+                                            </div>
+                                        </div>
+                                        <div class="automation-form-grid automation-form-grid--parameters">
+                                            <div class="automation-field automation-field--url" data-automation-field="OPEN_URL">
+                                                <label class="form-label" for="{{ step_form.target_url.id_for_label }}">{{ step_form.target_url.label }}</label>
+                                                {{ step_form.target_url }}
+                                            </div>
+                                            <div class="automation-field automation-field--selector" data-automation-field="CLICK FILL_TEXT VERIFY">
+                                                <label class="form-label" for="{{ step_form.selector_value.id_for_label }}">{{ step_form.selector_value.label }}</label>
+                                                {{ step_form.selector_value }}
+                                            </div>
+                                            <div class="automation-field automation-field--input" data-automation-field="FILL_TEXT WAIT">
+                                                <label class="form-label" for="{{ step_form.input_value.id_for_label }}">{{ step_form.input_value.label }}</label>
+                                                {{ step_form.input_value }}
+                                            </div>
+                                            <div class="automation-field automation-field--expected" data-automation-field="VERIFY">
+                                                <label class="form-label" for="{{ step_form.expected_value.id_for_label }}">{{ step_form.expected_value.label }}</label>
+                                                {{ step_form.expected_value }}
+                                            </div>
+                                            <div class="automation-field automation-field--comparison" data-automation-field="VERIFY">
+                                                <label class="form-label" for="{{ step_form.comparison_type.id_for_label }}">{{ step_form.comparison_type.label }}</label>
+                                                {{ step_form.comparison_type }}
+                                            </div>
+                                            <div class="automation-field automation-field--timeout" data-automation-field="WAIT">
+                                                <label class="form-label" for="{{ step_form.timeout_seconds.id_for_label }}">{{ step_form.timeout_seconds.label }}</label>
+                                                {{ step_form.timeout_seconds }}
+                                            </div>
+                                        </div>
                                         <div class="automation-action-help" data-automation-action-help>
                                             Selecciona una acción para ver qué dato necesita cada campo. La automatización solo ejecuta acciones controladas, nunca comandos arbitrarios.
                                         </div>
                                     </div>
-                                    <div class="mb-2">
-                                        <label class="form-label" for="{{ step_form.selector_value.id_for_label }}">{{ step_form.selector_value.label }}</label>
-                                        {{ step_form.selector_value }}
+                                    <div class="automation-form-footer">
+                                        <label class="automation-critical-toggle" for="{{ step_form.is_critical.id_for_label }}">
+                                            {{ step_form.is_critical }}
+                                            <span><strong>Paso crítico</strong><small>Detiene la ejecución si falla.</small></span>
+                                        </label>
+                                        <button class="btn btn-outline-brand" type="submit" {% if case_blocked %}disabled{% endif %}>
+                                            <i class="bi bi-plus-circle"></i> Agregar paso
+                                        </button>
                                     </div>
-                                    <div class="mb-2">
-                                        <label class="form-label" for="{{ step_form.input_value.id_for_label }}">{{ step_form.input_value.label }}</label>
-                                        {{ step_form.input_value }}
-                                    </div>
-                                    <div class="mb-2">
-                                        <label class="form-label" for="{{ step_form.expected_value.id_for_label }}">{{ step_form.expected_value.label }}</label>
-                                        {{ step_form.expected_value }}
-                                    </div>
-                                    <div class="form-check mb-3">
-                                        {{ step_form.is_critical }}
-                                        <label class="form-check-label" for="{{ step_form.is_critical.id_for_label }}">{{ step_form.is_critical.label }}</label>
-                                    </div>
-                                    <button class="btn btn-outline-brand w-100" type="submit" {% if case_blocked %}disabled{% endif %}>
-                                        <i class="bi bi-plus-circle"></i> Agregar paso
-                                    </button>
                                 </form>
                             {% endif %}
                             <div class="table-responsive">
@@ -1001,6 +1039,7 @@
     var action = document.querySelector('[name="action_type"]');
     var help = document.querySelector('[data-automation-action-help]');
     if (!action || !help) return;
+    var stepForm = action.closest('[data-automation-step-form]');
     var guidance = {
         OPEN_URL: 'Abrir URL: escribe la dirección completa en URL a abrir. No necesita selector, dato ni resultado esperado.',
         FILL_TEXT: 'Escribir: indica el Selector CSS del campo y el Dato que se escribirá; puedes usar variables como {{usuario}}.',
@@ -1010,6 +1049,11 @@
     };
     function updateHelp() {
         help.textContent = guidance[action.value] || 'Selecciona una acción para ver qué dato necesita cada campo. La automatización solo ejecuta acciones controladas, nunca comandos arbitrarios.';
+        if (!stepForm) return;
+        stepForm.querySelectorAll('[data-automation-field]').forEach(function (field) {
+            var actions = (field.getAttribute('data-automation-field') || '').split(' ');
+            field.hidden = !actions.includes(action.value);
+        });
     }
     action.addEventListener('change', updateHelp);
     updateHelp();

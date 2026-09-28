@@ -3383,6 +3383,160 @@ textarea.form-control {
     padding: 10px 12px;
 }
 
+.automation-step-form {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px;
+}
+
+.automation-form-section + .automation-form-section {
+    border-top: 1px solid var(--line);
+    margin-top: 18px;
+    padding-top: 18px;
+}
+
+.automation-form-section-heading {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.automation-form-step {
+    align-items: center;
+    background: var(--brand-light);
+    border-radius: 8px;
+    color: var(--brand-dark);
+    display: inline-flex;
+    flex: 0 0 30px;
+    font-size: 12px;
+    font-weight: 800;
+    height: 30px;
+    justify-content: center;
+}
+
+.automation-form-section-heading strong,
+.automation-form-section-heading small {
+    display: block;
+}
+
+.automation-form-section-heading strong {
+    color: var(--ink);
+    font-size: 14px;
+}
+
+.automation-form-section-heading small {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+}
+
+.automation-form-grid {
+    display: grid;
+    gap: 14px;
+}
+
+.automation-form-grid--identity {
+    grid-template-columns: minmax(0, 1.7fr) 76px minmax(150px, 1fr) minmax(150px, 1fr);
+}
+
+.automation-form-grid--parameters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.automation-field {
+    min-width: 0;
+}
+
+.automation-field .form-label {
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.automation-field .form-control,
+.automation-field .form-select {
+    min-height: 42px;
+}
+
+.automation-field--url,
+.automation-field--selector {
+    grid-column: span 2;
+}
+
+.automation-field[hidden] {
+    display: none;
+}
+
+.automation-form-footer {
+    align-items: center;
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+    margin-top: 18px;
+}
+
+.automation-critical-toggle {
+    align-items: center;
+    cursor: pointer;
+    display: inline-flex;
+    gap: 9px;
+    margin: 0;
+}
+
+.automation-critical-toggle span {
+    display: grid;
+    gap: 2px;
+}
+
+.automation-critical-toggle strong {
+    color: var(--ink);
+    font-size: 13px;
+}
+
+.automation-critical-toggle small {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+@media (max-width: 900px) {
+    .automation-form-grid--identity {
+        grid-template-columns: minmax(0, 1fr) 76px;
+    }
+
+    .automation-field--action,
+    .automation-field--template {
+        grid-column: span 1;
+    }
+}
+
+@media (max-width: 560px) {
+    .automation-step-form {
+        padding: 14px;
+    }
+
+    .automation-form-grid--identity,
+    .automation-form-grid--parameters {
+        grid-template-columns: 1fr;
+    }
+
+    .automation-field--url,
+    .automation-field--selector {
+        grid-column: auto;
+    }
+
+    .automation-form-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .automation-form-footer .btn {
+        width: 100%;
+    }
+}
+
 .automation-guide {
     background: linear-gradient(135deg, rgba(231, 244, 255, 0.9), rgba(248, 251, 255, 0.95));
     border: 1px solid rgba(74, 144, 226, 0.22);
@@ -6394,6 +6548,26 @@ textarea.form-control {
 .theme-dark .automation-rule-help {
     background-color: #0d1725;
     border-color: #29405a;
+    color: #c7d8eb;
+}
+
+.theme-dark .automation-step-form {
+    background: #101c2c;
+    border-color: #29405a;
+}
+
+.theme-dark .automation-form-step {
+    background: #18314a;
+    color: #dbeafe;
+}
+
+.theme-dark .automation-form-section-heading strong,
+.theme-dark .automation-critical-toggle strong {
+    color: #eaf3ff;
+}
+
+.theme-dark .automation-form-section-heading small,
+.theme-dark .automation-critical-toggle small {
     color: #c7d8eb;
 }
 
