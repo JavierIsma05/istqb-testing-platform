@@ -772,6 +772,7 @@
                         <p class="text-muted small mb-0">Agrega acciones controladas para validar el caso sin ejecutar comandos arbitrarios.</p>
                     </div>
                     <div class="row g-2">
+                        <div class="col-12 automation-section-label">GENERAL</div>
                         <div class="col-md-5" data-step-field="name">
                             <label class="form-label" for="{{ step_form.name.id_for_label }}">{{ step_form.name.label }}</label>
                             {{ step_form.name }}
@@ -787,6 +788,9 @@
                         <div class="col-md-2">
                             <label class="form-label" for="{{ step_form.template.id_for_label }}">{{ step_form.template.label }}</label>
                             {{ step_form.template }}
+                        </div>
+                        <div class="col-12 automation-parameters-divider">
+                            <span data-step-parameters-label>PARÁMETROS — SELECCIONA UNA ACCIÓN</span>
                         </div>
                         <div class="col-md-4" data-step-field="target_url">
                             <label class="form-label" for="{{ step_form.target_url.id_for_label }}">{{ step_form.target_url.label }}</label>
@@ -820,8 +824,8 @@
                         </div>
                         <div class="col-12">
                             <div class="automation-rule-help" data-step-action-help>
-                                <strong>Selecciona una acción</strong>
-                                <span>El formulario muestra solo los campos necesarios para cada paso. La automatización solo ejecuta acciones controladas, nunca comandos arbitrarios.</span>
+                                <strong><i class="bi bi-info-circle"></i> <span data-step-action-title>Selecciona una acción</span></strong>
+                                <span data-step-action-description>El formulario muestra solo los campos necesarios para cada paso. La automatización solo ejecuta acciones controladas, nunca comandos arbitrarios.</span>
                             </div>
                         </div>
                         <div class="col-12 automation-builder-submit">
@@ -1069,23 +1073,28 @@
     var action = document.querySelector('[name="action_type"]');
     var help = document.querySelector('[data-step-action-help]');
     if (!action || !help) return;
-    var helpText = help.querySelector('span') || help;
+    var helpTitle = help.querySelector('[data-step-action-title]');
+    var helpText = help.querySelector('[data-step-action-description]') || help;
+    var parametersLabel = document.querySelector('[data-step-parameters-label]');
     var builder = action.closest('.automation-builder');
     var guidance = {
-        OPEN_URL: 'Abrir URL: escribe la dirección completa en URL a abrir. No necesita selector, dato ni resultado esperado.',
-        FILL_TEXT: 'Escribir: indica el Selector CSS del campo y el Dato que se escribirá; puedes usar variables como {{usuario}}.',
-        CLICK: 'Click: indica el Selector CSS del botón, enlace o elemento que se pulsará. No necesita dato.',
-        VERIFY: 'Verificar: indica el Selector CSS del elemento y el Resultado esperado que debe contener o coincidir.',
-        WAIT: 'Esperar: indica la duración en segundos. Sirve para esperar una carga o actualización antes del siguiente paso.'
+        OPEN_URL: ['Abrir URL', 'Abre la URL especificada en el navegador. Solo se requiere el campo URL a abrir.'],
+        FILL_TEXT: ['Escribir', 'Escribe un dato en el elemento indicado. Se requieren el selector CSS y el dato.'],
+        CLICK: ['Click', 'Hace clic en el elemento especificado. Solo se requiere el selector CSS.'],
+        VERIFY: ['Verificar', 'Comprueba que el elemento contenga o coincida con el resultado esperado.'],
+        WAIT: ['Esperar', 'Espera la duración indicada antes de continuar con el siguiente paso.']
     };
     function updateHelp() {
-        helpText.textContent = guidance[action.value] || 'Selecciona una acción para ver qué dato necesita cada campo. La automatización solo ejecuta acciones controladas, nunca comandos arbitrarios.';
+        var selectedGuidance = guidance[action.value] || ['Selecciona una acción', 'El formulario muestra solo los campos necesarios para cada paso. La automatización solo ejecuta acciones controladas, nunca comandos arbitrarios.'];
+        if (helpTitle) helpTitle.textContent = selectedGuidance[0];
+        helpText.textContent = selectedGuidance[1];
+        if (parametersLabel) parametersLabel.textContent = 'PARÁMETROS — ' + selectedGuidance[0].toUpperCase();
         if (!builder) return;
         var visibleFields = {
-            OPEN_URL: ['name', 'step_number', 'action_type', 'target_url', 'is_critical'],
-            FILL_TEXT: ['name', 'step_number', 'action_type', 'selector_value', 'input_value', 'is_critical'],
-            CLICK: ['name', 'step_number', 'action_type', 'selector_value', 'is_critical'],
-            VERIFY: ['name', 'step_number', 'action_type', 'selector_value', 'expected_value', 'comparison_type', 'is_critical'],
+            OPEN_URL: ['name', 'step_number', 'action_type', 'target_url', 'timeout_seconds', 'is_critical'],
+            FILL_TEXT: ['name', 'step_number', 'action_type', 'selector_value', 'input_value', 'timeout_seconds', 'is_critical'],
+            CLICK: ['name', 'step_number', 'action_type', 'selector_value', 'timeout_seconds', 'is_critical'],
+            VERIFY: ['name', 'step_number', 'action_type', 'selector_value', 'expected_value', 'comparison_type', 'timeout_seconds', 'is_critical'],
             WAIT: ['name', 'step_number', 'action_type', 'timeout_seconds', 'is_critical']
         };
         var allowed = visibleFields[action.value] || [];
