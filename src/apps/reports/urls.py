@@ -16,12 +16,14 @@ from apps.reports.views import (
     report_detail_view,
     report_download_view,
     report_list_view,
+    report_step_detail_api,
 )
 
 app_name = 'reports'
 
 urlpatterns = [
     path('', report_list_view, name='index'),
+    path('api/steps/<slug:step_type>/', report_step_detail_api, name='step-detail-api'),
     path('quality-metrics/', quality_metrics_view, name='quality-metrics'),
     path('quality-metrics.csv', quality_metrics_csv_view, name='quality-metrics-csv'),
     path('quality-metrics.pdf', quality_metrics_pdf_view, name='quality-metrics-pdf'),

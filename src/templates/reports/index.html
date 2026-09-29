@@ -1,99 +1,215 @@
 {% extends 'layouts/dashboard_base.html' %}
+{% load static %}
 
-{% block title %}Informes de Calidad{% endblock %}
+{% block title %}Informes de calidad{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/reports_flow.css' %}?v=20260928-flow">
+{% endblock %}
 
 {% block dashboard_content %}
-<div class="page-heading reports-heading">
-    <div>
-        <h2>Informes de Calidad</h2>
-        <p>Genera y gestiona informes profesionales en PDF con datos reales del proyecto</p>
-    </div>
-</div>
-
-{% if project_cards %}
-    {% for project_card in project_cards %}
-    <section class="reports-project-section">
-        <header class="reports-project-header">
-            <h3>{{ project_card.project.name }}</h3>
-            <span class="project-report-count">
-                {{ project_card.total_count }} informes · {{ project_card.generated_count }} generados
-            </span>
-        </header>
-
-        <div class="reports-card-grid">
-            {% for card_data in project_card.cards %}
-                {% include 'reports/_report_card.html' with card_data=card_data %}
-            {% endfor %}
-        </div>
-    </section>
-    {% endfor %}
-{% else %}
-    <section class="reports-empty-state">
-        <i class="bi bi-file-earmark-bar-graph"></i>
-        <h4>No hay proyectos disponibles</h4>
-        <p>No tienes acceso a ningún proyecto para generar informes.</p>
-    </section>
-{% endif %}
-
-<!-- Modal para generar nuevo informe -->
-{% if show_modal %}
-<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="reportModalLabel"><i class="bi bi-file-earmark-bar-graph"></i> Generar Nuevo Informe</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+<div class="rf-page">
+    <header class="rf-header">
+        <div class="rf-header__top">
+            <div>
+                <h2 class="rf-header__title">Informes de calidad</h2>
+                {% if selected_project %}
+                <p class="rf-header__subtitle">{{ selected_project.name }}</p>
+                {% endif %}
             </div>
-            <form method="POST">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label for="{{ form.project.id_for_label }}" class="form-label">{{ form.project.label }}</label>
-                            {{ form.project }}
-                            {% if form.project.help_text %}
-                            <div class="form-text">{{ form.project.help_text }}</div>
-                            {% endif %}
-                            {% for error in form.project.errors %}
-                            <div class="text-danger small">{{ error }}</div>
-                            {% endfor %}
+            {% if projects|length > 1 %}
+            <form method="get" class="rf-project-picker">
+                <label for="rf-project" class="form-label">Proyecto</label>
+                <select id="rf-project" name="project" class="form-select form-select-sm">
+                    {% for project in projects %}
+                    <option value="{{ project.pk }}" {% if selected_project and project.pk == selected_project.pk %}selected{% endif %}>{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-sm btn-outline-brand">Cambiar</button>
+            </form>
+            {% endif %}
+        </div>
+
+        {% if selected_project %}
+        <div class="rf-progress-row">
+            <div class="progress rf-progress" role="progressbar" aria-label="Informes generados"
+                 aria-valuenow="{{ generated_count }}" aria-valuemin="0" aria-valuemax="{{ total_steps }}">
+                <div class="progress-bar" style="width: {{ progress_percent }}%"></div>
+            </div>
+            <span class="rf-progress-text">{{ generated_count }} de {{ total_steps }} generados</span>
+        </div>
+        {% endif %}
+    </header>
+
+    {% if messages %}
+    <div class="rf-messages">
+        {% for message in messages %}
+        <div class="rf-note {% if message.tags == 'warning' or message.tags == 'error' %}rf-note--warning{% elif message.tags == 'success' %}rf-note--success{% endif %}" role="status">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if form_errors %}
+    <div class="rf-note rf-note--warning" role="alert">
+        No se pudo generar el informe.
+        {% for field, errors in form.errors.items %}{% for error in errors %} {{ error }}{% endfor %}{% endfor %}
+    </div>
+    {% endif %}
+
+    {% if selected_project %}
+    <div class="row g-4 rf-layout"
+         data-report-flow
+         data-api-url="{% url 'reports:step-detail-api' 'STEP' %}"
+         data-project="{{ selected_project.pk }}"
+         data-selected-step="{{ selected_step }}"
+         {% if auto_download_url %}data-auto-download="{{ auto_download_url }}"{% endif %}>
+
+        <div class="col-12 col-md-5">
+            <div class="rf-steps" role="tablist" aria-orientation="vertical" aria-label="Flujo de informes">
+                {% for step in steps %}
+                <div class="rf-step{% if step.is_generated %} is-done{% endif %}" role="presentation">
+                    <button type="button"
+                            role="tab"
+                            id="rf-tab-{{ step.type }}"
+                            class="rf-step__btn"
+                            data-step="{{ step.type }}"
+                            aria-controls="rf-panel"
+                            aria-selected="{% if step.type == selected_step %}true{% else %}false{% endif %}"
+                            tabindex="{% if step.type == selected_step %}0{% else %}-1{% endif %}">
+                        <span class="rf-step__circle" aria-hidden="true">
+                            {% if step.is_generated %}<i class="bi bi-check-lg"></i>{% else %}{{ step.number }}{% endif %}
+                        </span>
+                        <span class="rf-step__text">
+                            <span class="rf-step__name">{{ step.title }}</span>
+                            <span class="rf-step__status">
+                                {% if step.is_generated %}
+                                    Generado · {{ step.latest_report.created_at|date:'d/m/Y' }}
+                                {% else %}
+                                    Pendiente
+                                {% endif %}
+                            </span>
+                        </span>
+                        <span class="visually-hidden">, paso {{ step.number }} de {{ total_steps }}</span>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="col-12 col-md-7">
+            <section id="rf-panel" class="card rf-panel" role="tabpanel" aria-labelledby="rf-tab-{{ selected_step }}" tabindex="0" aria-busy="true">
+                <div class="card-body">
+                    <div class="rf-panel__loading" data-rf-loading>
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                        <span>Cargando detalle…</span>
+                    </div>
+
+                    <div class="rf-note rf-note--warning" data-rf-error hidden role="alert">
+                        No se pudo cargar el detalle del informe.
+                        <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-rf-retry>Reintentar</button>
+                    </div>
+
+                    <div data-rf-content hidden>
+                        <div class="rf-panel__head">
+                            <h3 class="rf-panel__title" data-rf-title></h3>
+                            <span class="badge rf-badge" data-rf-badge></span>
                         </div>
-                        <div class="col-12">
-                            <label for="{{ form.title.id_for_label }}" class="form-label">{{ form.title.label }}</label>
-                            {{ form.title }}
-                            {% if form.title.help_text %}
-                            <div class="form-text">{{ form.title.help_text }}</div>
-                            {% endif %}
-                            {% for error in form.title.errors %}
-                            <div class="text-danger small">{{ error }}</div>
-                            {% endfor %}
+                        <p class="rf-panel__description" data-rf-description></p>
+                        <p class="rf-panel__meta" data-rf-meta hidden></p>
+
+                        <div class="rf-note" data-rf-empty hidden>
+                            Este proyecto aún no tiene datos para este informe. Puedes generarlo, pero saldrá con valores en cero.
                         </div>
-                        <div class="col-12">
-                            <label for="{{ form.report_type.id_for_label }}" class="form-label">{{ form.report_type.label }}</label>
-                            {{ form.report_type }}
-                            {% if form.report_type.help_text %}
-                            <div class="form-text">{{ form.report_type.help_text }}</div>
-                            {% endif %}
-                            {% for error in form.report_type.errors %}
-                            <div class="text-danger small">{{ error }}</div>
-                            {% endfor %}
+
+                        <div class="rf-note rf-note--warning" data-rf-deps hidden>
+                            <strong>Faltan informes previos por generar:</strong>
+                            <ul class="rf-deps" data-rf-deps-list></ul>
                         </div>
+                        <div class="rf-note rf-note--success" data-rf-deps-ok hidden>
+                            Todos los informes previos están generados.
+                        </div>
+
+                        <h4 class="rf-section-title">Incluye</h4>
+                        <ul class="rf-checklist" data-rf-includes></ul>
+
+                        <form method="post" action="{% url 'reports:index' %}" class="rf-form" data-rf-form>
+                            {% csrf_token %}
+                            <input type="hidden" name="flow" value="1">
+                            <input type="hidden" name="project" value="{{ selected_project.pk }}">
+                            <input type="hidden" name="report_type" value="" data-rf-input-type>
+                            <input type="hidden" name="title" value="" data-rf-input-title>
+                            <input type="hidden" name="skip_download" value="1" data-rf-input-skip disabled>
+
+                            <div class="row g-3">
+                                <div class="col-12 col-sm-6">
+                                    <label for="rf-format" class="form-label">Formato</label>
+                                    <select id="rf-format" name="format" class="form-select" data-rf-format>
+                                        {% for value, label in format_options %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text" data-rf-format-hint hidden>Los anexos requieren al menos un plan de pruebas.</div>
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <label for="rf-cycle" class="form-label">Ciclo</label>
+                                    <select id="rf-cycle" name="cycle" class="form-select" data-rf-cycle>
+                                        {% for value, label in cycle_options %}
+                                        <option value="{{ value }}">{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text" data-rf-cycle-hint hidden>No aplica a este informe.</div>
+                                </div>
+                            </div>
+
+                            <div class="rf-note rf-note--warning rf-confirm" data-rf-confirm hidden role="alert">
+                                <span>Aún faltan informes previos. ¿Quieres generar el informe final igualmente?</span>
+                                <span class="rf-confirm__actions">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-rf-confirm-yes>Generar igualmente</button>
+                                    <button type="button" class="btn btn-sm btn-link" data-rf-confirm-no>Cancelar</button>
+                                </span>
+                            </div>
+
+                            <div class="rf-actions">
+                                {% if can_manage %}
+                                <button type="submit" class="btn btn-brand" data-rf-generate>
+                                    <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Generar PDF
+                                </button>
+                                {% endif %}
+                                <a class="btn btn-outline-brand" href="#" target="_blank" rel="noopener" data-rf-preview>
+                                    <i class="bi bi-eye" aria-hidden="true"></i> Vista previa
+                                </a>
+                                <a class="btn btn-outline-brand" href="#" data-rf-download hidden>
+                                    <i class="bi bi-download" aria-hidden="true"></i> Descargar
+                                </a>
+                                {% if can_manage %}
+                                <button type="submit" class="btn btn-outline-brand" data-rf-regenerate hidden>
+                                    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Regenerar
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% if not can_manage %}
+                            <p class="form-text mb-0">Modo lectura: puedes revisar y descargar los informes ya generados.</p>
+                            {% endif %}
+                        </form>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-brand"><i class="bi bi-file-earmark-bar-graph"></i> Generar Informe</button>
-                </div>
-            </form>
+            </section>
         </div>
     </div>
+    {% else %}
+    <section class="card rf-panel">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-file-earmark-bar-graph fs-2 text-muted" aria-hidden="true"></i>
+            <h3 class="rf-panel__title mt-2">No hay proyectos disponibles</h3>
+            <p class="text-muted mb-0">No tienes acceso a ningún proyecto para generar informes.</p>
+        </div>
+    </section>
+    {% endif %}
 </div>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var modal = new bootstrap.Modal(document.getElementById('reportModal'));
-        modal.show();
-    });
-</script>
-{% endif %}
+{% endblock %}
 
+{% block extra_js %}
+<script src="{% static 'js/reports_flow.js' %}?v=20260928-flow" defer></script>
 {% endblock %}

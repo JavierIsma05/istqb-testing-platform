@@ -1,12 +1,14 @@
 import csv
 import json
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import escape
 from reportlab.graphics.charts.barcharts import VerticalBarChart
@@ -24,7 +26,12 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from apps.defects.models import Defect
 from apps.executions.models import TestExecution
 from apps.audit.services import log_action
-from apps.core.permissions import can_manage_artifacts, redirect_if_teacher_readonly, visible_projects_for
+from apps.core.permissions import (
+    can_manage_artifacts,
+    get_active_project_for_request,
+    redirect_if_teacher_readonly,
+    visible_projects_for,
+)
 from apps.incidents.models import Incident
 from apps.notifications.services import notify_project_tutor
 from apps.phases.models import TestingPhase
@@ -61,48 +68,67 @@ PLAN_REPORT_TYPES = {
     },
 }
 
-REPORT_CARDS = [
+REPORT_FLOW_STEPS = [
     {
         'number': 1,
-        'title': 'Informe del Plan de Pruebas',
-        'description': 'Objetivo, alcance, estrategia, criterios, recursos y riesgos asociados del plan. 1-2 páginas.',
-        'icon': 'bi-clipboard-check',
-        'tone': 'brand',
         'type': 'plan',
+        'title': 'Plan de pruebas',
+        'description': 'Objetivo, alcance, estrategia, criterios y riesgos del plan de pruebas.',
+        'report_type': Report.ReportType.SUMMARY,
+        'report_title': 'Informe del plan de pruebas',
     },
     {
         'number': 2,
-        'title': 'Informe de Casos de Prueba',
-        'description': 'Catálogo de casos con requisitos vinculados, prioridad, técnica y pasos de ejecución.',
-        'icon': 'bi-list-check',
-        'tone': 'brand',
         'type': 'casos',
+        'title': 'Casos de prueba',
+        'description': 'Catálogo de casos con requisitos vinculados, prioridad, técnica y pasos.',
+        'report_type': Report.ReportType.COVERAGE,
+        'report_title': 'Informe de casos de prueba',
     },
     {
         'number': 3,
-        'title': 'Informe de Ejecuciones',
-        'description': 'Resultados de ejecución, avance del ciclo, tasa de aprobación y distribución por estado.',
-        'icon': 'bi-collection-play',
-        'tone': 'success',
         'type': 'ejecuciones',
+        'title': 'Ejecuciones',
+        'description': 'Resultados de ejecución, avance del ciclo y tasa de aprobación.',
+        'report_type': Report.ReportType.EXECUTION,
+        'report_title': 'Informe de ejecuciones',
     },
     {
         'number': 4,
-        'title': 'Informe de Defectos',
-        'description': 'Defectos por severidad y estado, con detalle de cada hallazgo y su responsable.',
-        'icon': 'bi-bug',
-        'tone': 'danger',
         'type': 'defectos',
+        'title': 'Defectos',
+        'description': 'Defectos por severidad y estado, con su trazabilidad a ejecuciones.',
+        'report_type': Report.ReportType.DEFECTS,
+        'report_title': 'Informe de defectos',
     },
     {
         'number': 5,
-        'title': 'Informe Final de Pruebas',
-        'description': 'Resumen ejecutivo con métricas consolidadas, trazabilidad, conclusiones y recomendaciones.',
-        'icon': 'bi-file-earmark-bar-graph',
-        'tone': 'success',
         'type': 'final',
+        'title': 'Informe final',
+        'description': 'Resumen ejecutivo con métricas consolidadas, conclusiones y recomendaciones.',
+        'report_type': Report.ReportType.FINAL,
+        'report_title': 'Informe final de pruebas',
     },
 ]
+REPORT_FLOW_BY_TYPE = {step['type']: step for step in REPORT_FLOW_STEPS}
+REPORT_FLOW_BY_REPORT_TYPE = {step['report_type']: step for step in REPORT_FLOW_STEPS}
+
+# El select "Ciclo" se mapea al tipo de ejecución (no existe un modelo de ciclos).
+REPORT_FLOW_CYCLES = [
+    ('all', 'Todos'),
+    (TestExecution.ExecutionType.NORMAL, 'Ciclo 1 · funcional'),
+    (TestExecution.ExecutionType.CONFIRMATION, 'Ciclo 2 · confirmación'),
+    (TestExecution.ExecutionType.REGRESSION, 'Ciclo 3 · regresión'),
+]
+REPORT_FLOW_CYCLE_VALUES = {value for value, _label in REPORT_FLOW_CYCLES}
+# Informes cuyo contenido depende de ejecuciones y, por tanto, admiten filtro por ciclo.
+REPORT_FLOW_CYCLE_TYPES = {'ejecuciones', 'defectos', 'final'}
+
+REPORT_FLOW_FORMATS = [
+    ('pdf', 'PDF'),
+    ('pdf_annex', 'PDF con anexos'),
+]
+REPORT_FLOW_FORMAT_VALUES = {value for value, _label in REPORT_FLOW_FORMATS}
 
 CONTENT_LABELS = {
     'project': 'Proyecto',
@@ -2350,79 +2376,207 @@ def _get_latest_report_for_type(project, report_type):
     ).select_related('generated_by').order_by('-created_at').first()
 
 
-def _build_report_card_data(project, report_card, latest_report):
-    """Build enriched data for a report card with real metrics."""
-    report_type = report_card['type']
-    data = {
-        'card': report_card,
-        'project': project,
-        'latest_report': latest_report,
-        'has_report': latest_report is not None,
-        'status': 'sin_datos',
-        'metrics': [],
-        'actions': [],
+def _plural(count, singular, plural):
+    return f'{count} {singular if count == 1 else plural}'
+
+
+def _flow_include(label, value, available):
+    return {'label': label, 'value': value, 'available': bool(available)}
+
+
+def _flow_latest_reports(project):
+    """Último informe guardado por paso del flujo (misma regla de estado que antes)."""
+    return {
+        step['type']: _get_latest_report_for_type(project, step['type'])
+        for step in REPORT_FLOW_STEPS
     }
 
+
+def _flow_missing_dependencies(latest_reports):
+    return [
+        {'type': step['type'], 'number': step['number'], 'title': step['title']}
+        for step in REPORT_FLOW_STEPS
+        if step['type'] != 'final' and latest_reports.get(step['type']) is None
+    ]
+
+
+def _flow_preview_url(project, step_type, latest_report):
+    """Vista previa HTML: el informe imprimible del plan más reciente o, si no hay plan, el guardado."""
+    plan = TestPlan.objects.filter(project=project).order_by('-pk').first()
+    if plan:
+        return reverse(PLAN_REPORT_TYPES[step_type]['url_name'], args=[plan.pk])
     if latest_report:
-        data['status'] = 'generado'
-        data['generated_at'] = latest_report.created_at
-        data['generated_by'] = latest_report.generated_by
+        return reverse('reports:detail', args=[latest_report.pk])
+    return ''
 
-        if report_type == 'plan':
-            content = latest_report.content
-            data['metrics'] = [
-                {'label': 'Requisitos', 'value': _content_value(latest_report, 'requirements')},
-                {'label': 'Casos', 'value': _content_value(latest_report, 'test_cases')},
-                {'label': 'Cobertura', 'value': f"{_content_value(latest_report, 'coverage')}%"},
-            ]
-        elif report_type == 'casos':
-            content = latest_report.content
-            data['metrics'] = [
-                {'label': 'Casos de prueba', 'value': _content_value(latest_report, 'test_cases')},
-                {'label': 'Casos vinculados', 'value': _content_value(latest_report, 'linked_test_cases')},
-                {'label': 'Casos pendientes', 'value': _content_value(latest_report, 'pending_test_cases')},
-            ]
-        elif report_type == 'ejecuciones':
-            content = latest_report.content
-            data['metrics'] = [
-                {'label': 'Avance', 'value': f"{_content_value(latest_report, 'execution_progress')}%"},
-                {'label': 'Aprobadas', 'value': _content_value(latest_report, 'passed_executions')},
-                {'label': 'Fallidas', 'value': _content_value(latest_report, 'failed_executions')},
-                {'label': 'Bloqueadas', 'value': _content_value(latest_report, 'blocked_executions')},
-            ]
-        elif report_type == 'defectos':
-            content = latest_report.content
-            data['metrics'] = [
-                {'label': 'Total', 'value': _content_value(latest_report, 'defects')},
-                {'label': 'Abiertos', 'value': _content_value(latest_report, 'open_defects')},
-                {'label': 'Críticos', 'value': _content_value(latest_report, 'high_defects')},
-                {'label': 'Cerrados', 'value': _content_value(latest_report, 'closed_defects')},
-            ]
-        elif report_type == 'final':
-            content = latest_report.content
-            data['metrics'] = [
-                {'label': 'Veredicto', 'value': _content_value(latest_report, 'final_verdict', 'Pendiente')},
-                {'label': 'Trazabilidad', 'value': f"{_content_value(latest_report, 'traceability_index')}%"},
-                {'label': 'Cobertura', 'value': f"{_content_value(latest_report, 'coverage')}%"},
-                {'label': 'Aprobación', 'value': f"{_content_value(latest_report, 'success_rate')}%"},
-            ]
 
-        data['actions'] = ['ver', 'descargar']
-    else:
-        data['status'] = 'pendiente'
-        data['metrics'] = [
-            {'label': 'Sin generar', 'value': '—'},
+def _flow_step_includes(project, step_type, cycle='all'):
+    """Checklist "Incluye" con datos vivos del proyecto. Devuelve (items, has_data)."""
+    requirements, test_cases, executions, defects, risks = _project_querysets(project)
+    if cycle != 'all' and step_type in REPORT_FLOW_CYCLE_TYPES:
+        executions = executions.filter(execution_type=cycle)
+        defects = defects.filter(execution__execution_type=cycle)
+
+    total_requirements = requirements.count()
+    covered_requirements = len(_covered_requirement_ids(requirements))
+    coverage = _percentage(covered_requirements, total_requirements)
+    total_cases = test_cases.count()
+
+    if step_type == 'plan':
+        plans = TestPlan.objects.filter(project=project).count()
+        risk_list = list(risks)
+        high_risks = _high_risk_count(risk_list)
+        items = [
+            _flow_include('Objetivo, alcance y estrategia', _plural(plans, 'plan de pruebas', 'planes de pruebas'), plans),
+            _flow_include('Requisitos del proyecto', _plural(total_requirements, 'requisito', 'requisitos'), total_requirements),
+            _flow_include('Cobertura de requisitos', f'{coverage}% ({covered_requirements} de {total_requirements})', total_requirements),
+            _flow_include('Riesgos identificados', f"{_plural(len(risk_list), 'riesgo', 'riesgos')} ({high_risks} de nivel alto)", risk_list),
         ]
-        data['actions'] = ['generar']
+        return items, bool(plans or total_requirements)
 
-    return data
+    if step_type == 'casos':
+        linked_cases = test_cases.filter(
+            Q(requirement__isnull=False) | Q(traceability_links__isnull=False)
+        ).distinct().count()
+        automated_cases = test_cases.filter(automated_rules__is_active=True).distinct().count()
+        uncovered = total_requirements - covered_requirements
+        items = [
+            _flow_include('Catálogo de casos de prueba', _plural(total_cases, 'caso', 'casos'), total_cases),
+            _flow_include('Casos vinculados a requisitos', f'{linked_cases} de {total_cases}', total_cases),
+            _flow_include('Requisitos sin cobertura', _plural(uncovered, 'requisito', 'requisitos'), total_requirements),
+            _flow_include('Casos con reglas automatizadas', _plural(automated_cases, 'caso', 'casos'), automated_cases),
+        ]
+        return items, bool(total_cases)
+
+    if step_type == 'ejecuciones':
+        total = executions.count()
+        not_run = executions.filter(result=TestExecution.Result.NOT_RUN).count()
+        executed = total - not_run
+        passed = executions.filter(result=TestExecution.Result.PASSED).count()
+        failed = executions.filter(result=TestExecution.Result.FAILED).count()
+        blocked = executions.filter(result=TestExecution.Result.BLOCKED).count()
+        executed_cases = executions.exclude(result=TestExecution.Result.NOT_RUN).values('test_case').distinct().count()
+        with_evidence = executions.filter(Q(evidence__isnull=False) & ~Q(evidence='')).count()
+        items = [
+            _flow_include('Ejecuciones registradas', _plural(total, 'ejecución', 'ejecuciones'), total),
+            _flow_include('Ejecuciones aprobadas', f'{_percentage(passed, executed)}% ({passed} de {executed} ejecutadas)', executed),
+            _flow_include('Avance de ejecución', f'{_percentage(executed_cases, total_cases)}% de los casos', total_cases),
+            _flow_include('Fallidas y bloqueadas', f"{_plural(failed, 'fallida', 'fallidas')} · {_plural(blocked, 'bloqueada', 'bloqueadas')}", executed),
+            _flow_include('Ejecuciones con evidencia', f'{with_evidence} de {total}', with_evidence),
+        ]
+        return items, bool(total)
+
+    if step_type == 'defectos':
+        total = defects.count()
+        open_defects = defects.filter(status=Defect.Status.OPEN).count()
+        high = defects.filter(severity=Defect.Severity.HIGH).count()
+        medium = defects.filter(severity=Defect.Severity.MEDIUM).count()
+        low = defects.filter(severity=Defect.Severity.LOW).count()
+        traced = defects.filter(execution__isnull=False).count()
+        items = [
+            _flow_include('Defectos registrados', _plural(total, 'defecto', 'defectos'), total),
+            _flow_include('Defectos abiertos', _plural(open_defects, 'defecto', 'defectos'), total),
+            _flow_include('Distribución por severidad', f'alta {high} · media {medium} · baja {low}', total),
+            _flow_include('Defectos trazados a ejecuciones', f'{traced} de {total}', total),
+        ]
+        return items, bool(total)
+
+    # Informe final: métricas consolidadas.
+    not_run = executions.filter(result=TestExecution.Result.NOT_RUN).count()
+    executed = executions.count() - not_run
+    passed = executions.filter(result=TestExecution.Result.PASSED).count()
+    open_defects = defects.filter(status=Defect.Status.OPEN).count()
+    risk_list = list(risks)
+    items = [
+        _flow_include('Cobertura de requisitos', f'{coverage}% ({covered_requirements} de {total_requirements})', total_requirements),
+        _flow_include('Ejecuciones aprobadas', f'{_percentage(passed, executed)}% ({passed} de {executed})', executed),
+        _flow_include('Defectos abiertos', _plural(open_defects, 'defecto', 'defectos'), defects.exists()),
+        _flow_include('Riesgos altos', _plural(_high_risk_count(risk_list), 'riesgo', 'riesgos'), risk_list),
+        _flow_include('Veredicto, conclusiones y recomendaciones', 'Según los criterios de salida', total_requirements or total_cases),
+    ]
+    return items, bool(total_requirements or total_cases)
+
+
+def _flow_report_payload(report):
+    if report is None:
+        return {
+            'status': 'pendiente',
+            'status_label': 'Pendiente',
+            'report_id': None,
+            'generated_at': None,
+            'generated_at_display': '',
+            'generated_by': '',
+            'download_url': '',
+            'detail_url': '',
+        }
+    generated_at = timezone.localtime(report.created_at)
+    generated_by = ''
+    if report.generated_by:
+        generated_by = report.generated_by.get_full_name() or report.generated_by.email
+    return {
+        'status': 'generado',
+        'status_label': 'Generado',
+        'report_id': report.pk,
+        'generated_at': generated_at.isoformat(),
+        'generated_at_display': generated_at.strftime('%d/%m/%Y %H:%M'),
+        'generated_by': generated_by,
+        'download_url': reverse('reports:download', args=[report.pk]),
+        'detail_url': reverse('reports:detail', args=[report.pk]),
+    }
+
+
+def _flow_report_title(step, project):
+    return f"{step['report_title']} · {project.name}"[:180]
+
+
+@login_required
+def report_step_detail_api(request, step_type):
+    """Detalle de un paso del flujo de informes para el panel derecho (JSON)."""
+    step = REPORT_FLOW_BY_TYPE.get(step_type)
+    if step is None:
+        raise Http404('Informe no encontrado')
+    project_id = request.GET.get('project', '')
+    if not project_id.isdigit():
+        raise Http404('Proyecto no encontrado')
+    project = get_object_or_404(visible_projects_for(request.user), pk=project_id)
+    cycle = request.GET.get('cycle', 'all')
+    if cycle not in REPORT_FLOW_CYCLE_VALUES:
+        cycle = 'all'
+
+    latest_reports = _flow_latest_reports(project)
+    latest_report = latest_reports[step_type]
+    includes, has_data = _flow_step_includes(project, step_type, cycle)
+    has_plans = TestPlan.objects.filter(project=project).exists()
+
+    dependencies = None
+    if step_type == 'final':
+        missing = _flow_missing_dependencies(latest_reports)
+        dependencies = {'missing': missing, 'ready': not missing}
+
+    return JsonResponse({
+        'type': step_type,
+        'number': step['number'],
+        'title': step['title'],
+        'description': step['description'],
+        'report_type': step['report_type'],
+        'report_title': _flow_report_title(step, project),
+        'project': {'id': project.pk, 'name': project.name},
+        **_flow_report_payload(latest_report),
+        'preview_url': _flow_preview_url(project, step_type, latest_report),
+        'includes': includes,
+        'has_data': has_data,
+        'cycle': {'applies': step_type in REPORT_FLOW_CYCLE_TYPES, 'value': cycle},
+        'annex_available': has_plans,
+        'dependencies': dependencies,
+        'can_manage': can_manage_artifacts(request.user),
+    })
 
 
 @login_required
 def report_list_view(request):
-    visible_projects = visible_projects_for(request.user, request=request)
+    all_projects = visible_projects_for(request.user).order_by('name')
     form = ReportForm(request.POST or None)
-    form.fields['project'].queryset = visible_projects.order_by('name')
+    form.fields['project'].queryset = all_projects
 
     if request.method == 'POST':
         readonly_redirect = redirect_if_teacher_readonly(request, 'reports:index', 'reportes')
@@ -2430,6 +2584,13 @@ def report_list_view(request):
             return readonly_redirect
 
     if request.method == 'POST' and form.is_valid():
+        output_format = request.POST.get('format', 'pdf')
+        if output_format not in REPORT_FLOW_FORMAT_VALUES:
+            output_format = 'pdf'
+        cycle = request.POST.get('cycle', 'all')
+        if cycle not in REPORT_FLOW_CYCLE_VALUES:
+            cycle = 'all'
+
         report = form.save(commit=False)
         report.generated_by = request.user
         report.content = build_report_content(report)
@@ -2439,7 +2600,13 @@ def report_list_view(request):
             'CREATE',
             'Report',
             report.pk,
-            {'project_id': report.project_id, 'report_type': report.report_type, 'title': report.title},
+            {
+                'project_id': report.project_id,
+                'report_type': report.report_type,
+                'title': report.title,
+                'format': output_format,
+                'cycle': cycle,
+            },
         )
         notify_project_tutor(
             report.project,
@@ -2452,37 +2619,77 @@ def report_list_view(request):
             url_name='reports:detail',
             url_args=[report.pk],
         )
-        return redirect('reports:index')
 
-    reports_queryset = Report.objects.select_related('project', 'generated_by').filter(project__in=visible_projects)
+        step = REPORT_FLOW_BY_REPORT_TYPE.get(report.report_type)
+        if not request.POST.get('flow') or step is None:
+            return redirect('reports:index')
 
-    project_cards = []
-    for project in visible_projects.order_by('name'):
-        project_reports = reports_queryset.filter(project=project)
-        cards = []
-        generated_count = 0
-        for report_card in REPORT_CARDS:
-            report_type = report_card['type']
-            latest_report = _get_latest_report_for_type(project, report_type)
-            card_data = _build_report_card_data(project, report_card, latest_report)
-            if card_data['has_report']:
+        if step['type'] == 'final':
+            missing = _flow_missing_dependencies(_flow_latest_reports(report.project))
+            if missing:
+                messages.warning(
+                    request,
+                    'El informe final se generó sin: '
+                    + ', '.join(item['title'].lower() for item in missing)
+                    + '. Sus datos pueden estar incompletos.',
+                )
+        messages.success(request, f"{step['title']}: informe generado correctamente.")
+        params = {'project': report.project_id, 'step': step['type']}
+        if not request.POST.get('skip_download'):
+            params.update({'download': report.pk, 'format': output_format})
+        return redirect(f"{reverse('reports:index')}?{urlencode(params)}")
+
+    selected_project = get_active_project_for_request(request) or all_projects.first()
+
+    steps = []
+    generated_count = 0
+    auto_download_url = ''
+    if selected_project:
+        latest_reports = _flow_latest_reports(selected_project)
+        for step in REPORT_FLOW_STEPS:
+            latest_report = latest_reports[step['type']]
+            if latest_report:
                 generated_count += 1
-            cards.append(card_data)
-        project_cards.append({
-            'project': project,
-            'cards': cards,
-            'generated_count': generated_count,
-            'total_count': len(cards),
-        })
+            steps.append({
+                **step,
+                'latest_report': latest_report,
+                'is_generated': latest_report is not None,
+            })
 
+        download_id = request.GET.get('download', '')
+        if download_id.isdigit():
+            report_to_download = Report.objects.filter(pk=download_id, project=selected_project).first()
+            if report_to_download:
+                download_format = request.GET.get('format', 'pdf')
+                if download_format not in REPORT_FLOW_FORMAT_VALUES:
+                    download_format = 'pdf'
+                auto_download_url = (
+                    f"{reverse('reports:download', args=[report_to_download.pk])}?format={download_format}"
+                )
+
+    requested_step = request.GET.get('step', '')
+    if requested_step in REPORT_FLOW_BY_TYPE:
+        selected_step = requested_step
+    else:
+        selected_step = next((step['type'] for step in steps if not step['is_generated']), 'plan')
+
+    total_steps = len(REPORT_FLOW_STEPS)
     return render(
         request,
         'reports/index.html',
         {
-            'project_cards': project_cards,
-            'reports': reports_queryset,
+            'projects': all_projects,
+            'selected_project': selected_project,
+            'steps': steps,
+            'selected_step': selected_step,
+            'generated_count': generated_count,
+            'total_steps': total_steps,
+            'progress_percent': _percentage(generated_count, total_steps),
+            'cycle_options': REPORT_FLOW_CYCLES,
+            'format_options': REPORT_FLOW_FORMATS,
+            'auto_download_url': auto_download_url,
             'form': form,
-            'show_modal': request.method == 'POST' and form.errors,
+            'form_errors': request.method == 'POST' and form.errors,
             'can_manage': can_manage_artifacts(request.user),
         },
     )
@@ -2782,16 +2989,59 @@ def build_unl_pdf(buffer, report, sections=None, title=None, use_landscape=False
     doc.build(story)
 
 
+REPORT_TYPE_TO_PLAN_SECTION = {
+    Report.ReportType.SUMMARY: 'plan',
+    Report.ReportType.COVERAGE: 'casos',
+    Report.ReportType.EXECUTION: 'ejecuciones',
+    Report.ReportType.DEFECTS: 'defectos',
+    Report.ReportType.FINAL: 'final',
+}
+
+
+def build_report_annex_sections(report):
+    """Anexos del informe: reutiliza las secciones del informe por plan (una por cada plan del proyecto)."""
+    plan_section = REPORT_TYPE_TO_PLAN_SECTION.get(report.report_type, 'plan')
+    plans = (
+        TestPlan.objects.filter(project=report.project)
+        .select_related('project', 'created_by')
+        .prefetch_related('risks', 'test_cases')
+        .order_by('name')
+    )
+    annex_sections = []
+    for index, plan in enumerate(plans, start=1):
+        plan_sections = _plan_pdf_sections(
+            plan,
+            plan_section,
+            _plan_report_data(plan),
+            _plan_report_context(plan),
+        )
+        for section in plan_sections:
+            if section['title'] == 'Observaciones y cierre':
+                continue
+            annex_sections.append({**section, 'title': f"Anexo {index} · {plan.name}: {section['title']}"})
+    if not annex_sections:
+        annex_sections.append({
+            'title': 'Anexos',
+            'paragraph': 'El proyecto no tiene planes de prueba registrados; no se generaron anexos.',
+        })
+    return annex_sections
+
+
 @login_required
 def report_download_view(request, pk):
     report = get_object_or_404(Report, pk=pk, project__in=visible_projects_for(request.user, request=request))
-    filename = f'reporte-unl-{report.id}.pdf'
+    with_annexes = request.GET.get('format') == 'pdf_annex'
+    filename = f'reporte-unl-{report.id}{"-anexos" if with_annexes else ""}.pdf'
     ReportDownload.objects.create(
         report=report,
         downloaded_by=request.user,
         project=report.project,
         filename=filename,
-        metadata={'report_type': report.report_type, 'title': report.title},
+        metadata={
+            'report_type': report.report_type,
+            'title': report.title,
+            'format': 'pdf_annex' if with_annexes else 'pdf',
+        },
     )
     log_action(
         request.user,
@@ -2802,7 +3052,15 @@ def report_download_view(request, pk):
     )
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    build_unl_pdf(response, report)
+    if with_annexes:
+        build_unl_pdf(
+            response,
+            report,
+            sections=build_pdf_sections(report) + build_report_annex_sections(report),
+            use_landscape=report.report_type == Report.ReportType.COVERAGE,
+        )
+    else:
+        build_unl_pdf(response, report)
     return response
 
 
