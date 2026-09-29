@@ -1,0 +1,356 @@
+/* Informes de calidad · flujo de informes + panel de detalle.
+   Estilo flat: sin sombras ni gradientes, bordes de 1px con las variables del proyecto. */
+
+.rf-page {
+    --rf-circle: 32px;
+    --rf-pad-y: 10px;
+    --rf-pad-x: 12px;
+    --rf-gap: 4px;
+}
+
+/* Cabecera */
+.rf-header {
+    margin-bottom: 24px;
+}
+
+.rf-header__top {
+    align-items: flex-end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: space-between;
+}
+
+.rf-header__title {
+    color: var(--ink);
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.rf-header__subtitle {
+    color: var(--muted);
+    margin: 2px 0 0;
+}
+
+.rf-project-picker {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+}
+
+.rf-project-picker .form-label {
+    color: var(--muted);
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.rf-project-picker .form-select {
+    min-width: 200px;
+}
+
+.rf-progress-row {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.rf-progress {
+    background-color: var(--line);
+    border-radius: 999px;
+    flex: 1 1 auto;
+    height: 4px;
+}
+
+.rf-progress .progress-bar {
+    background-color: var(--success);
+}
+
+.rf-progress-text {
+    color: var(--muted);
+    font-size: 0.875rem;
+    white-space: nowrap;
+}
+
+.rf-messages {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+/* Lista de pasos */
+.rf-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--rf-gap);
+}
+
+.rf-step {
+    position: relative;
+}
+
+/* Línea vertical de 1.5px que une el círculo actual con el siguiente. */
+.rf-step:not(:last-child)::after {
+    background-color: var(--line);
+    bottom: calc(-1 * (var(--rf-gap) + var(--rf-pad-y) + 1px));
+    content: "";
+    left: calc(1px + var(--rf-pad-x) + (var(--rf-circle) / 2) - 0.75px);
+    pointer-events: none;
+    position: absolute;
+    top: calc(1px + var(--rf-pad-y) + var(--rf-circle));
+    width: 1.5px;
+    z-index: 2;
+}
+
+.rf-step.is-done:not(:last-child)::after {
+    background-color: var(--success);
+}
+
+.rf-step__btn {
+    align-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--ink);
+    display: flex;
+    gap: 12px;
+    padding: var(--rf-pad-y) var(--rf-pad-x);
+    position: relative;
+    text-align: left;
+    width: 100%;
+    z-index: 1;
+}
+
+.rf-step__btn:hover {
+    background-color: var(--soft);
+}
+
+.rf-step__btn[aria-selected="true"] {
+    background-color: var(--brand-light);
+    border-color: var(--brand);
+}
+
+.rf-step__btn:focus {
+    outline: none;
+}
+
+.rf-step__btn:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+}
+
+.rf-step__circle {
+    align-items: center;
+    background-color: var(--panel);
+    border: 1.5px solid var(--line);
+    border-radius: 50%;
+    color: var(--muted);
+    display: inline-flex;
+    flex: 0 0 var(--rf-circle);
+    font-size: 0.875rem;
+    font-weight: 700;
+    height: var(--rf-circle);
+    justify-content: center;
+    width: var(--rf-circle);
+}
+
+.rf-step__btn[aria-selected="true"] .rf-step__circle {
+    border-color: var(--brand);
+    color: var(--brand-dark);
+}
+
+.rf-step.is-done .rf-step__circle {
+    background-color: var(--success);
+    border-color: var(--success);
+    color: #fff;
+}
+
+.rf-step__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.rf-step__name {
+    font-weight: 700;
+}
+
+.rf-step__status {
+    color: var(--muted);
+    font-size: 0.8125rem;
+}
+
+.rf-step.is-done .rf-step__status {
+    color: var(--ink);
+}
+
+/* Panel de detalle */
+.rf-panel {
+    background-color: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: none;
+    color: var(--ink);
+}
+
+.rf-panel:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+}
+
+.rf-panel__loading {
+    align-items: center;
+    color: var(--muted);
+    display: flex;
+    gap: 8px;
+    min-height: 120px;
+}
+
+.rf-panel__head {
+    align-items: flex-start;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+.rf-panel__title {
+    font-size: 1.125rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.rf-panel__description {
+    color: var(--muted);
+    margin: 4px 0 0;
+}
+
+.rf-panel__meta {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    margin: 6px 0 0;
+}
+
+.rf-badge {
+    border: 1px solid currentColor;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.rf-badge--done {
+    background-color: transparent;
+    color: var(--success);
+}
+
+.rf-badge--pending {
+    background-color: var(--soft);
+    border-color: var(--line);
+    color: var(--muted);
+}
+
+.rf-note {
+    background-color: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--ink);
+    font-size: 0.875rem;
+    margin-top: 16px;
+    padding: 10px 12px;
+}
+
+.rf-messages .rf-note {
+    margin-top: 0;
+}
+
+.rf-note--warning {
+    border-color: var(--warning);
+}
+
+.rf-note--success {
+    border-color: var(--success);
+}
+
+.rf-deps {
+    margin: 4px 0 0;
+    padding-left: 18px;
+}
+
+.rf-section-title {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    margin: 20px 0 8px;
+}
+
+.rf-checklist {
+    border-top: 1px solid var(--line);
+    list-style: none;
+    margin: 0 0 20px;
+    padding: 0;
+}
+
+.rf-checklist__item {
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    gap: 10px;
+    padding: 9px 0;
+}
+
+.rf-checklist__item .bi {
+    color: var(--success);
+}
+
+.rf-checklist__item.is-empty .bi,
+.rf-checklist__item.is-empty .rf-checklist__label {
+    color: var(--muted);
+}
+
+.rf-checklist__label {
+    flex: 1 1 auto;
+}
+
+.rf-checklist__value {
+    color: var(--muted);
+    font-size: 0.875rem;
+    text-align: right;
+}
+
+.rf-form .form-select {
+    border: 1px solid var(--line);
+}
+
+.rf-form .form-select:disabled {
+    opacity: 0.65;
+}
+
+.rf-confirm {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+.rf-confirm__actions {
+    display: inline-flex;
+    gap: 4px;
+}
+
+.rf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+.rf-actions .btn:focus-visible,
+.rf-note .btn:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
+.rf-actions .btn-outline-brand {
+    border-color: var(--line);
+}

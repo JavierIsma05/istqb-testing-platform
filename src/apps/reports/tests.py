@@ -3,6 +3,7 @@ from io import BytesIO
 import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.html import escape
 
 from apps.defects.models import Defect
@@ -20,6 +21,7 @@ from apps.reports.views import (
     build_final_pie_groups,
     build_pdf_chart_data,
     build_pdf_sections,
+    build_report_annex_sections,
     build_report_content,
     build_unl_pdf,
 )
@@ -473,13 +475,13 @@ def test_index_muestra_cinco_informes_de_calidad(client, user, project):
     content = response.content.decode()
 
     assert response.status_code == 200
-    assert 'Informes de Calidad' in content
-    assert content.count('report-card ') == 5
-    assert 'Informe del Plan de Pruebas' in content
-    assert 'Informe de Casos de Prueba' in content
-    assert 'Informe de Ejecuciones' in content
-    assert 'Informe de Defectos' in content
-    assert 'Informe Final de Pruebas' in content
+    assert 'Informes de calidad' in content
+    assert content.count('role="tab"') == 5
+    for title in ('Plan de pruebas', 'Casos de prueba', 'Ejecuciones', 'Defectos', 'Informe final'):
+        assert title in content
+    assert '0 de 5 generados' in content
+    assert 'aria-selected="true"' in content
+    assert reverse('reports:step-detail-api', args=['STEP']) in content
     assert 'reportModal' not in content
 
 
@@ -658,9 +660,161 @@ def test_lista_de_informes_muestra_informe_guardado_y_acciones(client, project, 
 
     assert response.status_code == 200
     content = response.content.decode()
-    assert report.title in content
-    assert reverse('reports:detail', args=[report.pk]) in content
-    assert reverse('reports:download', args=[report.pk]) in content
+    assert '1 de 5 generados' in content
+    assert f"Generado · {timezone.localtime(report.created_at):%d/%m/%Y}" in content
+    # Sin selección explícita se abre el primer informe pendiente.
+    assert 'data-selected-step="casos"' in content
+
+    detail = client.get(
+        reverse('reports:step-detail-api', args=['plan']), {'project': project.pk}
+    ).json()
+    assert detail['status'] == 'generado'
+    assert detail['detail_url'] == reverse('reports:detail', args=[report.pk])
+    assert detail['download_url'] == reverse('reports:download', args=[report.pk])
+
+
+@pytest.mark.django_db
+def test_api_de_paso_devuelve_checklist_con_datos_reales(client, project, user, test_case, execution):
+    client.force_login(user)
+
+    response = client.get(reverse('reports:step-detail-api', args=['casos']), {'project': project.pk})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['status'] == 'pendiente'
+    assert data['has_data'] is True
+    assert data['report_type'] == Report.ReportType.COVERAGE
+    assert data['cycle']['applies'] is False
+    assert data['annex_available'] is True
+    catalog = next(item for item in data['includes'] if item['label'] == 'Catálogo de casos de prueba')
+    assert catalog['value'] == '1 caso'
+    assert catalog['available'] is True
+
+
+@pytest.mark.django_db
+def test_api_de_paso_sin_datos(client, project, user):
+    client.force_login(user)
+
+    data = client.get(
+        reverse('reports:step-detail-api', args=['defectos']), {'project': project.pk}
+    ).json()
+
+    assert data['has_data'] is False
+    assert data['cycle']['applies'] is True
+    assert data['annex_available'] is False
+    assert data['preview_url'] == ''
+    assert all(item['available'] is False for item in data['includes'])
+
+
+@pytest.mark.django_db
+def test_api_de_paso_filtra_ejecuciones_por_ciclo(client, project, user, execution):
+    client.force_login(user)
+    url = reverse('reports:step-detail-api', args=['ejecuciones'])
+
+    all_cycles = client.get(url, {'project': project.pk, 'cycle': 'all'}).json()
+    regression = client.get(url, {'project': project.pk, 'cycle': 'REGRESSION'}).json()
+
+    assert all_cycles['includes'][0]['value'] == '1 ejecución'
+    assert regression['includes'][0]['value'] == '0 ejecuciones'
+    assert regression['cycle']['value'] == 'REGRESSION'
+
+
+@pytest.mark.django_db
+def test_api_informe_final_lista_dependencias_pendientes(client, project, user):
+    Report.objects.create(project=project, title='Plan', report_type=Report.ReportType.SUMMARY, generated_by=user)
+    client.force_login(user)
+
+    data = client.get(
+        reverse('reports:step-detail-api', args=['final']), {'project': project.pk}
+    ).json()
+
+    assert data['dependencies']['ready'] is False
+    assert [item['type'] for item in data['dependencies']['missing']] == ['casos', 'ejecuciones', 'defectos']
+
+
+@pytest.mark.django_db
+def test_api_de_paso_rechaza_proyecto_no_visible_o_tipo_invalido(client, project, user):
+    other_user = get_user_model().objects.create_user(email='ajeno@example.com', password='StrongPass123')
+    client.force_login(other_user)
+    url = reverse('reports:step-detail-api', args=['plan'])
+
+    assert client.get(url, {'project': project.pk}).status_code == 404
+    assert client.get(url, {'project': 'abc'}).status_code == 404
+    client.force_login(user)
+    assert client.get(
+        reverse('reports:step-detail-api', args=['otro']), {'project': project.pk}
+    ).status_code == 404
+
+
+@pytest.mark.django_db
+def test_generar_desde_flujo_redirige_con_descarga_y_avisa_dependencias(client, project, user):
+    client.force_login(user)
+
+    response = client.post(
+        reverse('reports:index'),
+        {
+            'flow': '1',
+            'project': project.pk,
+            'report_type': Report.ReportType.FINAL,
+            'title': 'Informe final de pruebas',
+            'format': 'pdf_annex',
+            'cycle': 'all',
+        },
+    )
+
+    report = Report.objects.get(project=project, report_type=Report.ReportType.FINAL)
+    assert response.status_code == 302
+    assert 'step=final' in response.url
+    assert f'download={report.pk}' in response.url
+    assert 'format=pdf_annex' in response.url
+    audit = AuditLog.objects.get(action='CREATE', entity='Report', entity_id=str(report.pk))
+    assert audit.metadata['format'] == 'pdf_annex'
+
+    page = client.get(response.url)
+    content = page.content.decode()
+    assert 'se generó sin' in content
+    assert f"{reverse('reports:download', args=[report.pk])}?format=pdf_annex" in content
+
+
+@pytest.mark.django_db
+def test_regenerar_desde_flujo_no_descarga(client, project, user):
+    client.force_login(user)
+
+    response = client.post(
+        reverse('reports:index'),
+        {
+            'flow': '1',
+            'skip_download': '1',
+            'project': project.pk,
+            'report_type': Report.ReportType.SUMMARY,
+            'title': 'Informe del plan de pruebas',
+        },
+    )
+
+    assert response.status_code == 302
+    assert 'step=plan' in response.url
+    assert 'download=' not in response.url
+
+
+@pytest.mark.django_db
+def test_descarga_con_anexos_incluye_secciones_del_plan(client, project, user, test_plan):
+    report = Report.objects.create(
+        project=project,
+        title='Informe con anexos',
+        report_type=Report.ReportType.SUMMARY,
+        generated_by=user,
+        content={'requirements': 0},
+    )
+    client.force_login(user)
+
+    response = client.get(reverse('reports:download', args=[report.pk]), {'format': 'pdf_annex'})
+
+    assert response.status_code == 200
+    assert response['Content-Type'] == 'application/pdf'
+    assert 'anexos' in response['Content-Disposition']
+    assert ReportDownload.objects.get(report=report).metadata['format'] == 'pdf_annex'
+    annex_titles = [section['title'] for section in build_report_annex_sections(report)]
+    assert any(title.startswith(f'Anexo 1 · {test_plan.name}') for title in annex_titles)
 
 
 @pytest.mark.django_db
